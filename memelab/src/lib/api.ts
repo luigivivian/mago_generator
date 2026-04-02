@@ -1911,3 +1911,51 @@ export interface AdStepData {
 export async function deleteAdJob(jobId: string) {
   return request<void>(`/ads/${jobId}`, { method: "DELETE" });
 }
+
+// --- Credits ---
+
+export interface CreditBalanceResponse {
+  user_id: number;
+  balance: number;
+  equivalent_usd: number;
+}
+
+export interface CreditLogEntry {
+  id: number;
+  user_id: number;
+  type: string;
+  model: string | null;
+  duration: number | null;
+  credits: number;
+  balance_after: number;
+  status: string;
+  job_type: string | null;
+  job_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface CreditLogsResponse {
+  total: number;
+  page: number;
+  per_page: number;
+  logs: CreditLogEntry[];
+}
+
+export function getCreditBalance() {
+  return request<CreditBalanceResponse>("/credits/balance");
+}
+
+export function getCreditLogs(qs?: string) {
+  return request<CreditLogsResponse>(`/credits/logs${qs ? `?${qs}` : ""}`);
+}
+
+export async function topUpCredits(userId: number, amount: number, note: string = "") {
+  return request<{ user_id: number; credits_added: number; new_balance: number }>(
+    "/credits/admin/top-up",
+    {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, amount, note }),
+    }
+  );
+}

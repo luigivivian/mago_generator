@@ -268,3 +268,67 @@ export function useBusinessMetrics() {
     errorRetryCount: 1,
   });
 }
+
+// Credit system hooks
+
+interface CreditBalance {
+  user_id: number;
+  balance: number;
+  equivalent_usd: number;
+}
+
+interface CreditLogEntry {
+  id: number;
+  user_id: number;
+  type: string;
+  model: string | null;
+  duration: number | null;
+  credits: number;
+  balance_after: number;
+  status: string;
+  job_type: string | null;
+  job_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+interface CreditLogsResponse {
+  total: number;
+  page: number;
+  per_page: number;
+  logs: CreditLogEntry[];
+}
+
+export function useCreditBalance() {
+  const { data, error, isLoading, mutate } = useSWR<CreditBalance>(
+    "credit-balance",
+    () => api.getCreditBalance(),
+    { refreshInterval: 30000, errorRetryCount: 1 }
+  );
+  return { balance: data, error, isLoading, mutate };
+}
+
+export function useCreditLogs(params: {
+  page?: number;
+  perPage?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  model?: string;
+  logType?: string;
+} = {}) {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.perPage) searchParams.set("per_page", String(params.perPage));
+  if (params.dateFrom) searchParams.set("date_from", params.dateFrom);
+  if (params.dateTo) searchParams.set("date_to", params.dateTo);
+  if (params.model) searchParams.set("model", params.model);
+  if (params.logType) searchParams.set("log_type", params.logType);
+  const qs = searchParams.toString();
+  const key = `credit-logs-${qs}`;
+  const { data, error, isLoading, mutate } = useSWR<CreditLogsResponse>(
+    key,
+    () => api.getCreditLogs(qs),
+    { refreshInterval: 30000, errorRetryCount: 1 }
+  );
+  return { logs: data, error, isLoading, mutate };
+}

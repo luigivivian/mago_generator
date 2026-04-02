@@ -12,6 +12,7 @@ import {
   Palette,
   Layers,
   Send,
+  Coins,
   CreditCard,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ export const NAV_ITEMS = [
   { label: "Temas", href: "/themes", icon: Palette },
   { label: "Jobs", href: "/jobs", icon: Layers },
   { label: "Publicar", href: "/publishing", icon: Send },
+  { label: "Creditos", href: "/credits", icon: Coins },
   { label: "Billing", href: "/billing", icon: CreditCard },
 ] as const;
 
