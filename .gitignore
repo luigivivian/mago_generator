@@ -8,8 +8,8 @@ __pycache__/
 .env
 gen-lang-client-*.json
 
-# Output (tracked — needed for migration between machines)
-# output/
+# Output
+output/
 
 # Node
 node_modules/
@@ -32,6 +32,9 @@ Desktop.ini
 
 # Claude Code local config
 .claude/
+
+# Docs / guides
+guia-viral-reels-shorts-tiktok-2026.md
 
 # Misc build artifacts
 *.npz
