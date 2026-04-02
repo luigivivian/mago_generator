@@ -2,7 +2,7 @@
 
 Per D-05: Opt-in per content package (no auto-generation).
 Per D-06: Background async processing with status polling.
-Per D-09: Hard daily cap via VIDEO_DAILY_BUDGET_USD.
+Credit-gated via CreditService (Phase 999.9) -- replaces old daily budget.
 """
 
 import asyncio
@@ -16,8 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import (
     VIDEO_ENABLED,
     VIDEO_DURATION,
-    VIDEO_COST_PER_SECOND,
-    VIDEO_DAILY_BUDGET_USD,
     VIDEO_LEGEND_ENABLED,
     VIDEO_LEGEND_MODE,
     VIDEO_MODEL,
@@ -25,6 +23,7 @@ from config import (
     KIE_API_KEY,
     GENERATED_VIDEOS_DIR,
 )
+from src.services.credit_service import CreditService, InsufficientCreditsError
 from src.api.deps import get_current_user, db_session
 from src.api.models import (
     VideoGenerateRequest,
@@ -172,28 +171,7 @@ def _check_video_enabled():
         )
 
 
-async def _check_budget(
-    session: AsyncSession, user_id: int, duration: int,
-) -> float:
-    """Check daily budget and return estimated cost. Raises 429 if exhausted.
-
-    Per D-09: Hard daily cap via VIDEO_DAILY_BUDGET_USD.
-    """
-    from src.database.repositories.usage_repo import UsageRepository
-
-    estimated_cost = duration * VIDEO_COST_PER_SECOND
-    repo = UsageRepository(session)
-    spent_today = await repo.get_daily_cost(user_id, "kie_video")
-
-    if spent_today + estimated_cost > VIDEO_DAILY_BUDGET_USD:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Daily video budget exhausted. "
-                f"Spent ${spent_today:.2f} of ${VIDEO_DAILY_BUDGET_USD:.2f}"
-            ),
-        )
-    return estimated_cost
+# _check_budget removed — replaced by CreditService (Phase 999.9)
 
 
 async def _generate_video_task(
@@ -225,6 +203,23 @@ async def _generate_video_task(
             pkg = result.scalar_one_or_none()
             if not pkg:
                 logger.error("Video task: ContentPackage %d not found", content_package_id)
+                return
+
+            # Credit deduction before any Kie API call (Phase 999.9)
+            credit_svc = CreditService(session)
+            credits_consumed = 0
+            try:
+                credits_consumed = await credit_svc.check_and_deduct(
+                    user_id=user_id,
+                    model_id=model or VIDEO_MODEL,
+                    duration=duration,
+                    job_type="video",
+                    job_id=str(content_package_id),
+                )
+            except InsufficientCreditsError as e:
+                pkg.video_status = "blocked"
+                pkg.video_metadata = {"error": f"Insufficient credits: {e.balance}/{e.required}"}
+                await session.commit()
                 return
 
             # Resolve theme for video_prompt_notes (per D-03)
@@ -360,9 +355,14 @@ async def _generate_video_task(
                     content_package_id, gen_result.task_id, gen_result.cost_usd, cost_brl,
                 )
             else:
-                # Failure
+                # Failure -- refund credits
                 pkg.video_status = "failed"
                 pkg.video_metadata = {"error": "Video generation returned None"}
+                if credits_consumed:
+                    await credit_svc.refund(
+                        user_id, credits_consumed, "generation_failed",
+                        "video", str(content_package_id),
+                    )
                 logger.error("Video generation failed for package %d", content_package_id)
 
             await session.commit()
@@ -379,6 +379,12 @@ async def _generate_video_task(
                 exc_info=True,
             )
             try:
+                # Refund credits on unexpected error
+                if credits_consumed:
+                    await credit_svc.refund(
+                        user_id, credits_consumed, f"error: {str(e)[:200]}",
+                        "video", str(content_package_id),
+                    )
                 pkg.video_status = "failed"
                 pkg.video_metadata = {"error": str(e)}
                 await session.commit()
@@ -498,8 +504,12 @@ async def generate_video(
             detail="Video generation already in progress",
         )
 
-    # Check budget (per D-09)
-    await _check_budget(session, current_user.id, req.duration)
+    # Credit pre-check (read-only, actual deduction in background task)
+    credit_svc = CreditService(session)
+    estimated_cost = CreditService.compute_credit_cost(req.model or VIDEO_MODEL, req.duration)
+    balance = await credit_svc.get_balance(current_user.id)
+    if balance < estimated_cost:
+        raise HTTPException(402, detail=f"Insufficient credits: have {balance}, need {estimated_cost}")
 
     # Mark as generating and commit
     pkg.video_status = "generating"
@@ -588,8 +598,12 @@ async def generate_video_from_image(
     if not character_id:
         raise HTTPException(status_code=400, detail="No character found for this user")
 
-    # Check budget
-    await _check_budget(session, current_user.id, req.duration)
+    # Credit pre-check (read-only, actual deduction in background task)
+    credit_svc = CreditService(session)
+    estimated_cost = CreditService.compute_credit_cost(req.model or VIDEO_MODEL, req.duration)
+    balance = await credit_svc.get_balance(current_user.id)
+    if balance < estimated_cost:
+        raise HTTPException(402, detail=f"Insufficient credits: have {balance}, need {estimated_cost}")
 
     # Create a minimal pipeline_run for the content package FK
     import uuid
@@ -703,19 +717,17 @@ async def generate_video_batch(
                     if chars[pkg.character_id].user_id != current_user.id:
                         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # Check total budget (per D-09)
-    from src.database.repositories.usage_repo import UsageRepository
-    total_estimated = len(packages) * req.duration * VIDEO_COST_PER_SECOND
-    repo = UsageRepository(session)
-    spent_today = await repo.get_daily_cost(current_user.id, "kie_video")
-
-    if spent_today + total_estimated > VIDEO_DAILY_BUDGET_USD:
+    # Credit pre-check for entire batch (read-only, deduction per-item in background)
+    credit_svc = CreditService(session)
+    total_credits = sum(
+        CreditService.compute_credit_cost(req.model or VIDEO_MODEL, req.duration)
+        for _ in packages
+    )
+    balance = await credit_svc.get_balance(current_user.id)
+    if balance < total_credits:
         raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Daily video budget insufficient for batch. "
-                f"Need ${total_estimated:.2f}, remaining ${VIDEO_DAILY_BUDGET_USD - spent_today:.2f}"
-            ),
+            402,
+            detail=f"Insufficient credits for batch: have {balance}, need {total_credits}",
         )
 
     # Mark all as generating
