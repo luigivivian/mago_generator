@@ -474,6 +474,22 @@ VIDEO_MODELS = {
 # Hard daily budget cap in USD (per D-09: $3.00 default = ~20 standard videos/day)
 VIDEO_DAILY_BUDGET_USD = float(os.getenv("VIDEO_DAILY_BUDGET_USD", "3.0"))
 
+# Per-model credit costs ($7 = 1000 credits, $0.007/credit)
+# Derived from VIDEO_MODELS BRL prices: credits = round(BRL / 5.75 / 0.007)
+CREDIT_COSTS = {
+    "hailuo/2-3-image-to-video-standard": {6: 21, 10: 21},
+    "hailuo/2-3-image-to-video-pro": {6: 21, 10: 21},
+    "bytedance/v1-pro-fast-image-to-video": {5: 52, 10: 104},
+    "bytedance/v1-lite-image-to-video": {5: 26, 10: 52},
+    "wan/2-6-flash-image-to-video": {5: 26, 10: 52, 15: 78},
+    "wan/2-6-image-to-video": {5: 45, 10: 91, 15: 136},
+    "kling/v2-1-standard": {5: 36, 10: 72},
+    "bytedance/seedance-1.5-pro": {4: 65, 8: 130, 12: 195},
+    "kling-3.0/video": {5: 87, 10: 174},
+    "grok-imagine/image-to-video": {6: 37, 10: 62},
+    "suno/v4": {0: 14},
+}
+
 # Cost per second (fallback — overridden per-model from VIDEO_MODELS)
 VIDEO_COST_PER_SECOND = float(os.getenv("VIDEO_COST_PER_SECOND", "0.005"))
 
@@ -499,6 +515,23 @@ def compute_video_cost_brl(model_id: str, duration: int) -> float:
         "Model %s not in VIDEO_MODELS, using USD fallback", model_id,
     )
     return round(duration * VIDEO_COST_PER_SECOND * VIDEO_USD_TO_BRL, 2)
+
+
+def compute_credit_cost(model_id: str, duration: int) -> int:
+    """Map model + duration to credit cost from CREDIT_COSTS dict.
+
+    Returns credit cost for exact or closest duration.
+    Falls back to BRL-derived estimate for unknown models.
+    """
+    costs = CREDIT_COSTS.get(model_id)
+    if costs:
+        if duration in costs:
+            return costs[duration]
+        valid = list(costs.keys())
+        if valid:
+            closest = min(valid, key=lambda d: abs(d - duration))
+            return costs[closest]
+    return round(duration * VIDEO_COST_PER_SECOND * VIDEO_USD_TO_BRL / 0.007)
 
 
 # Prompt style for video motion templates: "v1" (original) or "v2" (Sora 2 researched)

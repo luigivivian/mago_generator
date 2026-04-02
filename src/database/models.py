@@ -557,6 +557,7 @@ class User(TimestampMixin, Base):
     # Relationships
     characters: Mapped[list["Character"]] = relationship(back_populates="owner")
     api_usage_records: Mapped[list["ApiUsage"]] = relationship(back_populates="user")
+    credits: Mapped[Optional["UserCredit"]] = relationship("UserCredit", back_populates="user", uselist=False)
 
     __table_args__ = (
         Index("idx_users_role", "role"),
@@ -614,6 +615,51 @@ class ApiUsage(TimestampMixin, Base):
         Index("idx_api_usage_user_id", "user_id"),
         Index("idx_api_usage_date", "date"),
         Index("idx_api_usage_service", "service"),
+    )
+
+
+# ============================================================
+# 14b. user_credits
+# ============================================================
+
+class UserCredit(TimestampMixin, Base):
+    __tablename__ = "user_credits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    balance: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    user: Mapped["User"] = relationship("User", back_populates="credits")
+
+
+# ============================================================
+# 14c. credit_logs
+# ============================================================
+
+class CreditLog(TimestampMixin, Base):
+    __tablename__ = "credit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
+    model: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    credits: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    job_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    job_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    user: Mapped["User"] = relationship("User")
+
+    __table_args__ = (
+        Index("ix_credit_logs_user_date", "user_id", "created_at"),
+        Index("ix_credit_logs_type", "type"),
     )
 
 
