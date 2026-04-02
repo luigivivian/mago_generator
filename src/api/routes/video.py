@@ -1247,8 +1247,12 @@ async def retry_video_generation(
     )
     prompt = pkg.video_prompt_used or ""
 
-    # Check budget
-    await _check_budget(session, current_user.id, duration)
+    # Credit pre-check (read-only, actual deduction in background task)
+    credit_svc = CreditService(session)
+    estimated_cost = CreditService.compute_credit_cost(model or VIDEO_MODEL, duration)
+    balance = await credit_svc.get_balance(current_user.id)
+    if balance < estimated_cost:
+        raise HTTPException(402, detail=f"Insufficient credits: have {balance}, need {estimated_cost}")
 
     # Reset status for retry
     pkg.video_status = "generating"
