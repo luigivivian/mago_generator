@@ -211,17 +211,49 @@ async def _execute_ad_step_task(
                 step_data["status"] = "complete"
 
             elif step_name == "video":
+                # Credit deduction before Kie API call (Phase 999.9)
+                from src.services.credit_service import CreditService, InsufficientCreditsError
+                ad_video_model = job.video_model or "wan/2-6-flash-image-to-video"
+                from src.product_studio.config import STYLE_DURATION
+                ad_duration = STYLE_DURATION.get(job.style, (10, 15))[0]
+                credit_svc = CreditService(session)
+                ad_video_credits = 0
+                try:
+                    ad_video_credits = await credit_svc.check_and_deduct(
+                        user_id=job.user_id, model_id=ad_video_model,
+                        duration=ad_duration, job_type="ad",
+                        job_id=str(job.job_id),
+                    )
+                except InsufficientCreditsError as e:
+                    step_data["status"] = "blocked"
+                    step_data["error"] = f"Insufficient credits: {e.balance}/{e.required}"
+                    step_state[step_name] = step_data
+                    job.step_state = step_state
+                    flag_modified(job, "step_state")
+                    await session.commit()
+                    return
+
                 scene_data = step_state.get("scene", {}).get("result", {})
                 prompt_data = step_state.get("prompt", {}).get("result", {})
-                video_path = await pipeline.run_step_video(
-                    scene_image_path=scene_data.get("scene_image_path", ""),
-                    prompt=prompt_data.get("prompt", ""),
-                    style=job.style,
-                    video_model=job.video_model or "wan/2-6-flash-image-to-video",
-                    job_dir=job_dir,
-                )
-                step_data["result"] = {"video_path": video_path}
-                step_data["status"] = "complete"
+                try:
+                    video_path = await pipeline.run_step_video(
+                        scene_image_path=scene_data.get("scene_image_path", ""),
+                        prompt=prompt_data.get("prompt", ""),
+                        style=job.style,
+                        video_model=ad_video_model,
+                        job_dir=job_dir,
+                    )
+                    step_data["result"] = {"video_path": video_path}
+                    step_data["status"] = "complete"
+                except Exception as vid_err:
+                    # Refund credits on video generation failure
+                    if ad_video_credits:
+                        await credit_svc.refund(
+                            job.user_id, ad_video_credits,
+                            f"ad_video_failed: {str(vid_err)[:200]}",
+                            "ad", str(job.job_id),
+                        )
+                    raise
 
             elif step_name == "copy":
                 analysis = step_state.get("analysis", {}).get("result", {})
@@ -237,14 +269,45 @@ async def _execute_ad_step_task(
                 step_data["status"] = "complete"
 
             elif step_name == "audio":
-                audio_result = await pipeline.run_step_audio(
-                    tone=job.tone or "premium",
-                    audio_mode=job.audio_mode or "music",
-                    job_dir=job_dir,
-                    video_duration=job.target_duration or 15.0,
-                )
-                step_data["result"] = audio_result
-                step_data["status"] = "complete"
+                # Credit deduction for Suno music before API call (Phase 999.9)
+                from src.services.credit_service import CreditService, InsufficientCreditsError
+                audio_mode = job.audio_mode or "music"
+                ad_music_credits = 0
+                if audio_mode != "mute":
+                    credit_svc = CreditService(session)
+                    try:
+                        ad_music_credits = await credit_svc.check_and_deduct(
+                            user_id=job.user_id, model_id="suno/v4",
+                            duration=0, job_type="music",
+                            job_id=str(job.job_id),
+                        )
+                    except InsufficientCreditsError as e:
+                        step_data["status"] = "blocked"
+                        step_data["error"] = f"Insufficient credits: {e.balance}/{e.required}"
+                        step_state[step_name] = step_data
+                        job.step_state = step_state
+                        flag_modified(job, "step_state")
+                        await session.commit()
+                        return
+                try:
+                    audio_result = await pipeline.run_step_audio(
+                        tone=job.tone or "premium",
+                        audio_mode=audio_mode,
+                        job_dir=job_dir,
+                        video_duration=job.target_duration or 15.0,
+                    )
+                    step_data["result"] = audio_result
+                    step_data["status"] = "complete"
+                except Exception as aud_err:
+                    # Refund credits on audio generation failure
+                    if ad_music_credits:
+                        credit_svc = CreditService(session)
+                        await credit_svc.refund(
+                            job.user_id, ad_music_credits,
+                            f"ad_audio_failed: {str(aud_err)[:200]}",
+                            "music", str(job.job_id),
+                        )
+                    raise
 
             elif step_name == "assembly":
                 video_data = step_state.get("video", {}).get("result", {})

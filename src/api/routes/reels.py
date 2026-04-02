@@ -1544,6 +1544,7 @@ async def _retry_scene_task(
                 image_url=image_url,
                 prompt=retry_prompt,
                 duration=duration,
+                user_id=job.user_id,
             )
 
             # Re-read step_state to avoid overwriting concurrent changes

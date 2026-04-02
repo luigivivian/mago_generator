@@ -552,6 +552,27 @@ class ReelsPipeline:
         target_duration = self.config.get("target_duration", 30)
         n = len(image_paths)
 
+        # Credit total pre-check before starting any scene (Phase 999.9)
+        if user_id:
+            from src.services.credit_service import CreditService, InsufficientCreditsError
+            from src.database.session import get_session_factory as _get_sf
+            cenas_for_cost = (script or {}).get("cenas", [])
+            total_credit_cost = sum(
+                CreditService.compute_credit_cost(
+                    video_model,
+                    _pick_scene_duration(cenas_for_cost[i] if i < len(cenas_for_cost) else {}, target_duration),
+                )
+                for i in range(n)
+            )
+            sf = _get_sf()
+            async with sf() as _cs:
+                _credit_svc = CreditService(_cs)
+                _balance = await _credit_svc.get_balance(user_id)
+                if _balance < total_credit_cost:
+                    raise RuntimeError(
+                        f"Insufficient credits for {n} scenes: have {_balance}, need {total_credit_cost}"
+                    )
+
         # Initialize per-scene status tracking
         scenes: list[dict] = []
 
@@ -635,10 +656,42 @@ class ReelsPipeline:
                 except Exception as e:
                     logger.warning(f"Video asset lookup failed for scene {idx}: {e}")
 
+            # Credit deduction per-scene before Kie API calls (Phase 999.9)
+            scene_credits = 0
+            if user_id:
+                from src.services.credit_service import CreditService, InsufficientCreditsError
+                from src.database.session import get_session_factory as _get_sf
+                try:
+                    sf = _get_sf()
+                    async with sf() as _cs:
+                        credit_svc = CreditService(_cs)
+                        scene_credits = await credit_svc.check_and_deduct(
+                            user_id=user_id, model_id=video_model,
+                            duration=clip_dur, job_type="reel",
+                            job_id=f"{os.path.basename(os.path.dirname(clip_path))}_{idx}",
+                        )
+                        await _cs.commit()
+                except InsufficientCreditsError:
+                    _update_scene(idx, {"status": "blocked", "error": "Insufficient credits"})
+                    _make_static(img_path, clip_path, clip_dur)
+                    return clip_path
+
             for attempt in range(3):
                 if attempt == 2:
-                    # Third attempt: static fallback
+                    # Third attempt: static fallback -- refund credits
                     logger.warning(f"Scene {idx}: all retries failed, using static fallback")
+                    if scene_credits and user_id:
+                        try:
+                            sf = _get_sf()
+                            async with sf() as _cs:
+                                credit_svc = CreditService(_cs)
+                                await credit_svc.refund(
+                                    user_id, scene_credits, "clip_generation_failed",
+                                    "reel", f"{os.path.basename(os.path.dirname(clip_path))}_{idx}",
+                                )
+                                await _cs.commit()
+                        except Exception as ref_err:
+                            logger.warning(f"Scene {idx}: credit refund failed: {ref_err}")
                     _make_static(img_path, clip_path, clip_dur)
                     _update_scene(idx, {
                         "status": "static_fallback", "clip_path": clip_path,
@@ -696,7 +749,19 @@ class ReelsPipeline:
                     logger.error(f"Scene {idx}: attempt {attempt+1} failed: {error_msg}")
                     _update_scene(idx, {"status": "failed", "error": error_msg})
 
-            # Should not reach here, but safety fallback
+            # Should not reach here, but safety fallback -- refund credits
+            if scene_credits and user_id:
+                try:
+                    sf = _get_sf()
+                    async with sf() as _cs:
+                        credit_svc = CreditService(_cs)
+                        await credit_svc.refund(
+                            user_id, scene_credits, "safety_fallback",
+                            "reel", f"{os.path.basename(os.path.dirname(clip_path))}_{idx}",
+                        )
+                        await _cs.commit()
+                except Exception:
+                    pass
             _make_static(img_path, clip_path, clip_dur)
             _update_scene(idx, {"status": "static_fallback", "clip_path": clip_path})
             return clip_path
@@ -734,6 +799,7 @@ class ReelsPipeline:
         image_url: str,
         prompt: str,
         duration: int,
+        user_id: int | None = None,
     ) -> dict:
         """Retry a single scene with optional custom prompt.
 
@@ -748,6 +814,28 @@ class ReelsPipeline:
         clips_dir = os.path.join(job_dir, "clips")
         os.makedirs(clips_dir, exist_ok=True)
         clip_path = os.path.join(clips_dir, f"clip_{scene_index:02d}.mp4")
+
+        # Credit deduction before Kie API call (Phase 999.9)
+        credits_consumed = 0
+        if user_id:
+            from src.services.credit_service import CreditService, InsufficientCreditsError
+            from src.database.session import get_session_factory as _get_sf
+            try:
+                sf = _get_sf()
+                async with sf() as _cs:
+                    credit_svc = CreditService(_cs)
+                    credits_consumed = await credit_svc.check_and_deduct(
+                        user_id=user_id, model_id=video_model,
+                        duration=duration, job_type="reel",
+                        job_id=f"retry_{scene_index}",
+                    )
+                    await _cs.commit()
+            except InsufficientCreditsError as e:
+                return {
+                    "index": scene_index, "status": "blocked",
+                    "task_id": None, "clip_path": "",
+                    "prompt": prompt, "error": f"Insufficient credits: {e.balance}/{e.required}",
+                }
 
         try:
             task_id = await kie.create_task(
@@ -771,6 +859,19 @@ class ReelsPipeline:
         except Exception as e:
             error_msg = str(e)[:300]
             logger.error(f"Retry scene {scene_index} failed: {error_msg}")
+            # Refund credits on failure
+            if credits_consumed and user_id:
+                try:
+                    sf = _get_sf()
+                    async with sf() as _cs:
+                        credit_svc = CreditService(_cs)
+                        await credit_svc.refund(
+                            user_id, credits_consumed, "retry_failed",
+                            "reel", f"retry_{scene_index}",
+                        )
+                        await _cs.commit()
+                except Exception as ref_err:
+                    logger.warning(f"Retry scene {scene_index}: credit refund failed: {ref_err}")
             return {
                 "index": scene_index, "status": "failed",
                 "task_id": None, "clip_path": "",
