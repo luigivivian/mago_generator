@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Pipeline Simplification, Auto-Publicacao & Multi-Tenant
-status: v2.0 milestone complete
-stopped_at: Completed 999.8-G-asset-reuse plan
-last_updated: "2026-04-01T16:49:47.612Z"
-last_activity: 2026-04-01
+milestone: v1.0
+milestone_name: milestone
+status: Ready to execute
+stopped_at: Completed 999.9-03-PLAN.md
+last_updated: "2026-04-02T22:24:28.332Z"
+last_activity: 2026-04-02
 progress:
-  total_phases: 17
-  completed_phases: 8
-  total_plans: 27
-  completed_plans: 28
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 2
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 421 — product-studio-ai-video-ads-generator
+**Current focus:** Phase 999.9 — kie-api-credit-system
 
 ## Current Position
 
-Phase: 421 (product-studio-ai-video-ads-generator) — EXECUTING
-Plan: 7 of 7
+Phase: 999.9 (kie-api-credit-system) — EXECUTING
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -92,6 +92,8 @@ Plan: 7 of 7
 | Phase 421 P07 | 5min | 2 tasks | 13 files |
 | Phase quick-260330-ie5 P01 | 3min | 2 tasks | 5 files |
 | Phase quick-260330-tgu P01 | 5min | 2 tasks | 4 files |
+| Phase 999.9 P01 | 4min | 2 tasks | 5 files |
+| Phase 999.9 P03 | 1min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -180,6 +182,11 @@ Recent decisions affecting current work:
 - [Phase 421]: AdStepper uses horizontal scrollable layout for 8 steps; StepExport has no approve button per D-22 auto-complete; Ad API types created inline due to worktree isolation
 - [Phase quick-260330-tgu]: Niche selector replaces plain text input; enhance sends PT-BR niche label to Gemini
 - [Phase 999.8-G]: Pure Python cosine similarity (no numpy) for asset reuse; Gemini text-embedding-004 for 768-dim embeddings; threshold 0.85 for conservative match
+- [Phase 999.9]: CreditService at service layer (not middleware) because background tasks bypass HTTP middleware
+- [Phase 999.9]: Integer credits avoid floating point rounding ($7=1000 credits, $0.007/credit)
+- [Phase 999.9]: SELECT FOR UPDATE for MySQL row locking; SQLite single-writer fallback
+- [Phase 999.9]: Deduct before API call, refund on failure (prevents overspend)
+- [Phase 999.9]: Router registered in app.py (not __init__.py) matching actual codebase pattern for all 15+ route modules
 
 ### Pending Todos
 
@@ -202,6 +209,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last activity: 2026-04-02
-Last session: 2026-03-31T06:59:03.538Z
-Stopped at: Completed 999.8-G-asset-reuse plan
+Last session: 2026-04-02T22:24:28.327Z
+Stopped at: Completed 999.9-03-PLAN.md
 Resume file: None
