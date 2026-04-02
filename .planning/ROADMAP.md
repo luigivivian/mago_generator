@@ -21,10 +21,10 @@
 - Tela simples para adicionar creditos ao usuario (admin)
 - Salvar todas chamadas no banco (sucesso e falha)
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [x] 999.9-01-PLAN.md — Schema, migration, CREDIT_COSTS config, CreditService with tests
-- [ ] 999.9-02-PLAN.md — Gate all Kie API call paths (video, reels, ads) with credit pre-check
+- [x] 999.9-02-PLAN.md — Gate all Kie API call paths (video, reels, ads) with credit pre-check
 - [x] 999.9-03-PLAN.md — Credits API routes (balance, logs, admin top-up)
 - [ ] 999.9-04-PLAN.md — Frontend /credits page with balance card, logs table, admin top-up

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 999.9-03-PLAN.md
-last_updated: "2026-04-02T22:24:28.332Z"
+stopped_at: Completed 999.9-02 plan
+last_updated: "2026-04-02T22:29:51.879Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 999.9 (kie-api-credit-system) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -94,6 +94,7 @@ Plan: 3 of 4
 | Phase quick-260330-tgu P01 | 5min | 2 tasks | 4 files |
 | Phase 999.9 P01 | 4min | 2 tasks | 5 files |
 | Phase 999.9 P03 | 1min | 1 tasks | 2 files |
+| Phase 999.9 P02 | 6min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -187,6 +188,9 @@ Recent decisions affecting current work:
 - [Phase 999.9]: SELECT FOR UPDATE for MySQL row locking; SQLite single-writer fallback
 - [Phase 999.9]: Deduct before API call, refund on failure (prevents overspend)
 - [Phase 999.9]: Router registered in app.py (not __init__.py) matching actual codebase pattern for all 15+ route modules
+- [Phase 999.9]: Read-only credit pre-check in HTTP handlers, actual deduction in background tasks (prevents session scope issues)
+- [Phase 999.9]: Per-scene credit deduction in reels with total pre-check upfront (prevents partial reel)
+- [Phase 999.9]: Credit gating at ads route layer (not pipeline) since pipeline methods lack user_id
 
 ### Pending Todos
 
@@ -209,6 +213,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last activity: 2026-04-02
-Last session: 2026-04-02T22:24:28.327Z
-Stopped at: Completed 999.9-03-PLAN.md
+Last session: 2026-04-02T22:29:51.876Z
+Stopped at: Completed 999.9-02 plan
 Resume file: None
