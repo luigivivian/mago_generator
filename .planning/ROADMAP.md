@@ -76,5 +76,5 @@ Plans:
 - [ ] 1001-01-PLAN.md — DB schema (bible_config, series) + stories data + request model
 - [ ] 1001-02-PLAN.md — Biblical system prompts + image style bypass + API config flow
 - [ ] 1001-03-PLAN.md — Frontend wizard: BibleConfig component + subThemes expansion
-- [ ] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring
-- [ ] 1001-05-PLAN.md — Unit tests for biblical reels pipeline
+- [ ] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring + verse overlay in video
+- [ ] 1001-05-PLAN.md — Unit tests + E2E CLI test for biblical reels pipeline
