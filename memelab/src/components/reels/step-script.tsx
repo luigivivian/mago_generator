@@ -9,6 +9,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { approveStep, regenerateStep, editStep, type StepState } from "@/lib/api";
 
+// Pattern matches verse references like "1 Samuel 17:40", "Genesis 22:1-3", "Joao 3:16"
+const VERSE_PATTERN = /(\d?\s*[A-Z][a-zA-Záàãéêíóôú]+\s+\d+:\d+(?:-\d+)?)/g;
+
+function highlightVerses(text: string): JSX.Element[] {
+  const parts = text.split(VERSE_PATTERN);
+  return parts.map((part, i) => {
+    if (VERSE_PATTERN.test(part)) {
+      VERSE_PATTERN.lastIndex = 0;
+      return <span key={i} className="text-amber-400 font-semibold">{part}</span>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function countVerses(text: string): number {
+  const matches = text.match(VERSE_PATTERN);
+  return matches ? matches.length : 0;
+}
+
 interface Cena {
   narracao: string;
   legenda_overlay: string;
@@ -38,6 +57,7 @@ function parseScript(raw: Record<string, unknown> | undefined): ScriptJson {
 
 export function StepScript({ jobId, stepState, onApprove, mutate }: { jobId: string; stepState: StepState; onApprove?: (step: string) => Promise<void>; mutate?: () => void }) {
   const script = stepState.script;
+  const isBibleMode = Boolean((stepState as Record<string, unknown>)?.config && ((stepState as Record<string, unknown>).config as Record<string, unknown>)?.bible_config);
   const isGenerating = script?.status === "generating";
   const [form, setForm] = useState<ScriptJson>(() => parseScript(script?.json));
   const [loading, setLoading] = useState(false);
@@ -123,7 +143,14 @@ export function StepScript({ jobId, stepState, onApprove, mutate }: { jobId: str
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Roteiro</CardTitle>
+        <CardTitle className="text-lg flex items-center gap-2">
+          Roteiro
+          {isBibleMode && form.narracao_completa && (
+            <span className="inline-flex items-center rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs px-2 py-0.5 font-normal">
+              {countVerses(form.narracao_completa)} versiculos citados
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
@@ -160,6 +187,11 @@ export function StepScript({ jobId, stepState, onApprove, mutate }: { jobId: str
                   rows={2}
                   className="text-sm"
                 />
+                {isBibleMode && cena.narracao && countVerses(cena.narracao) > 0 && (
+                  <div className="text-sm leading-relaxed mt-1 p-2 rounded bg-muted/30">
+                    {highlightVerses(cena.narracao)}
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">Legenda overlay</label>
@@ -181,6 +213,11 @@ export function StepScript({ jobId, stepState, onApprove, mutate }: { jobId: str
             rows={4}
             className="text-sm"
           />
+          {isBibleMode && form.narracao_completa && countVerses(form.narracao_completa) > 0 && (
+            <div className="text-sm leading-relaxed mt-1 p-2 rounded bg-muted/30">
+              {highlightVerses(form.narracao_completa)}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
