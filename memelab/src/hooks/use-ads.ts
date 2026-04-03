@@ -1,8 +1,8 @@
 import useSWR from "swr";
 import * as api from "@/lib/api";
 
-export function useAdJobs() {
-  return useSWR("ad-jobs", () => api.getAdJobs(), { refreshInterval: 5000 });
+export function useAdJobs(character_slug?: string) {
+  return useSWR(`ad-jobs-${character_slug ?? "all"}`, () => api.getAdJobs(character_slug || undefined), { refreshInterval: 5000 });
 }
 
 export function useAdJob(jobId: string | null) {
