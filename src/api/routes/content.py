@@ -24,6 +24,7 @@ router = APIRouter(tags=["Content"])
 @router.get("/content", summary="Lista content packages com filtros")
 async def list_content_packages(
     character_id: int | None = Query(default=None),
+    character_slug: str | None = Query(default=None),
     pipeline_run_id: int | None = Query(default=None),
     min_quality: float | None = Query(default=None, ge=0.0, le=1.0),
     is_published: bool | None = Query(default=None),
@@ -32,6 +33,11 @@ async def list_content_packages(
     current_user=Depends(get_current_user),
     session: AsyncSession = Depends(db_session),
 ):
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        character_id = char.id
+
     from src.database.repositories.content_repo import ContentPackageRepository
 
     repo = ContentPackageRepository(session)
@@ -309,6 +315,7 @@ async def swap_phrase(
 @router.get("/images", summary="Lista imagens geradas com filtros", tags=["Images"])
 async def list_generated_images(
     character_id: int | None = Query(default=None),
+    character_slug: str | None = Query(default=None),
     image_type: str | None = Query(default=None),
     source: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
@@ -316,6 +323,11 @@ async def list_generated_images(
     current_user=Depends(get_current_user),
     session: AsyncSession = Depends(db_session),
 ):
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        character_id = char.id
+
     from src.database.repositories.content_repo import GeneratedImageRepository
 
     repo = GeneratedImageRepository(session)

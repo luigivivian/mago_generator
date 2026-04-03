@@ -46,7 +46,11 @@ def _parse_theme_from_filename(stem: str) -> str:
     return "unknown"
 
 
-def _list_drive_images(theme_filter: str | None = None, category: str | None = None) -> list[dict]:
+def _list_drive_images(
+    theme_filter: str | None = None,
+    category: str | None = None,
+    character_slug: str | None = None,
+) -> list[dict]:
     from config import OUTPUT_DIR, GENERATED_MEMES_DIR, BACKGROUNDS_DIR
     bg_dir = output_dir()  # backgrounds_generated/
 
@@ -54,24 +58,33 @@ def _list_drive_images(theme_filter: str | None = None, category: str | None = N
     # Files whose names don't match known background patterns are reclassified
     # as memes (they are composed images with text that ended up here).
     bg_files = {}
-    for f in bg_dir.glob("*.png"):
-        if _is_background_filename(f.name):
-            bg_files[f] = "background"
-        else:
-            bg_files[f] = "meme"
+    if not character_slug:
+        for f in bg_dir.glob("*.png"):
+            if _is_background_filename(f.name):
+                bg_files[f] = "background"
+            else:
+                bg_files[f] = "meme"
 
     # Scan assets/backgrounds/{character}/ directories for pre-existing images
     if BACKGROUNDS_DIR.exists():
-        for char_dir in BACKGROUNDS_DIR.iterdir():
-            if not char_dir.is_dir():
-                continue
-            for f in char_dir.glob("*.png"):
-                if f not in bg_files and _is_background_filename(f.name):
-                    bg_files[f] = "background"
+        if character_slug:
+            # Only scan the specific character directory
+            char_dir = BACKGROUNDS_DIR / character_slug
+            if char_dir.is_dir():
+                for f in char_dir.glob("*.png"):
+                    if _is_background_filename(f.name):
+                        bg_files[f] = "background"
+        else:
+            for char_dir in BACKGROUNDS_DIR.iterdir():
+                if not char_dir.is_dir():
+                    continue
+                for f in char_dir.glob("*.png"):
+                    if f not in bg_files and _is_background_filename(f.name):
+                        bg_files[f] = "background"
 
     # Memes (compostos com frase) — from dedicated memes/ directory
     meme_files = {}
-    if GENERATED_MEMES_DIR.exists():
+    if not character_slug and GENERATED_MEMES_DIR.exists():
         meme_files = {f: "meme" for f in GENERATED_MEMES_DIR.glob("*.png")}
 
     all_files = {**bg_files, **meme_files}
@@ -102,11 +115,12 @@ def _list_drive_images(theme_filter: str | None = None, category: str | None = N
 def list_images(
     theme: str | None = Query(default=None),
     category: str | None = Query(default=None, pattern="^(background|meme)$"),
+    character_slug: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     current_user=Depends(get_current_user),
 ):
-    imgs = _list_drive_images(theme, category)
+    imgs = _list_drive_images(theme, category, character_slug=character_slug)
     return {"total": len(imgs), "offset": offset, "limit": limit, "images": imgs[offset:offset + limit]}
 
 

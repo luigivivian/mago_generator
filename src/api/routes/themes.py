@@ -52,12 +52,18 @@ ENHANCE_SYSTEM_PROMPT = (
 @router.get("", summary="Lista temas disponiveis")
 async def list_themes(
     character_id: int | None = Query(default=None),
+    character_slug: str | None = Query(default=None),
     include_builtin: bool = Query(default=True),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     current_user=Depends(get_current_user),
     session: AsyncSession = Depends(db_session),
 ):
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        character_id = char.id
+
     from src.database.repositories.theme_repo import ThemeRepository
 
     repo = ThemeRepository(session)

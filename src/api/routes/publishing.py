@@ -64,11 +64,17 @@ async def list_queue(
     status: str | None = Query(default=None, description="Filtrar por status (queued, published, failed, cancelled)"),
     platform: str | None = Query(default=None, description="Filtrar por plataforma"),
     character_id: int | None = Query(default=None),
+    character_slug: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     current_user=Depends(get_current_user),
     session: AsyncSession = Depends(db_session),
 ):
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        character_id = char.id
+
     from src.database.repositories.schedule_repo import ScheduledPostRepository
 
     repo = ScheduledPostRepository(session)
@@ -85,11 +91,41 @@ async def list_queue(
 # ── Resumo da fila ──────────────────────────────────────────────────────────
 
 @router.get("/queue/summary", summary="Contagem por status e plataforma")
-async def queue_summary(current_user=Depends(get_current_user), session: AsyncSession = Depends(db_session)):
+async def queue_summary(
+    character_slug: str | None = Query(default=None),
+    current_user=Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+):
+    character_id = None
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        character_id = char.id
+
     from src.services.publisher import PublishingService
 
     service = PublishingService(session)
     raw = await service.get_queue()  # {platform: {status: count}}
+
+    # When character_id is set, recompute counts from repo instead of global summary
+    if character_id is not None:
+        from src.database.repositories.schedule_repo import ScheduledPostRepository
+        repo = ScheduledPostRepository(session)
+        by_status: dict[str, int] = {}
+        by_platform: dict[str, int] = {}
+        total = 0
+        for st in ("queued", "published", "failed", "cancelled"):
+            posts = await repo.list_posts(
+                limit=10000, offset=0, status=st, character_id=character_id, user=current_user,
+            )
+            cnt = len(posts)
+            if cnt > 0:
+                by_status[st] = cnt
+                total += cnt
+                for p in posts:
+                    plat = p.platform or "unknown"
+                    by_platform[plat] = by_platform.get(plat, 0) + 1
+        return {"total": total, "by_status": by_status, "by_platform": by_platform}
 
     # Transformar para formato esperado pelo frontend
     by_status: dict[str, int] = {}
