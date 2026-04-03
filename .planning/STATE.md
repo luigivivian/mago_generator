@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Milestone complete
-stopped_at: Completed 1000-03 plan (Todos os Personagens option)
-last_updated: "2026-04-03T02:49:09.371Z"
+stopped_at: Completed 1001-04 plan
+last_updated: "2026-04-03T05:56:31.260Z"
 last_activity: 2026-04-03
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -20,11 +20,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 1000 — character-scoped-navigation
+**Current focus:** Phase 1001 — biblical-reels-category
 
 ## Current Position
 
-Phase: 1000
+Phase: 1001
 Plan: Not started
 
 ## Performance Metrics
@@ -99,6 +99,9 @@ Plan: Not started
 | Phase 1000 P01 | 4min | 2 tasks | 9 files |
 | Phase 1000 P02 | 7min | 2 tasks | 10 files |
 | Phase 1000 P03 | 3min | 1 tasks | 2 files |
+| Phase 1001 P01 | 3min | 2 tasks | 4 files |
+| Phase 1001 P05 | 3min | 2 tasks | 3 files |
+| Phase 1001 P04 | 9min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -208,6 +211,13 @@ Recent decisions affecting current work:
 - [Phase 1000]: activeSlug || undefined pattern: empty string becomes undefined to omit API param (backward-compatible unfiltered results)
 - [Phase 1000]: SWR cache key uses character_slug ?? 'all' so character switch triggers auto-refetch without manual mutate()
 - [Phase 1000]: Empty string default for activeSlug: new/returning users see all content without character filter, consistent with Plan 02 activeSlug || undefined pattern
+- [Phase 1001]: Migration 029 chains from 028; bible_config as JSON for flexible schema
+- [Phase 1001]: 25 stories (14 OT + 11 NT) with multi-language titles covering evangelical canon
+- [Phase 1001]: parse_manual_script splits on double newline or --- markers, distributes duration evenly
+- [Phase 1001]: Plan 02 dependent tests use conditional import + skipif (auto-enable when _BIBLE_SYSTEM_PROMPTS lands)
+- [Phase 1001]: Verse highlighting renders below textareas as preview divs, not inside textarea elements
+- [Phase 1001]: Bible subtitle overlay: Bold=1, 1.3x font, amber &H00F5C518& in BGR format for ASS force_style
+- [Phase 1001]: Series CRUD endpoints placed before /{job_id} catch-all to avoid FastAPI path conflicts
 
 ### Pending Todos
 
@@ -230,6 +240,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last activity: 2026-04-03
-Last session: 2026-04-03T02:44:25.746Z
-Stopped at: Completed 1000-03 plan (Todos os Personagens option)
+Last session: 2026-04-03T05:40:43.218Z
+Stopped at: Completed 1001-04 plan
 Resume file: None

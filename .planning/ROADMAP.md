@@ -70,11 +70,11 @@ Plans:
 - Categoria deve funcionar com o pipeline interativo existente (step-by-step)
 
 **Depends on:** None
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 Plans:
-- [ ] 1001-01-PLAN.md — DB schema (bible_config, series) + stories data + request model
-- [ ] 1001-02-PLAN.md — Biblical system prompts + image style bypass + API config flow
-- [ ] 1001-03-PLAN.md — Frontend wizard: BibleConfig component + subThemes expansion
+- [x] 1001-01-PLAN.md — DB schema (bible_config, series) + stories data + request model
+- [x] 1001-02-PLAN.md — Biblical system prompts + image style bypass + API config flow
+- [x] 1001-03-PLAN.md — Frontend wizard: BibleConfig component + subThemes expansion
 - [ ] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring + verse overlay in video
-- [ ] 1001-05-PLAN.md — Unit tests + E2E CLI test for biblical reels pipeline
+- [x] 1001-05-PLAN.md — Unit tests + E2E CLI test for biblical reels pipeline
