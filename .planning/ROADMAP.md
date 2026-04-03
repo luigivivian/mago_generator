@@ -46,9 +46,9 @@ Plans:
 - Persistir personagem selecionado no localStorage para manter entre sessoes
 
 **Depends on:** None
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 1000-01-PLAN.md — Backend: migration + character_slug on all listing endpoints
-- [ ] 1000-02-PLAN.md — Frontend: API functions, SWR hooks, and page wiring
+- [x] 1000-01-PLAN.md — Backend: migration + character_slug on all listing endpoints
+- [x] 1000-02-PLAN.md — Frontend: API functions, SWR hooks, and page wiring
 - [ ] 1000-03-PLAN.md — "Todos os Personagens" option in sidebar selector

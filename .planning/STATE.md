@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Plan 999.9-04 Tasks 1-2 complete, Task 3 checkpoint pending
-last_updated: "2026-04-02T22:35:48.007Z"
-last_activity: 2026-04-02
+status: Milestone complete
+stopped_at: Completed 1000-03 plan (Todos os Personagens option)
+last_updated: "2026-04-03T02:49:09.371Z"
+last_activity: 2026-04-03
 progress:
-  total_phases: 1
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 3
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 999.9 — kie-api-credit-system
+**Current focus:** Phase 1000 — character-scoped-navigation
 
 ## Current Position
 
-Phase: 999.9 (kie-api-credit-system) — EXECUTING
-Plan: 4 of 4
+Phase: 1000
+Plan: Not started
 
 ## Performance Metrics
 
@@ -96,6 +96,9 @@ Plan: 4 of 4
 | Phase 999.9 P03 | 1min | 1 tasks | 2 files |
 | Phase 999.9 P02 | 6min | 2 tasks | 4 files |
 | Phase 999.9 P04 | 3min | 2 tasks | 4 files |
+| Phase 1000 P01 | 4min | 2 tasks | 9 files |
+| Phase 1000 P02 | 7min | 2 tasks | 10 files |
+| Phase 1000 P03 | 3min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -198,6 +201,12 @@ Recent decisions affecting current work:
 - [Phase 999.9]: Per-scene credit deduction in reels with total pre-check upfront (prevents partial reel)
 - [Phase 999.9]: Credit gating at ads route layer (not pipeline) since pipeline methods lack user_id
 - [Phase 999.9]: Native date inputs for credit log filters (consistent with existing pattern); admin top-up gated by useAuth role check
+- [Phase 1000]: character_slug resolves to character_id via get_user_character (lazy import inside each endpoint)
+- [Phase 1000]: Drive images: when character_slug set, only scan assets/backgrounds/{slug}/ directory (skip generated/memes)
+- [Phase 1000]: queue_summary with character_slug uses ScheduledPostRepository list_posts per status (no service-level change)
+- [Phase 1000]: activeSlug || undefined pattern: empty string becomes undefined to omit API param (backward-compatible unfiltered results)
+- [Phase 1000]: SWR cache key uses character_slug ?? 'all' so character switch triggers auto-refetch without manual mutate()
+- [Phase 1000]: Empty string default for activeSlug: new/returning users see all content without character filter, consistent with Plan 02 activeSlug || undefined pattern
 
 ### Pending Todos
 
@@ -219,7 +228,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last activity: 2026-04-02
-Last session: 2026-04-02T22:35:48.004Z
-Stopped at: Plan 999.9-04 Tasks 1-2 complete, Task 3 checkpoint pending
+Last activity: 2026-04-03
+Last session: 2026-04-03T02:44:25.746Z
+Stopped at: Completed 1000-03 plan (Todos os Personagens option)
 Resume file: None
