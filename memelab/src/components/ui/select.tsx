@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
+const SelectLabel = SelectPrimitive.Label;
 
 const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Trigger>,
@@ -76,4 +77,4 @@ const SelectItem = React.forwardRef<
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem };
+export { Select, SelectGroup, SelectLabel, SelectValue, SelectTrigger, SelectContent, SelectItem };

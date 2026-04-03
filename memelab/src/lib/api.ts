@@ -1714,6 +1714,17 @@ export interface InteractiveReelRequest {
   sub_theme?: string;
   platforms?: string[];
   language?: string;
+  bible_config?: {
+    script_mode: "ai" | "manual";
+    story_ref?: string;
+    story_key?: string;
+    include_reflection: boolean;
+    bible_version?: string;
+    language?: string;
+    manual_text?: string;
+  };
+  series_id?: number;
+  part_number?: number;
 }
 
 export interface PlatformOutput {

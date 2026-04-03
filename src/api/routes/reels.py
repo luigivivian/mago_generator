@@ -167,6 +167,11 @@ async def _execute_step_task(
             if job.language:
                 config_override["script_language"] = job.language
 
+            # Flow bible_config from step_state into config_override for pipeline steps
+            job_config = step_state.get("config", {})
+            if "bible_config" in job_config:
+                config_override["bible_config"] = job_config["bible_config"]
+
             pipeline = ReelsPipeline(config_override=config_override)
             job_dir = step_state.get("prompt", {}).get("job_dir", "")
 
@@ -622,6 +627,10 @@ async def create_interactive_reel(
     if req.image_count is not None:
         step_state.setdefault("config", {})["image_count"] = req.image_count
 
+    # Persist bible_config to step_state for downstream steps
+    if req.bible_config:
+        step_state.setdefault("config", {})["bible_config"] = req.bible_config
+
     # Create job_dir immediately so all subsequent steps can use it
     from src.reels_pipeline.main import ReelsPipeline
     pipeline = ReelsPipeline()
@@ -642,6 +651,9 @@ async def create_interactive_reel(
         status="interactive",
         step_state=step_state,
         platforms=req.platforms or ["instagram"],
+        bible_config=req.bible_config,
+        series_id=req.series_id,
+        part_number=req.part_number,
     )
     db.add(job)
     await db.commit()
@@ -750,9 +762,9 @@ async def execute_step(
                 "video_model": cfg.video_model,
             }
 
-    # Merge per-job overrides from step_state (e.g. image_count set at creation)
+    # Merge per-job overrides from step_state (e.g. image_count, bible_config set at creation)
     job_config = step_state.get("config", {})
-    for key in ("image_count",):
+    for key in ("image_count", "bible_config"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
@@ -839,7 +851,7 @@ async def approve_step(
                 }
         # Merge per-job overrides from step_state
         job_config = step_state.get("config", {})
-        for key in ("image_count",):
+        for key in ("image_count", "bible_config"):
             if key in job_config and key not in config_override:
                 config_override[key] = job_config[key]
         from src.database.session import get_session_factory
@@ -922,7 +934,7 @@ async def regenerate_step(
 
     # Merge per-job overrides from step_state
     job_config = step_state.get("config", {})
-    for key in ("image_count",):
+    for key in ("image_count", "bible_config"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
