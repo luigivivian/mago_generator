@@ -45,6 +45,7 @@ import {
   type ThemeSuggestion,
 } from "@/lib/api";
 import { REEL_NICHES, getNicheById, TIER_LABELS } from "@/components/reels/reel-niches";
+import { BibleConfig, type BibleConfigState } from "@/components/reels/bible-config";
 
 const STEP_LABELS: Record<string, string> = {
   images: "Gerando imagens...",
@@ -96,6 +97,7 @@ function GenerationForm() {
   const [selectedSuggestion, setSelectedSuggestion] = useState<ThemeSuggestion | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
+  const [bibleConfig, setBibleConfig] = useState<BibleConfigState | null>(null);
 
   const { data: presets } = useReelsPresets();
   const { data: characters } = useCharacters();
@@ -117,6 +119,25 @@ function GenerationForm() {
       setSuggestions(res.suggestions ?? []);
     }).catch(() => {});
   }, [selectedNiche, selectedSubTheme]);
+
+  // Bible-stories niche: set defaults and manage bibleConfig state
+  useEffect(() => {
+    if (selectedNiche === "bible-stories") {
+      setDuration("60");
+      setBibleConfig({
+        scriptMode: "ai",
+        storyKey: "",
+        storyRef: "",
+        includeReflection: true,
+        manualText: "",
+      });
+    } else {
+      if (bibleConfig !== null) {
+        setDuration("30");
+        setBibleConfig(null);
+      }
+    }
+  }, [selectedNiche]);
 
   async function handleSuggestThemes() {
     if (!selectedNiche) return;
@@ -207,6 +228,17 @@ function GenerationForm() {
         sub_theme: selectedSubTheme || undefined,
         platforms,
         language,
+        ...(bibleConfig ? {
+          bible_config: {
+            script_mode: bibleConfig.scriptMode,
+            story_ref: bibleConfig.storyRef || undefined,
+            story_key: bibleConfig.storyKey || undefined,
+            include_reflection: bibleConfig.includeReflection,
+            bible_version: language === "en-US" ? "NIV" : "NVI",
+            language,
+            ...(bibleConfig.scriptMode === "manual" ? { manual_text: bibleConfig.manualText } : {}),
+          },
+        } : {}),
         ...(characterId === "none"
           ? { no_character: true }
           : characterId !== "auto"
@@ -221,6 +253,12 @@ function GenerationForm() {
     }
   }
 
+
+  const isBibleValid = !bibleConfig || (
+    bibleConfig.scriptMode === "manual"
+      ? bibleConfig.manualText.trim().length > 0
+      : !!(bibleConfig.storyKey || bibleConfig.storyRef.trim())
+  );
 
   const currentNiche = getNicheById(selectedNiche);
 
@@ -333,7 +371,7 @@ function GenerationForm() {
                       key={st}
                       type="button"
                       onClick={() => { setSelectedSubTheme(st); setSuggestions([]); }}
-                      className={`px-2.5 py-1 rounded-full text-xs border transition-all ${
+                      className={`px-3 py-1 rounded-full text-xs border transition-all ${
                         selectedSubTheme === st
                           ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
                           : "bg-secondary text-muted-foreground border-border hover:bg-secondary/80"
@@ -344,6 +382,14 @@ function GenerationForm() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Bible config (conditional) */}
+            {selectedNiche === "bible-stories" && bibleConfig && (
+              <BibleConfig
+                language={language}
+                onConfigChange={setBibleConfig}
+              />
             )}
 
             <Textarea
@@ -533,11 +579,19 @@ function GenerationForm() {
 
             {error && <p className="text-sm text-red-400">{error}</p>}
 
+            {bibleConfig && !isBibleValid && (
+              <p className="text-xs text-red-400">
+                {bibleConfig.scriptMode === "ai"
+                  ? "Selecione uma historia ou insira uma referencia biblica"
+                  : "Insira o roteiro manual"}
+              </p>
+            )}
+
             <div className="flex gap-2">
               <Button
                 className="flex-1"
                 onClick={handleGenerate}
-                disabled={!tema.trim() || submitting || submittingInteractive}
+                disabled={!tema.trim() || !isBibleValid || submitting || submittingInteractive}
               >
                 {submitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -550,7 +604,7 @@ function GenerationForm() {
                 variant="outline"
                 className="flex-1"
                 onClick={handleInteractive}
-                disabled={!tema.trim() || submitting || submittingInteractive}
+                disabled={!tema.trim() || !isBibleValid || submitting || submittingInteractive}
               >
                 {submittingInteractive ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
