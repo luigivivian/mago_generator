@@ -46,7 +46,9 @@ Plans:
 - Persistir personagem selecionado no localStorage para manter entre sessoes
 
 **Depends on:** None
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 1000 to break down)
+- [ ] 1000-01-PLAN.md — Backend: migration + character_slug on all listing endpoints
+- [ ] 1000-02-PLAN.md — Frontend: API functions, SWR hooks, and page wiring
+- [ ] 1000-03-PLAN.md — "Todos os Personagens" option in sidebar selector
