@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 999.9-02 plan
-last_updated: "2026-04-02T22:29:51.879Z"
+stopped_at: Plan 999.9-04 Tasks 1-2 complete, Task 3 checkpoint pending
+last_updated: "2026-04-02T22:35:48.007Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 1
@@ -95,8 +95,14 @@ Plan: 4 of 4
 | Phase 999.9 P01 | 4min | 2 tasks | 5 files |
 | Phase 999.9 P03 | 1min | 1 tasks | 2 files |
 | Phase 999.9 P02 | 6min | 2 tasks | 4 files |
+| Phase 999.9 P04 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 999.9 added: Kie API credit system with per-model pricing, logs, and balance management
+- Phase 1000 added: Character-scoped navigation — sidebar selector scoping all content by selected character
 
 ### Decisions
 
@@ -191,6 +197,7 @@ Recent decisions affecting current work:
 - [Phase 999.9]: Read-only credit pre-check in HTTP handlers, actual deduction in background tasks (prevents session scope issues)
 - [Phase 999.9]: Per-scene credit deduction in reels with total pre-check upfront (prevents partial reel)
 - [Phase 999.9]: Credit gating at ads route layer (not pipeline) since pipeline methods lack user_id
+- [Phase 999.9]: Native date inputs for credit log filters (consistent with existing pattern); admin top-up gated by useAuth role check
 
 ### Pending Todos
 
@@ -213,6 +220,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last activity: 2026-04-02
-Last session: 2026-04-02T22:29:51.876Z
-Stopped at: Completed 999.9-02 plan
+Last session: 2026-04-02T22:35:48.004Z
+Stopped at: Plan 999.9-04 Tasks 1-2 complete, Task 3 checkpoint pending
 Resume file: None

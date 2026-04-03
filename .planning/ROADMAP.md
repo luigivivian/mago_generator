@@ -28,3 +28,25 @@ Plans:
 - [x] 999.9-02-PLAN.md — Gate all Kie API call paths (video, reels, ads) with credit pre-check
 - [x] 999.9-03-PLAN.md — Credits API routes (balance, logs, admin top-up)
 - [ ] 999.9-04-PLAN.md — Frontend /credits page with balance card, logs table, admin top-up
+
+### Phase 1000: Character-scoped navigation
+
+**Goal:** Adicionar seletor de personagem na sidebar que filtra todo conteudo do app. Cada personagem tem sua propria galeria, videos, reels, ads, temas e publicacoes. Ao mudar de personagem, todas as paginas mostram apenas conteudo daquele personagem.
+
+**Requirements:**
+- Seletor de personagem na sidebar (dropdown ou lista) persistente entre paginas
+- Context global (React Context) com personagem selecionado acessivel em todas as paginas
+- Gallery filtrada por character_slug selecionado
+- Videos filtrados por character_slug selecionado
+- Reels filtrados por character_slug selecionado
+- Ads filtrados por character_slug selecionado
+- Themes filtrados por character_slug selecionado
+- Publishing filtrado por character_slug selecionado
+- Backend: todos endpoints de listagem aceitam ?character_slug= como filtro
+- Persistir personagem selecionado no localStorage para manter entre sessoes
+
+**Depends on:** None
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1000 to break down)
