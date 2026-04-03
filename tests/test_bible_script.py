@@ -214,7 +214,7 @@ def test_get_bible_system_prompt_reflection_on():
         "target_duration": 60,
     }
     prompt = get_prompt(cfg)
-    assert "reflexao" in prompt.lower() or "reflection" in prompt.lower()
+    assert "vida atual" in prompt.lower() or "frases conectando" in prompt.lower()
 
 
 @_skip_plan02

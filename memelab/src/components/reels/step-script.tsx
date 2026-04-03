@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Loader2, RefreshCw, Check, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { approveStep, regenerateStep, editStep, type StepState } from "@/lib/api
 // Pattern matches verse references like "1 Samuel 17:40", "Genesis 22:1-3", "Joao 3:16"
 const VERSE_PATTERN = /(\d?\s*[A-Z][a-zA-Záàãéêíóôú]+\s+\d+:\d+(?:-\d+)?)/g;
 
-function highlightVerses(text: string): JSX.Element[] {
+function highlightVerses(text: string): React.JSX.Element[] {
   const parts = text.split(VERSE_PATTERN);
   return parts.map((part, i) => {
     if (VERSE_PATTERN.test(part)) {
@@ -57,7 +57,7 @@ function parseScript(raw: Record<string, unknown> | undefined): ScriptJson {
 
 export function StepScript({ jobId, stepState, onApprove, mutate }: { jobId: string; stepState: StepState; onApprove?: (step: string) => Promise<void>; mutate?: () => void }) {
   const script = stepState.script;
-  const isBibleMode = Boolean((stepState as Record<string, unknown>)?.config && ((stepState as Record<string, unknown>).config as Record<string, unknown>)?.bible_config);
+  const isBibleMode = Boolean((stepState as unknown as Record<string, unknown>)?.config && ((stepState as unknown as Record<string, unknown>).config as Record<string, unknown>)?.bible_config);
   const isGenerating = script?.status === "generating";
   const [form, setForm] = useState<ScriptJson>(() => parseScript(script?.json));
   const [loading, setLoading] = useState(false);
