@@ -425,11 +425,18 @@ export const REEL_NICHES: ReelNiche[] = [
     tier: 4,
     icon: "BookOpen",
     subThemes: [
-      "parabolas de Jesus", "historias do Antigo Testamento", "Salmos e Proverbios",
-      "vida de Moises", "vida de Davi", "vida de Jose do Egito",
-      "milagres de Jesus", "Sermao da Montanha", "Apocalipse simplificado",
-      "mulheres da Biblia", "profetas", "sabedoria de Salomao",
-      "historias de fe e superacao", "a criacao", "Exodo e libertacao",
+      // Antigo Testamento
+      "A Criacao", "Adao e Eva", "A Arca de Noe", "Abraao e Isaque",
+      "Jose do Egito", "Moises e o Mar Vermelho", "Os Dez Mandamentos",
+      "Davi e Golias", "Daniel na Cova dos Leoes", "Jonas e a Baleia",
+      "Rute e Noemi", "Ester, a Rainha", "Elias e os Profetas de Baal",
+      "Sansao e Dalila",
+      // Novo Testamento
+      "O Nascimento de Jesus", "O Bom Samaritano", "O Filho Prodigo",
+      "Parabola do Semeador", "Sermao da Montanha", "Agua em Vinho",
+      "Alimentacao dos 5000", "Jesus Anda sobre as Aguas",
+      "Ressurreicao de Lazaro", "Paixao e Ressurreicao",
+      "Parabola do Grao de Mostarda",
     ],
     hookTemplates: [
       "Essa historia biblica vai mudar sua perspectiva sobre sofrimento",
