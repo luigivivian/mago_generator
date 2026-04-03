@@ -107,6 +107,9 @@ class ReelCreateInteractiveRequest(BaseModel):
     image_count: Optional[int] = None
     platforms: list[str] = Field(default_factory=lambda: ["instagram"], description="Target platforms")
     language: str = "pt-BR"
+    bible_config: Optional[dict] = None
+    series_id: Optional[int] = None
+    part_number: Optional[int] = None
 
 
 class ReelsConfigRequest(BaseModel):
