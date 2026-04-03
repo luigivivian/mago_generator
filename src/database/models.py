@@ -789,10 +789,32 @@ class ReelsJob(TimestampMixin, Base):
     feedback_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     posted_platforms: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
+    # Biblical reels config (Phase 1001)
+    bible_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    series_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("reels_series.id"), nullable=True)
+    part_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     __table_args__ = (
         Index("idx_reels_jobs_user_id", "user_id"),
         Index("idx_reels_jobs_status", "status"),
         Index("idx_reels_jobs_job_id", "job_id"),
+    )
+
+
+# ============================================================
+# 16b. reels_series (Phase 1001 — Biblical series support)
+# ============================================================
+
+class ReelsSeries(TimestampMixin, Base):
+    __tablename__ = "reels_series"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("idx_reels_series_user_id", "user_id"),
     )
 
 
