@@ -477,6 +477,7 @@ async def create_ad_job(
 @router.get("/jobs", response_model=list[AdJobResponse])
 async def list_ad_jobs(
     status: str | None = Query(default=None),
+    character_slug: str | None = Query(default=None),
     db: AsyncSession = Depends(db_session),
     current_user=Depends(get_current_user),
 ):
@@ -485,6 +486,10 @@ async def list_ad_jobs(
         ProductAdJob.user_id == current_user.id
     ).order_by(desc(ProductAdJob.created_at))
 
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, db)
+        query = query.where(ProductAdJob.character_id == char.id)
     if status:
         query = query.where(ProductAdJob.status == status)
 

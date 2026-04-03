@@ -9,7 +9,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -844,6 +844,7 @@ async def list_videos(
     model: str | None = None,
     sort: str = "newest",
     limit: int = 50,
+    character_slug: str | None = Query(default=None),
     current_user=Depends(get_current_user),
     session: AsyncSession = Depends(db_session),
 ):
@@ -854,6 +855,10 @@ async def list_videos(
     from sqlalchemy import desc, asc
 
     stmt = select(ContentPackage).where(ContentPackage.video_status.isnot(None))
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, session)
+        stmt = stmt.where(ContentPackage.character_id == char.id)
     if status:
         stmt = stmt.where(ContentPackage.video_status == status)
     if model:

@@ -808,6 +808,9 @@ class ProductAdJob(TimestampMixin, Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False
     )
+    character_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("characters.id"), nullable=True
+    )
 
     # Product info
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -844,6 +847,7 @@ class ProductAdJob(TimestampMixin, Base):
         Index("idx_product_ad_jobs_user_id", "user_id"),
         Index("idx_product_ad_jobs_status", "status"),
         Index("idx_product_ad_jobs_job_id", "job_id"),
+        Index("idx_product_ad_jobs_character_id", "character_id"),
     )
 
 

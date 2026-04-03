@@ -1903,11 +1903,16 @@ async def list_reel_jobs(
     status: str | None = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    character_slug: str | None = Query(default=None),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(db_session),
 ):
     """List reel generation jobs for the current user, ordered by newest first."""
     query = select(ReelsJob).where(ReelsJob.user_id == current_user.id)
+    if character_slug:
+        from src.api.deps import get_user_character
+        char = await get_user_character(character_slug, current_user, db)
+        query = query.where(ReelsJob.character_id == char.id)
     if status:
         query = query.where(ReelsJob.status == status)
     query = query.order_by(desc(ReelsJob.created_at)).limit(limit).offset(offset)
