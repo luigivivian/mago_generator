@@ -319,6 +319,7 @@ async def _execute_step_task(
                         output_path=video_path,
                         transition_duration=0.3,
                         script_json=script_json,
+                        config_override=config_override,
                     )
                     step_data["path"] = video_path
                     step_data["status"] = "complete"
@@ -1583,6 +1584,11 @@ async def retry_scene(
         if cfg:
             config_override = {"video_model": cfg.video_model}
 
+    # Flow bible_config for subtitle styling in auto-reassembly
+    job_config = step_state.get("config", {})
+    if "bible_config" in job_config:
+        config_override["bible_config"] = job_config["bible_config"]
+
     session_factory = get_session_factory()
     background_tasks.add_task(
         _retry_scene_task, job_id, scene_index, prompt, config_override, session_factory
@@ -1714,6 +1720,7 @@ async def _retry_scene_task(
                         output_path=video_path,
                         transition_duration=0.3,
                         script_json=script_json,
+                        config_override=config_override,
                     )
                     step_state.setdefault("video", {})["path"] = video_path
                     job.video_path = video_path
@@ -1881,6 +1888,12 @@ async def _reassemble_video_task(job_id: str, session_factory):
             script_json = step_state.get("script", {}).get("json", {})
             video_path = os.path.join(job_dir, "final.mp4")
 
+            # Extract bible_config from step_state for subtitle styling
+            reassemble_cfg = {}
+            job_config = step_state.get("config", {})
+            if "bible_config" in job_config:
+                reassemble_cfg["bible_config"] = job_config["bible_config"]
+
             concat_clips_with_audio(
                 clip_paths=clip_paths,
                 audio_path=audio_path,
@@ -1888,6 +1901,7 @@ async def _reassemble_video_task(job_id: str, session_factory):
                 output_path=video_path,
                 transition_duration=0.3,
                 script_json=script_json,
+                config_override=reassemble_cfg,
             )
 
             video_data["path"] = video_path

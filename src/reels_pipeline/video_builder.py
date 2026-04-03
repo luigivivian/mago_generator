@@ -53,6 +53,28 @@ def _build_sub_style() -> str:
     )
 
 
+def _build_bible_sub_style() -> str:
+    """Build ASS subtitle force_style for bible verse overlays.
+
+    Larger font, bold, amber/gold color for verse citations.
+    Used when bible_config is present in config_override.
+    """
+    return (
+        f"FontName={REELS_SUB_FONT},"
+        f"FontSize={int(REELS_SUB_FONTSIZE * 1.3)},"
+        f"Bold=1,"
+        f"PrimaryColour=&H00F5C518&,"
+        f"OutlineColour={REELS_SUB_OUTLINE_COLOR},"
+        f"BackColour=&H00000000&,"
+        f"Outline={REELS_SUB_OUTLINE},"
+        f"Shadow=0,"
+        f"Alignment=2,"
+        f"MarginV={REELS_SUB_MARGIN_V + 20},"
+        f"MarginL={REELS_SUB_MARGIN_H},"
+        f"MarginR={REELS_SUB_MARGIN_H}"
+    )
+
+
 def compute_scene_durations_from_script(
     script_json: dict,
     total_audio_duration: float,
@@ -165,6 +187,7 @@ def build_reel_video(
         raise ValueError("No image paths provided")
 
     cfg = config_override or {}
+    is_bible_mode = bool(cfg.get("bible_config"))
     image_duration = cfg.get("image_duration", REELS_IMAGE_DURATION)
     transition_duration = cfg.get("transition_duration", REELS_TRANSITION_DURATION)
     transition_type = cfg.get("transition_type", REELS_TRANSITION_TYPE)
@@ -228,20 +251,7 @@ def build_reel_video(
     # 4. Subtitle overlay — uses config values (configurable via painel)
     abs_srt = os.path.abspath(srt_path)
     fontsdir = os.path.abspath("assets/fonts")
-    sub_style = (
-        f"FontName={REELS_SUB_FONT},"
-        f"FontSize={REELS_SUB_FONTSIZE},"
-        f"Bold=0,"
-        f"PrimaryColour={REELS_SUB_COLOR},"
-        f"OutlineColour={REELS_SUB_OUTLINE_COLOR},"
-        f"BackColour=&H00000000&,"
-        f"Outline={REELS_SUB_OUTLINE},"
-        f"Shadow=0,"
-        f"Alignment=2,"
-        f"MarginV={REELS_SUB_MARGIN_V},"
-        f"MarginL={REELS_SUB_MARGIN_H},"
-        f"MarginR={REELS_SUB_MARGIN_H}"
-    )
+    sub_style = _build_bible_sub_style() if is_bible_mode else _build_sub_style()
     subtitle_filter = (
         f"[vout]subtitles=filename='{abs_srt}'"
         f":fontsdir='{fontsdir}'"
@@ -783,6 +793,7 @@ def concat_clips_with_audio(
     transition_duration: float = 0.3,
     transition_type: str = "fade",
     script_json: dict | None = None,
+    config_override: dict | None = None,
 ) -> str:
     """Concatenate Hailuo video clips, overlay audio and subtitles.
 
@@ -797,12 +808,16 @@ def concat_clips_with_audio(
         transition_duration: Duration of xfade between clips.
         transition_type: FFmpeg xfade transition name (fade, dissolve, etc).
         script_json: Optional script dict for proportional scene duration and SRT alignment.
+        config_override: Optional config dict — when bible_config present, uses amber subtitle style.
 
     Returns:
         output_path on success.
     """
     if not clip_paths:
         raise ValueError("No clip paths to concatenate")
+
+    cfg = config_override or {}
+    is_bible_mode = bool(cfg.get("bible_config"))
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
@@ -849,7 +864,7 @@ def concat_clips_with_audio(
     if len(clip_paths) == 1:
         abs_srt = os.path.abspath(srt_path)
         fontsdir = os.path.abspath("assets/fonts")
-        sub_style = _build_sub_style()
+        sub_style = _build_bible_sub_style() if is_bible_mode else _build_sub_style()
         subtitle_filter = (
             f"[0:v]subtitles=filename='{abs_srt}'"
             f":fontsdir='{fontsdir}'"
@@ -894,7 +909,7 @@ def concat_clips_with_audio(
     # Subtitle overlay on concatenated video
     abs_srt = os.path.abspath(srt_path)
     fontsdir = os.path.abspath("assets/fonts")
-    sub_style = _build_sub_style()
+    sub_style = _build_bible_sub_style() if is_bible_mode else _build_sub_style()
     sub_filter = (
         f"[vconcat]subtitles=filename='{abs_srt}'"
         f":fontsdir='{fontsdir}'"

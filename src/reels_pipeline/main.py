@@ -718,6 +718,7 @@ class ReelsPipeline:
             transition_duration=self.config.get("transition_duration", 0.3),
             transition_type=self.config.get("transition_type", "fade"),
             script_json=script,
+            config_override=self.config,
         )
 
         # Validate final video duration
