@@ -603,7 +603,8 @@ export const generatePhrases = (params: PhraseParams) =>
   });
 
 // --- Themes ---
-export const getThemes = () => request<ThemesResponse>("/themes");
+export const getThemes = (character_slug?: string) =>
+  request<ThemesResponse>("/themes" + (character_slug ? `?character_slug=${character_slug}` : ""));
 export const addTheme = (theme: Record<string, unknown>) =>
   request<{ added: string; total_themes: number }>("/themes", {
     method: "POST",
@@ -640,10 +641,11 @@ export const getJobStatus = (jobId: string) =>
   request<JobStatus>(`/jobs/${jobId}`);
 export const getJobs = () => request<JobsListResponse>("/jobs");
 
-export const getContentPackages = (params?: { limit?: number; offset?: number }) => {
+export const getContentPackages = (params?: { limit?: number; offset?: number; character_slug?: string }) => {
   const p = new URLSearchParams();
   if (params?.limit) p.set("limit", String(params.limit));
   if (params?.offset) p.set("offset", String(params.offset));
+  if (params?.character_slug) p.set("character_slug", params.character_slug);
   const qs = p.toString();
   return request<ContentPackagesResponse>(`/content${qs ? `?${qs}` : ""}`);
 };
@@ -654,6 +656,7 @@ export interface DriveQuery {
   category?: "background" | "meme";
   limit?: number;
   offset?: number;
+  character_slug?: string;
 }
 export const getDriveImages = (q?: DriveQuery) => {
   const params = new URLSearchParams();
@@ -661,6 +664,7 @@ export const getDriveImages = (q?: DriveQuery) => {
   if (q?.category) params.set("category", q.category);
   if (q?.limit) params.set("limit", String(q.limit));
   if (q?.offset) params.set("offset", String(q.offset));
+  if (q?.character_slug) params.set("character_slug", q.character_slug);
   const qs = params.toString();
   return request<DriveImagesResponse>(`/drive/images${qs ? `?${qs}` : ""}`);
 };
@@ -1137,18 +1141,20 @@ export const getPublishingQueue = (params?: {
   platform?: string;
   limit?: number;
   offset?: number;
+  character_slug?: string;
 }) => {
   const p = new URLSearchParams();
   if (params?.status) p.set("status", params.status);
   if (params?.platform) p.set("platform", params.platform);
   if (params?.limit) p.set("limit", String(params.limit));
   if (params?.offset) p.set("offset", String(params.offset));
+  if (params?.character_slug) p.set("character_slug", params.character_slug);
   const qs = p.toString();
   return request<ScheduledPostsResponse>(`/publishing/queue${qs ? `?${qs}` : ""}`);
 };
 
-export const getQueueSummary = () =>
-  request<QueueSummary>("/publishing/queue/summary");
+export const getQueueSummary = (character_slug?: string) =>
+  request<QueueSummary>("/publishing/queue/summary" + (character_slug ? `?character_slug=${character_slug}` : ""));
 
 export const getScheduledPost = (postId: number) =>
   request<ScheduledPost>(`/publishing/queue/${postId}`);
@@ -1159,9 +1165,9 @@ export const cancelScheduledPost = (postId: number) =>
 export const retryScheduledPost = (postId: number) =>
   request<ScheduledPost>(`/publishing/queue/${postId}/retry`, { method: "POST" });
 
-export const getPublishingCalendar = (startDate: string, endDate: string) =>
+export const getPublishingCalendar = (startDate: string, endDate: string, character_slug?: string) =>
   request<CalendarResponse>(
-    `/publishing/calendar?start_date=${startDate}&end_date=${endDate}`
+    `/publishing/calendar?start_date=${startDate}&end_date=${endDate}${character_slug ? `&character_slug=${character_slug}` : ""}`
   );
 
 export const getBestTimes = () =>
@@ -1345,6 +1351,7 @@ export interface VideoGalleryParams {
   model?: string;
   sort?: "newest" | "oldest";
   limit?: number;
+  character_slug?: string;
 }
 
 export async function getVideoList(params?: VideoGalleryParams): Promise<VideoListResponse> {
@@ -1353,6 +1360,7 @@ export async function getVideoList(params?: VideoGalleryParams): Promise<VideoLi
   if (params?.model) searchParams.set("model", params.model);
   if (params?.sort) searchParams.set("sort", params.sort);
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.character_slug) searchParams.set("character_slug", params.character_slug);
   const qs = searchParams.toString();
   return request<VideoListResponse>(`/generate/video/list${qs ? `?${qs}` : ""}`);
 }
@@ -1537,9 +1545,12 @@ export async function getReelStatus(jobId: string) {
   return request<ReelJob>(`/reels/status/${jobId}`);
 }
 
-export async function getReelJobs(status?: string) {
-  const params = status ? `?status=${status}` : "";
-  return request<ReelJob[]>(`/reels/jobs${params}`);
+export async function getReelJobs(status?: string, character_slug?: string) {
+  const p = new URLSearchParams();
+  if (status) p.set("status", status);
+  if (character_slug) p.set("character_slug", character_slug);
+  const qs = p.toString();
+  return request<ReelJob[]>(`/reels/jobs${qs ? `?${qs}` : ""}`);
 }
 
 export async function getReelsConfig() {
@@ -1861,7 +1872,8 @@ export async function createAdJob(data: AdCreateRequest): Promise<AdJob> {
   });
 }
 
-export const getAdJobs = () => request<AdJob[]>("/ads/jobs");
+export const getAdJobs = (character_slug?: string) =>
+  request<AdJob[]>("/ads/jobs" + (character_slug ? `?character_slug=${character_slug}` : ""));
 
 export const getAdJob = (jobId: string) => request<AdJob>(`/ads/${jobId}`);
 

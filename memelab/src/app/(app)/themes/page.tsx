@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { IndeterminateProgress } from "@/components/ui/progress";
 import { useThemes } from "@/hooks/use-api";
+import { useCharacterContext } from "@/contexts/character-context";
 import {
   addTheme,
   deleteTheme,
@@ -23,7 +24,8 @@ import {
 } from "@/lib/api";
 
 export default function ThemesPage() {
-  const { data: themesData, isLoading, mutate } = useThemes();
+  const { activeSlug } = useCharacterContext();
+  const { data: themesData, isLoading, mutate } = useThemes(activeSlug || undefined);
   const themes = themesData?.themes ?? [];
 
   const [showAdd, setShowAdd] = useState(false);

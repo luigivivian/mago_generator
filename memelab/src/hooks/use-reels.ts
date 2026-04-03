@@ -1,10 +1,10 @@
 import useSWR from "swr";
 import * as api from "@/lib/api";
 
-export function useReelJobs(status?: string) {
+export function useReelJobs(status?: string, character_slug?: string) {
   return useSWR(
-    `reel-jobs-${status ?? "all"}`,
-    () => api.getReelJobs(status),
+    `reel-jobs-${character_slug ?? "all"}-${status ?? "all"}`,
+    () => api.getReelJobs(status, character_slug || undefined),
     { refreshInterval: 5000 }
   );
 }

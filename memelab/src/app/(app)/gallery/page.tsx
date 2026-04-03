@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { IndeterminateProgress } from "@/components/ui/progress";
 import { useDriveImages, useDriveThemes, useThemes, useContentPackages, useVideoBudget, useVideoStatus, useVideoList, useVideoModels } from "@/hooks/use-api";
+import { useCharacterContext } from "@/contexts/character-context";
 import {
   imageUrl,
   composeMeme,
@@ -44,6 +45,7 @@ function inferSource(filename: string): string {
 
 export default function GalleryPage() {
   const router = useRouter();
+  const { activeSlug } = useCharacterContext();
   const [themeFilter, setThemeFilter] = useState<string>("");
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<"" | "background" | "meme">("");
@@ -55,9 +57,10 @@ export default function GalleryPage() {
     category: categoryFilter || undefined,
     limit,
     offset: page * limit,
+    character_slug: activeSlug || undefined,
   });
   const { data: driveThemesData } = useDriveThemes();
-  const { data: themesData } = useThemes();
+  const { data: themesData } = useThemes(activeSlug || undefined);
 
   const rawImages = driveData?.images ?? [];
   const images = sourceFilter

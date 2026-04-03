@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAdJobs } from "@/hooks/use-ads";
+import { useCharacterContext } from "@/contexts/character-context";
 import type { AdJob } from "@/lib/api";
 
 const STATUS_BADGE: Record<string, { color: string; label: string; icon: typeof Clock }> = {
@@ -46,7 +47,8 @@ function formatCost(brl: number | null): string {
 }
 
 export default function AdsPage() {
-  const { data: jobs, isLoading } = useAdJobs();
+  const { activeSlug } = useCharacterContext();
+  const { data: jobs, isLoading } = useAdJobs(activeSlug || undefined);
 
   return (
     <div className="space-y-6">

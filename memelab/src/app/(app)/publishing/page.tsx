@@ -44,6 +44,7 @@ import {
   useContentPackages,
   useInstagramStatus,
 } from "@/hooks/use-api";
+import { useCharacterContext } from "@/contexts/character-context";
 import {
   schedulePost,
   cancelScheduledPost,
@@ -230,12 +231,14 @@ function InstagramConnectedIndicator() {
 // -- Queue Tab ---------------------------------------------------------------
 
 function QueueTab() {
+  const { activeSlug } = useCharacterContext();
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [platformFilter, setPlatformFilter] = useState<string>("");
   const { data, isLoading, mutate } = usePublishingQueue({
     status: statusFilter || undefined,
     platform: platformFilter || undefined,
     limit: 50,
+    character_slug: activeSlug || undefined,
   });
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
@@ -435,6 +438,7 @@ function QueueTab() {
 // -- Calendar Tab ------------------------------------------------------------
 
 function CalendarTab() {
+  const { activeSlug } = useCharacterContext();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -447,7 +451,7 @@ function CalendarTab() {
     return getMonthRange(monthOffset);
   }, [viewMode, weekOffset, monthOffset]);
 
-  const { data, isLoading } = usePublishingCalendar(toISODate(range.start), toISODate(range.end));
+  const { data, isLoading } = usePublishingCalendar(toISODate(range.start), toISODate(range.end), activeSlug || undefined);
 
   // Build week view days
   const weekDays = useMemo(() => {
@@ -753,7 +757,8 @@ function ScheduleDialog({
   onOpenChange: (v: boolean) => void;
   onSuccess: () => void;
 }) {
-  const { data: contentData } = useContentPackages(20);
+  const { activeSlug } = useCharacterContext();
+  const { data: contentData } = useContentPackages(20, activeSlug || undefined);
   const { data: igStatus } = useInstagramStatus();
   const packages = contentData?.packages ?? [];
 
@@ -929,10 +934,11 @@ function ScheduleDialog({
 // -- Main Page ---------------------------------------------------------------
 
 export default function PublishingPage() {
+  const { activeSlug } = useCharacterContext();
   const [activeTab, setActiveTab] = useState<"fila" | "calendario" | "horarios">("fila");
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const { data: summary } = useQueueSummary();
-  const { mutate: mutateQueue } = usePublishingQueue();
+  const { data: summary } = useQueueSummary(activeSlug || undefined);
+  const { mutate: mutateQueue } = usePublishingQueue({ character_slug: activeSlug || undefined });
 
   const queued = summary?.by_status?.queued ?? 0;
   const publishing = summary?.by_status?.publishing ?? 0;

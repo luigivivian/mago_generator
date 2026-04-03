@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useReelJobs, useReelStatus, useReelsConfig, useReelsPresets, useReelsModels } from "@/hooks/use-reels";
 import { useCharacters } from "@/hooks/use-api";
+import { useCharacterContext } from "@/contexts/character-context";
 import {
   generateReel,
   createInteractiveReel,
@@ -570,7 +571,8 @@ function GenerationForm() {
 // ── Job History ────────────────────────────────────────────────────
 
 function JobHistory() {
-  const { data: jobs, isLoading } = useReelJobs();
+  const { activeSlug } = useCharacterContext();
+  const { data: jobs, isLoading } = useReelJobs(undefined, activeSlug || undefined);
 
   if (isLoading) {
     return (

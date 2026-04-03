@@ -27,7 +27,7 @@ export function useLatestImages(count = 4) {
 }
 
 export function useDriveImages(query?: api.DriveQuery) {
-  const key = `drive-images-${query?.theme ?? ""}-${query?.category ?? ""}-${query?.limit ?? 20}-${query?.offset ?? 0}`;
+  const key = `drive-images-${query?.character_slug ?? "all"}-${query?.theme ?? ""}-${query?.category ?? ""}-${query?.limit ?? 20}-${query?.offset ?? 0}`;
   return useSWR(key, () => api.getDriveImages(query), {
     refreshInterval: 30000,
   });
@@ -45,8 +45,8 @@ export function useDriveHealth() {
   });
 }
 
-export function useThemes() {
-  return useSWR("themes", () => api.getThemes(), {
+export function useThemes(character_slug?: string) {
+  return useSWR(`themes-${character_slug ?? "all"}`, () => api.getThemes(character_slug || undefined), {
     refreshInterval: 60000,
   });
 }
@@ -78,8 +78,8 @@ export function useJobs() {
   });
 }
 
-export function useContentPackages(limit = 6) {
-  return useSWR(`content-packages-${limit}`, () => api.getContentPackages({ limit }), {
+export function useContentPackages(limit = 6, character_slug?: string) {
+  return useSWR(`content-packages-${character_slug ?? "all"}-${limit}`, () => api.getContentPackages({ limit, character_slug: character_slug || undefined }), {
     refreshInterval: 15000,
   });
 }
@@ -129,23 +129,23 @@ export function useCharacterValidation(slug: string | null) {
   );
 }
 
-export function usePublishingQueue(params?: { status?: string; platform?: string; limit?: number }) {
-  const key = `publishing-queue-${params?.status ?? ""}-${params?.platform ?? ""}-${params?.limit ?? 20}`;
+export function usePublishingQueue(params?: { status?: string; platform?: string; limit?: number; character_slug?: string }) {
+  const key = `publishing-queue-${params?.character_slug ?? "all"}-${params?.status ?? ""}-${params?.platform ?? ""}-${params?.limit ?? 20}`;
   return useSWR(key, () => api.getPublishingQueue(params), {
     refreshInterval: 5000,
   });
 }
 
-export function useQueueSummary() {
-  return useSWR("queue-summary", () => api.getQueueSummary(), {
+export function useQueueSummary(character_slug?: string) {
+  return useSWR(`queue-summary-${character_slug ?? "all"}`, () => api.getQueueSummary(character_slug || undefined), {
     refreshInterval: 10000,
   });
 }
 
-export function usePublishingCalendar(startDate: string, endDate: string) {
+export function usePublishingCalendar(startDate: string, endDate: string, character_slug?: string) {
   return useSWR(
-    `publishing-calendar-${startDate}-${endDate}`,
-    () => api.getPublishingCalendar(startDate, endDate),
+    `publishing-calendar-${character_slug ?? "all"}-${startDate}-${endDate}`,
+    () => api.getPublishingCalendar(startDate, endDate, character_slug || undefined),
     { refreshInterval: 30000 }
   );
 }
@@ -199,7 +199,7 @@ export function useVideoList() {
 }
 
 export function useVideoGallery(params?: api.VideoGalleryParams) {
-  const key = `video-gallery-${params?.status ?? ""}-${params?.model ?? ""}-${params?.sort ?? "newest"}-${params?.limit ?? 50}`;
+  const key = `video-gallery-${params?.character_slug ?? "all"}-${params?.status ?? ""}-${params?.model ?? ""}-${params?.sort ?? "newest"}-${params?.limit ?? 50}`;
   return useSWR(key, () => api.getVideoList(params), {
     refreshInterval: 15000,
     errorRetryCount: 1,
