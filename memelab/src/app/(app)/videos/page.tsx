@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useVideoGallery, useVideoModels } from "@/hooks/use-api";
+import { useCharacterContext } from "@/contexts/character-context";
 import { videoFileUrl, imageUrl, deleteVideo, approveVideo, type VideoListItem } from "@/lib/api";
 
 function formatDate(iso: string | null): string {
@@ -185,6 +186,7 @@ function VideoCard({
 }
 
 export default function VideosPage() {
+  const { activeSlug } = useCharacterContext();
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [modelFilter, setModelFilter] = useState<string>("");
   const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
@@ -197,6 +199,7 @@ export default function VideosPage() {
     model: modelFilter || undefined,
     sort: "newest",
     limit: 50,
+    character_slug: activeSlug || undefined,
   });
   const { data: modelsData } = useVideoModels();
   const videos = data?.videos ?? [];
