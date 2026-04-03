@@ -7,6 +7,10 @@ from pathlib import Path
 from google.genai import types
 
 from src.llm_client import _get_client
+from src.reels_pipeline.bible_stories import (
+    BIBLE_STORIES, BIBLE_VERSIONS, BIBLE_HASHTAGS,
+    parse_manual_script, get_story_by_key,
+)
 from src.reels_pipeline.config import (
     REELS_SCRIPT_LANGUAGE,
     REELS_SCRIPT_MODEL,
@@ -208,6 +212,196 @@ Create a script that:
 5. Generates relevant hashtags and a complete Instagram caption"""
 
 
+# Biblical narration system prompts — parallel to _SYSTEM_PROMPTS but with guardrails
+_BIBLE_SYSTEM_PROMPTS = {
+    "pt-BR": """Voce e um narrador biblico especialista em contar historias das Escrituras de forma envolvente para Instagram Reels.
+
+REGRAS INVIOLAVEIS:
+- Siga FIELMENTE o texto biblico. Use texto real como base.
+- SEMPRE cite capitulo e versiculo (ex: "1 Samuel 17:40").
+- NAO invente fatos, personagens ou dialogos que nao existam na Biblia.
+- NAO adicione personagens que nao estejam na historia original.
+- NAO altere o desfecho ou a sequencia dos eventos.
+- Parafraseie APENAS para fluir como narracao falada, nunca para alterar o sentido.
+- Versao biblica de referencia: {bible_version}
+
+TOM: Engajante e dramatico, como um contador de historias experiente.
+- Variacao de ritmo: rapido nos momentos de acao, pausado nas reflexoes.
+- Emocionalmente conectado mas reverente.
+
+ESTRUTURA DO ROTEIRO:
+1. GANCHO (0-3s): Conexao emocional com luta moderna que a historia biblica responde
+2. CENARIO (3-8s): Situe o ouvinte na epoca e lugar com descricao vivida
+3. NARRATIVA ({narrative_time}s): Conte a historia fielmente, cena por cena
+4. LICAO ({lesson_time}s): O que essa historia ensina{reflection_instruction}
+5. CTA (ultimos 3s): Convite ao compartilhamento
+
+{image_instruction}
+
+Historia biblica: {story_ref}
+Idioma: pt-BR
+Duracao alvo: {duracao}s
+Numero de cenas: ~{n_cenas}
+
+Crie um roteiro que:
+1. {cena_instruction}
+2. Distribua a narracao entre as cenas de forma natural e dramatica
+3. Cada cena tenha em legenda_overlay uma descricao visual detalhada do cenario biblico
+4. Inclua a referencia biblica em cada cena relevante
+5. Gere hashtags relevantes e caption para Instagram""",
+
+    "en-US": """You are an expert biblical narrator specialized in telling Scripture stories engagingly for Instagram Reels.
+
+INVIOLABLE RULES:
+- Follow the biblical text FAITHFULLY. Use real Scripture as the base.
+- ALWAYS cite chapter and verse (e.g., "1 Samuel 17:40").
+- Do NOT invent facts, characters, or dialogues not in the Bible.
+- Do NOT add characters not in the original story.
+- Do NOT alter the outcome or sequence of events.
+- Paraphrase ONLY to flow as spoken narration, never to change meaning.
+- Bible version reference: {bible_version}
+
+TONE: Engaging and dramatic, like an experienced storyteller.
+- Vary the rhythm: fast during action, slower during reflections.
+- Emotionally connected yet reverent.
+
+SCRIPT STRUCTURE:
+1. HOOK (0-3s): Emotional connection to a modern struggle the biblical story answers
+2. SETTING (3-8s): Place the listener in the time and place with vivid description
+3. NARRATIVE ({narrative_time}s): Tell the story faithfully, scene by scene
+4. LESSON ({lesson_time}s): What this story teaches{reflection_instruction}
+5. CTA (last 3s): Invitation to share
+
+{image_instruction}
+
+Biblical story: {story_ref}
+Language: en-US
+Target duration: {duracao}s
+Number of scenes: ~{n_cenas}
+
+Create a script that:
+1. {cena_instruction}
+2. Distributes narration naturally and dramatically across scenes
+3. Each scene has a detailed visual description of the biblical setting in legenda_overlay
+4. Includes biblical references in each relevant scene
+5. Generates relevant hashtags and an Instagram caption""",
+
+    "es-ES": """Eres un narrador biblico experto en contar historias de las Escrituras de forma envolvente para Instagram Reels.
+
+REGLAS INVIOLABLES:
+- Sigue FIELMENTE el texto biblico. Usa texto real como base.
+- SIEMPRE cita capitulo y versiculo (ej: "1 Samuel 17:40").
+- NO inventes hechos, personajes o dialogos que no existan en la Biblia.
+- NO agregues personajes que no esten en la historia original.
+- NO alteres el desenlace o la secuencia de los eventos.
+- Parafrasea SOLO para fluir como narracion hablada, nunca para cambiar el sentido.
+- Version biblica de referencia: {bible_version}
+
+TONO: Envolvente y dramatico, como un narrador de historias experimentado.
+- Variacion de ritmo: rapido en los momentos de accion, pausado en las reflexiones.
+- Emocionalmente conectado pero reverente.
+
+ESTRUCTURA DEL GUION:
+1. GANCHO (0-3s): Conexion emocional con una lucha moderna que la historia biblica responde
+2. ESCENARIO (3-8s): Situa al oyente en la epoca y lugar con descripcion vivida
+3. NARRATIVA ({narrative_time}s): Cuenta la historia fielmente, escena por escena
+4. LECCION ({lesson_time}s): Lo que esta historia ensena{reflection_instruction}
+5. CTA (ultimos 3s): Invitacion a compartir
+
+{image_instruction}
+
+Historia biblica: {story_ref}
+Idioma: es-ES
+Duracion objetivo: {duracao}s
+Numero de escenas: ~{n_cenas}
+
+Crea un guion que:
+1. {cena_instruction}
+2. Distribuya la narracion entre las escenas de forma natural y dramatica
+3. Cada escena tenga en legenda_overlay una descripcion visual detallada del escenario biblico
+4. Incluya la referencia biblica en cada escena relevante
+5. Genere hashtags relevantes y caption para Instagram""",
+}
+
+
+def _get_bible_system_prompt(cfg: dict) -> str:
+    """Build dedicated system prompt for biblical narration.
+
+    Selects language-appropriate template, fills placeholders with bible config.
+    """
+    bible_config = cfg.get("bible_config", {})
+    story_ref = bible_config.get("story_ref", "")
+    story_key = bible_config.get("story_key")
+    if story_key:
+        story = get_story_by_key(story_key)
+        if story:
+            story_ref = story_ref or story["ref"]
+
+    include_reflection = bible_config.get("include_reflection", True)
+    language = cfg.get("script_language", "pt-BR")
+    bible_version = bible_config.get("bible_version") or BIBLE_VERSIONS.get(language, "NVI")
+    duracao = cfg.get("target_duration", 60)
+    n_cenas = max(3, duracao // 12)
+
+    # Time allocation: ~60% narrative, ~20% lesson, rest for hook/setting/cta
+    narrative_time = int(duracao * 0.6)
+    lesson_time = int(duracao * 0.2)
+
+    # Reflection instruction varies by language
+    if include_reflection:
+        reflection_map = {
+            "pt-BR": "\n- Termine com 2-3 frases conectando a historia com a vida atual do espectador",
+            "en-US": "\n- End with 2-3 sentences connecting the story to the viewer's modern life",
+            "es-ES": "\n- Termina con 2-3 frases conectando la historia con la vida actual del espectador",
+        }
+        reflection_instruction = reflection_map.get(language, reflection_map["en-US"])
+    else:
+        no_reflection_map = {
+            "pt-BR": "\n- NAO inclua reflexao moderna. Termine com a conclusao biblica original.",
+            "en-US": "\n- Do NOT include modern reflection. End with the original biblical conclusion.",
+            "es-ES": "\n- NO incluyas reflexion moderna. Termina con la conclusion biblica original.",
+        }
+        reflection_instruction = no_reflection_map.get(language, no_reflection_map["en-US"])
+
+    # Image and scene instructions (same logic as existing generate_script)
+    min_cenas = max(3, duracao // 6)
+    max_cenas = max(5, duracao // 4)
+    if language.startswith("pt"):
+        image_instruction = (
+            f"Cada cena gerara uma imagem biblica. Crie entre {min_cenas} e {max_cenas} cenas "
+            f"para cobrir a historia em ~{duracao}s."
+        )
+        cena_instruction = "Uma cena por momento-chave da historia biblica (imagem_index sequencial a partir de 0)"
+    elif language.startswith("es"):
+        image_instruction = (
+            f"Cada escena generara una imagen biblica. Crea entre {min_cenas} y {max_cenas} escenas "
+            f"para cubrir la historia en ~{duracao}s."
+        )
+        cena_instruction = "Una escena por momento clave de la historia biblica (imagem_index secuencial desde 0)"
+    else:
+        image_instruction = (
+            f"Each scene will generate a biblical image. Create between {min_cenas} and {max_cenas} scenes "
+            f"to cover the story in ~{duracao}s."
+        )
+        cena_instruction = "One scene per key moment in the biblical story (imagem_index sequential from 0)"
+
+    template = _BIBLE_SYSTEM_PROMPTS.get(language)
+    if not template:
+        template = _BIBLE_SYSTEM_PROMPTS["en-US"]
+
+    return template.format(
+        bible_version=bible_version,
+        narrative_time=narrative_time,
+        lesson_time=lesson_time,
+        reflection_instruction=reflection_instruction,
+        image_instruction=image_instruction,
+        story_ref=story_ref,
+        duracao=duracao,
+        n_cenas=n_cenas,
+        cena_instruction=cena_instruction,
+    )
+
+
 async def generate_script(
     image_paths: list[str] | None = None,
     tema: str = "",
@@ -259,6 +453,18 @@ async def generate_script(
                 f"Exemplo ERRADO: 'Uma pessoa sorridente abrindo cortinas'."
             )
             tom = char_tone or tom
+
+    # Bible mode: dedicated system prompt for faithful biblical narration
+    bible_config = cfg.get("bible_config")
+    if bible_config:
+        script_mode = bible_config.get("script_mode", "ai")
+        if script_mode == "manual":
+            manual_text = bible_config.get("manual_text", tema)
+            return parse_manual_script(manual_text, duracao)
+        # AI mode: use bible-specific system prompt
+        system_prompt = _get_bible_system_prompt(cfg)
+        # Character DNA does NOT influence biblical scripts
+        character_section = ""
 
     if image_paths:
         n_imagens = len(image_paths)

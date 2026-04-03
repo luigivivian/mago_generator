@@ -25,6 +25,14 @@ _PAUSE_BETWEEN_GENERATIONS = 2.0  # seconds between API calls
 _MAX_RETRIES_429 = 2
 _RETRY_BASE_WAIT = 60  # seconds, doubles each retry
 
+BIBLE_STYLE_DNA = (
+    "Modern cartoon illustration style inspired by 'The Bible Project'. "
+    "Clean lines, warm earth tones, soft cel-shading. "
+    "Historical biblical setting with accurate period clothing and architecture. "
+    "Accessible and visually appealing, not photorealistic. "
+    "Vertical 9:16 composition (1080x1920)."
+)
+
 
 def _scale_and_pad(img: PIL.Image.Image, width: int, height: int) -> PIL.Image.Image:
     """Scale image to fit within target dimensions and pad to exact size.
@@ -105,6 +113,7 @@ async def generate_reel_images(
     output_dir: str,
     count: int | None = None,
     db_config: dict | None = None,
+    config_override: dict | None = None,
 ) -> list[str]:
     """Generate vertical 9:16 images for a Reel via Gemini API.
 
@@ -114,25 +123,36 @@ async def generate_reel_images(
         output_dir: Directory to save generated images.
         count: Number of images to generate (overrides config).
         db_config: Optional DB config dict with image_count override.
+        config_override: Optional config dict; when bible_config present, uses BIBLE_STYLE_DNA.
 
     Returns:
         List of saved image file paths (1080x1920 JPEG).
     """
+    cfg = config_override or {}
+    bible_config = cfg.get("bible_config")
+    is_bible_mode = bool(bible_config)
+
     n_images = count or (db_config or {}).get("image_count") or REELS_IMAGE_COUNT
     os.makedirs(output_dir, exist_ok=True)
 
     client = _get_client()
     saved_paths: list[str] = []
 
-    # Load character context if provided
+    # Load character context if provided (skip in bible mode)
     char_ctx = None
-    if character_id:
+    if not is_bible_mode and character_id:
         char_ctx = await _load_character_context(character_id)
         if char_ctx:
             logger.info(f"Using character '{char_ctx['name']}' with {len(char_ctx['ref_images'])} refs")
 
-    # Build prompt based on whether character is attached
-    if char_ctx and char_ctx.get("character_dna"):
+    # Build prompt based on mode
+    if is_bible_mode:
+        prompt_base = (
+            f"Instagram Reels vertical 9:16 scene. Theme: {tema}.\n\n"
+            f"STYLE:\n{BIBLE_STYLE_DNA}\n\n"
+            "High quality, cinematic lighting, reverent composition."
+        )
+    elif char_ctx and char_ctx.get("character_dna"):
         prompt_base = (
             f"Instagram Reels vertical 9:16 scene. Theme: {tema}.\n\n"
             f"CHARACTER (replicate precisely from reference images):\n"
@@ -177,18 +197,24 @@ async def generate_reel_images_per_cena(
     cenas: list[dict],
     character_id: int | None,
     output_dir: str,
+    config_override: dict | None = None,
 ) -> list[str]:
     """Generate one image per cena using script context. Per REELV2-02.
 
     Each image prompt includes character DNA + cena narracao + legenda_overlay + position.
+    When bible_config present in config_override, uses BIBLE_STYLE_DNA instead.
     Generates exactly len(cenas) images (1 per cena).
     """
+    cfg = config_override or {}
+    bible_config = cfg.get("bible_config")
+    is_bible_mode = bool(bible_config)
+
     os.makedirs(output_dir, exist_ok=True)
     client = _get_client()
     saved_paths: list[str] = []
 
     char_ctx = None
-    if character_id:
+    if not is_bible_mode and character_id:
         char_ctx = await _load_character_context(character_id)
         if char_ctx:
             logger.info(f"Per-cena gen: character '{char_ctx['name']}' with {len(char_ctx['ref_images'])} refs")
@@ -214,7 +240,17 @@ async def generate_reel_images_per_cena(
                 "The viewer decides to stay or scroll in under 1 second based on this image.\n\n"
             )
 
-        if char_ctx and char_ctx.get("character_dna"):
+        if is_bible_mode:
+            prompt = (
+                f"{hook_prefix}"
+                f"BIBLICAL SCENE NARRATION:\n"
+                f'"{narracao}"\n\n'
+                f"VISUAL DIRECTION:\n"
+                f"{overlay}\n\n"
+                f"STYLE:\n{BIBLE_STYLE_DNA}\n\n"
+                f"Scene {i+1} of {n}. Cinematic lighting, reverent composition."
+            )
+        elif char_ctx and char_ctx.get("character_dna"):
             prompt = (
                 f"{hook_prefix}"
                 f"WHAT THE CHARACTER IS SAYING (the image MUST illustrate this message):\n"

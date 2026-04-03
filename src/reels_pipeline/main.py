@@ -270,6 +270,7 @@ class ReelsPipeline:
                 cenas=cenas_to_generate,
                 character_id=character_id,
                 output_dir=images_dir,
+                config_override=self.config,
             )
             # Move generated images to their correct cena positions
             for gen_idx, orig_idx in enumerate(cena_index_map):
