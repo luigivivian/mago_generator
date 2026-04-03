@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronDown, Check, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Sparkles, ChevronDown, Check, ChevronsLeft, ChevronsRight, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useCharacterContext } from "@/contexts/character-context";
@@ -17,9 +17,13 @@ const STATUS_BADGE: Record<string, { label: string; color: string }> = {
 
 function CharacterSelector({ collapsed }: { collapsed: boolean }) {
   const [open, setOpen] = useState(false);
-  const { characters, activeCharacter, setActiveSlug } = useCharacterContext();
+  const { characters, activeCharacter, activeSlug, setActiveSlug } = useCharacterContext();
+  const isAllSelected = activeSlug === "";
 
-  if (!activeCharacter) return null;
+  if (characters.length === 0 && !isAllSelected) return null;
+
+  const displayName = isAllSelected ? "Todos" : (activeCharacter?.name ?? "Todos");
+  const displayInitial = isAllSelected ? null : (activeCharacter?.name.charAt(0) ?? "?");
 
   if (collapsed) {
     return (
@@ -28,18 +32,20 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
           onClick={() => setOpen(!open)}
           className={cn(
             "flex h-10 w-10 items-center justify-center rounded-xl mx-auto",
-            "bg-primary/10 text-primary text-sm font-bold",
-            "transition-all duration-200 hover:bg-primary/15 cursor-pointer"
+            isAllSelected
+              ? "bg-white/[0.06] text-muted-foreground"
+              : "bg-primary/10 text-primary",
+            "text-sm font-bold transition-all duration-200 hover:bg-primary/15 cursor-pointer"
           )}
-          title={activeCharacter.name}
+          title={displayName}
         >
-          {activeCharacter.name.charAt(0)}
+          {isAllSelected ? <LayoutGrid className="h-4 w-4" /> : displayInitial}
         </button>
       </div>
     );
   }
 
-  const badge = STATUS_BADGE[activeCharacter.status] ?? STATUS_BADGE.draft;
+  const badge = activeCharacter ? (STATUS_BADGE[activeCharacter.status] ?? STATUS_BADGE.draft) : null;
 
   return (
     <div className="relative px-3 pb-2">
@@ -52,12 +58,22 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
           open && "bg-white/[0.03] border-primary/20"
         )}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary text-sm font-bold">
-          {activeCharacter.name.charAt(0)}
-        </div>
+        {isAllSelected ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] text-muted-foreground">
+            <LayoutGrid className="h-4 w-4" />
+          </div>
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary text-sm font-bold">
+            {displayInitial}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{activeCharacter.name}</p>
-          <p className="text-xs text-muted-foreground truncate">{activeCharacter.handle}</p>
+          <p className="text-sm font-medium truncate">
+            {isAllSelected ? "Todos os Personagens" : activeCharacter?.name}
+          </p>
+          {!isAllSelected && activeCharacter && (
+            <p className="text-xs text-muted-foreground truncate">{activeCharacter.handle}</p>
+          )}
         </div>
         <ChevronDown className={cn(
           "h-4 w-4 text-muted-foreground transition-transform duration-200",
@@ -75,8 +91,33 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
             className="absolute left-3 right-3 top-full z-50 mt-1 rounded-xl border border-white/[0.06] bg-[var(--color-surface-2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden"
           >
             <div className="p-1 max-h-64 overflow-y-auto">
+              {/* "Todos os Personagens" option */}
+              <button
+                onClick={() => {
+                  setActiveSlug("");
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left",
+                  "transition-colors duration-150 cursor-pointer",
+                  isAllSelected ? "bg-primary/8" : "hover:bg-white/[0.04]"
+                )}
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.06] text-muted-foreground">
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">Todos os Personagens</p>
+                </div>
+                {isAllSelected && <Check className="h-4 w-4 text-primary" />}
+              </button>
+
+              {/* Divider */}
+              <div className="border-t border-white/[0.04] my-1" />
+
+              {/* Character entries */}
               {characters.map((char) => {
-                const isActive = char.slug === activeCharacter.slug;
+                const isActive = char.slug === activeSlug;
                 const charBadge = STATUS_BADGE[char.status] ?? STATUS_BADGE.draft;
                 return (
                   <button

@@ -14,7 +14,7 @@ interface CharacterContextType {
 
 const CharacterContext = createContext<CharacterContextType>({
   characters: [],
-  activeSlug: "mago-mestre",
+  activeSlug: "",
   setActiveSlug: () => {},
   activeCharacter: null,
   isLoading: true,
@@ -23,7 +23,7 @@ const CharacterContext = createContext<CharacterContextType>({
 const STORAGE_KEY = "clip-flow-active-character";
 
 export function CharacterProvider({ children }: { children: React.ReactNode }) {
-  const [activeSlug, setActiveSlugState] = useState("mago-mestre");
+  const [activeSlug, setActiveSlugState] = useState("");
   const { data, isLoading } = useCharacters();
   const characters = data?.characters ?? [];
 
@@ -37,8 +37,9 @@ export function CharacterProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, slug);
   }, []);
 
-  const activeCharacter =
-    characters.find((c) => c.slug === activeSlug) ?? characters[0] ?? null;
+  const activeCharacter = activeSlug
+    ? (characters.find((c) => c.slug === activeSlug) ?? null)
+    : null;
 
   return (
     <CharacterContext.Provider
