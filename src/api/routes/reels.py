@@ -319,6 +319,7 @@ async def _execute_step_task(
                         output_path=video_path,
                         transition_duration=0.3,
                         script_json=script_json,
+                        config_override=config_override,
                     )
                     step_data["path"] = video_path
                     step_data["status"] = "complete"
@@ -662,6 +663,95 @@ async def create_interactive_reel(
     await _mark_tema_used(db, current_user.id, req.tema)
 
     return {"job_id": job_id, "step_state": step_state}
+
+
+# ── Series CRUD endpoints (Phase 1001) ────────────────────────────────────
+
+
+@router.get("/series", summary="List user's reels series")
+async def list_series(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """List all reels series owned by the current user."""
+    from src.database.models import ReelsSeries
+
+    result = await db.execute(
+        select(ReelsSeries).where(
+            ReelsSeries.user_id == current_user.id
+        ).order_by(ReelsSeries.created_at.desc())
+    )
+    series_list = result.scalars().all()
+    return [
+        {
+            "id": s.id,
+            "title": s.title,
+            "description": s.description,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in series_list
+    ]
+
+
+@router.post("/series", summary="Create a reels series")
+async def create_series(
+    req: dict = Body(...),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """Create a new reels series for organizing multi-part biblical content."""
+    from src.database.models import ReelsSeries
+
+    series = ReelsSeries(
+        user_id=current_user.id,
+        title=req.get("title", ""),
+        description=req.get("description"),
+    )
+    db.add(series)
+    await db.commit()
+    await db.refresh(series)
+    return {
+        "id": series.id,
+        "title": series.title,
+        "description": series.description,
+    }
+
+
+@router.get("/series/{series_id}/parts", summary="List parts in a series")
+async def list_series_parts(
+    series_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """List all reel jobs that belong to a series, ordered by part_number."""
+    from src.database.models import ReelsSeries
+
+    s_result = await db.execute(
+        select(ReelsSeries).where(
+            ReelsSeries.id == series_id,
+            ReelsSeries.user_id == current_user.id,
+        )
+    )
+    if not s_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    result = await db.execute(
+        select(ReelsJob).where(
+            ReelsJob.series_id == series_id,
+            ReelsJob.user_id == current_user.id,
+        ).order_by(ReelsJob.part_number)
+    )
+    jobs = result.scalars().all()
+    return [
+        {
+            "job_id": j.job_id,
+            "part_number": j.part_number,
+            "tema": j.tema,
+            "status": j.status,
+            "created_at": j.created_at.isoformat() if j.created_at else None,
+        }
+        for j in jobs
+    ]
 
 
 @router.get("/{job_id}/step-state", summary="Get interactive job step state")
@@ -1494,6 +1584,11 @@ async def retry_scene(
         if cfg:
             config_override = {"video_model": cfg.video_model}
 
+    # Flow bible_config for subtitle styling in auto-reassembly
+    job_config = step_state.get("config", {})
+    if "bible_config" in job_config:
+        config_override["bible_config"] = job_config["bible_config"]
+
     session_factory = get_session_factory()
     background_tasks.add_task(
         _retry_scene_task, job_id, scene_index, prompt, config_override, session_factory
@@ -1626,6 +1721,7 @@ async def _retry_scene_task(
                         output_path=video_path,
                         transition_duration=0.3,
                         script_json=script_json,
+                        config_override=config_override,
                     )
                     step_state.setdefault("video", {})["path"] = video_path
                     job.video_path = video_path
@@ -1793,6 +1889,12 @@ async def _reassemble_video_task(job_id: str, session_factory):
             script_json = step_state.get("script", {}).get("json", {})
             video_path = os.path.join(job_dir, "final.mp4")
 
+            # Extract bible_config from step_state for subtitle styling
+            reassemble_cfg = {}
+            job_config = step_state.get("config", {})
+            if "bible_config" in job_config:
+                reassemble_cfg["bible_config"] = job_config["bible_config"]
+
             concat_clips_with_audio(
                 clip_paths=clip_paths,
                 audio_path=audio_path,
@@ -1800,6 +1902,7 @@ async def _reassemble_video_task(job_id: str, session_factory):
                 output_path=video_path,
                 transition_duration=0.3,
                 script_json=script_json,
+                config_override=reassemble_cfg,
             )
 
             video_data["path"] = video_path
