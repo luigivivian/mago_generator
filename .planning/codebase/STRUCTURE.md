@@ -1,381 +1,281 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-30
+**Analysis Date:** 2026-04-02
 
 ## Directory Layout
 
 ```
-meme-lab/                        # Monorepo root
-├── config.py                    # Global config (paths, API keys, model IDs, flags)
-├── requirements.txt             # Python dependencies
-├── pyproject.toml               # Python project metadata
-├── alembic.ini                  # Alembic migrations config
-├── .env                         # Secrets (not committed)
-├── .env.example                 # Required env var template
-│
-├── src/                         # Python backend source
-│   ├── api/                     # FastAPI app, routes, models, deps
-│   │   ├── app.py               # FastAPI app factory + lifespan
-│   │   ├── deps.py              # Shared FastAPI Depends (session, auth, helpers)
-│   │   ├── models.py            # All Pydantic request/response models
-│   │   ├── serializers.py       # ORM → dict serialization helpers
-│   │   ├── registry.py          # Agent/worker registry
-│   │   ├── log_sanitizer.py     # Strips API keys from logs
-│   │   └── routes/              # One file per domain (16 modules)
-│   │       ├── auth.py          # /auth/* (login, register, logout, me)
-│   │       ├── generation.py    # /generate/* (single, batch, refine, compose)
-│   │       ├── video.py         # /generate/video/* (Kie.ai jobs, legend)
-│   │       ├── pipeline.py      # /pipeline/* (run, status, manual)
-│   │       ├── reels.py         # /reels/* (create, step execution, config)
-│   │       ├── ads.py           # /ads/* (create, step execution, file upload)
-│   │       ├── characters.py    # /characters/* (CRUD + refs)
-│   │       ├── content.py       # /content, /images, /phrases
-│   │       ├── jobs.py          # /jobs/* (status, list, sync)
-│   │       ├── themes.py        # /themes/* (CRUD + AI generate)
-│   │       ├── publishing.py    # /publishing/* (schedule, calendar)
-│   │       ├── dashboard.py     # /dashboard/* (metrics, stats)
-│   │       ├── billing.py       # /billing/* (Stripe, plans)
-│   │       ├── agents.py        # /agents, /trends
-│   │       ├── drive.py         # /drive/*, /status (file serving)
-│   │       └── instagram.py     # /instagram/* (OAuth callback)
-│   │
-│   ├── database/                # ORM models, session, migrations, repositories
-│   │   ├── base.py              # DeclarativeBase + TimestampMixin
-│   │   ├── models.py            # All SQLAlchemy ORM models (16 tables)
-│   │   ├── session.py           # Async engine + session factory + init_db()
-│   │   ├── seed.py              # Dev seed data
-│   │   ├── converters.py        # ORM <-> dict conversion helpers
-│   │   ├── migrations/          # Alembic migration scripts
-│   │   │   └── versions/        # 020 numbered migrations (001-020)
-│   │   └── repositories/        # Per-entity repository classes
-│   │       ├── character_repo.py
-│   │       ├── content_repo.py
-│   │       ├── job_repo.py
-│   │       ├── pipeline_repo.py
-│   │       ├── schedule_repo.py
-│   │       ├── theme_repo.py
-│   │       ├── usage_repo.py
-│   │       └── user_repo.py
-│   │
-│   ├── auth/                    # JWT auth: tokens, user service, schemas
-│   │   ├── jwt.py               # create_access_token, verify_access_token
-│   │   ├── service.py           # register/login/logout business logic
-│   │   └── schemas.py           # Auth Pydantic schemas
-│   │
-│   ├── billing/                 # Stripe billing integration
-│   │   ├── stripe_service.py
-│   │   ├── plans.py
-│   │   └── schemas.py
-│   │
-│   ├── pipeline/                # Meme content multi-agent pipeline
-│   │   ├── orchestrator.py      # Sync orchestrator (legacy)
-│   │   ├── async_orchestrator.py # Async orchestrator (current)
-│   │   ├── broker.py            # Ingest queue + dedup
-│   │   ├── curator.py           # Topic selection
-│   │   ├── scheduler.py         # Run scheduling
-│   │   ├── monitoring.py        # Pipeline metrics
-│   │   ├── models.py            # PipelineResult, AnalyzedTopic, TrendItem
-│   │   ├── models_v2.py         # WorkOrder, ContentPackage (v2 data models)
-│   │   ├── agents/              # Trend-fetching source agents
-│   │   │   ├── base.py          # BaseAgent abstract class
-│   │   │   ├── async_base.py    # AsyncBaseAgent
-│   │   │   ├── google_trends.py
-│   │   │   ├── reddit_memes.py
-│   │   │   ├── rss_feeds.py
-│   │   │   ├── youtube_rss.py
-│   │   │   ├── youtube_shorts.py
-│   │   │   ├── bluesky_trends.py
-│   │   │   ├── brazil_viral_rss.py
-│   │   │   ├── gemini_web_trends.py
-│   │   │   └── ...              # tiktok, twitter, instagram, facebook stubs
-│   │   ├── processors/          # Aggregation, analysis, generation
-│   │   │   ├── aggregator.py    # TrendAggregator (dedup + rank)
-│   │   │   ├── analyzer.py      # ClaudeAnalyzer (Gemini topic analysis)
-│   │   │   └── generator.py     # ContentGenerator (wraps workers)
-│   │   └── workers/             # Per-content-type generators
-│   │       ├── phrase_worker.py # Gemini text phrase generation
-│   │       ├── image_worker.py  # Gemini/ComfyUI image + Pillow compose
-│   │       ├── caption_worker.py
-│   │       ├── hashtag_worker.py
-│   │       ├── quality_worker.py
-│   │       ├── legend_worker.py
-│   │       ├── generation_layer.py  # Coordinates phrase + image workers
-│   │       └── post_production.py
-│   │
-│   ├── image_gen/               # Image generation clients
-│   │   ├── gemini_client.py     # Gemini image API client + SITUACOES dict
-│   │   ├── comfyui_client.py    # ComfyUI local API client
-│   │   ├── prompt_builder.py    # Image prompt construction
-│   │   └── workflows/           # ComfyUI workflow JSON files
-│   │
-│   ├── video_gen/               # Kie.ai video generation
-│   │   ├── kie_client.py        # KieSora2Client (async, exponential backoff)
-│   │   ├── gcs_uploader.py      # Google Cloud Storage uploader
-│   │   ├── legend_renderer.py   # FFmpeg text overlay
-│   │   ├── video_prompt_builder.py
-│   │   └── stale_job_scanner.py # Background scanner for stuck jobs
-│   │
-│   ├── reels_pipeline/          # Instagram Reels end-to-end pipeline
-│   │   ├── main.py              # ReelsPipeline orchestrator
-│   │   ├── image_gen.py         # Gemini scene image generation
-│   │   ├── script_gen.py        # Gemini multimodal script generation
-│   │   ├── tts.py               # Gemini Flash TTS narration
-│   │   ├── transcriber.py       # Gemini audio transcription → SRT
-│   │   ├── video_builder.py     # FFmpeg xfade assembly
-│   │   ├── config.py            # Reels-specific config
-│   │   └── models.py            # Pydantic models for reels API
-│   │
-│   ├── product_studio/          # Product Ad 8-step pipeline
-│   │   ├── pipeline.py          # ProductAdPipeline orchestrator
-│   │   ├── bg_remover.py        # rembg background removal
-│   │   ├── scene_composer.py    # Gemini scene composition
-│   │   ├── prompt_builder.py    # Cinematic video prompt generation
-│   │   ├── copy_generator.py    # Headline + CTA + hashtag generation
-│   │   ├── music_client.py      # Suno music API client
-│   │   ├── format_exporter.py   # FFmpeg multi-format export
-│   │   ├── config.py            # Ad pipeline config + step order
-│   │   └── models.py            # Pydantic models for ads API
-│   │
-│   ├── services/                # Background services + integrations
-│   │   ├── publisher.py         # PublishingService (Instagram Graph API)
-│   │   ├── scheduler_worker.py  # Scheduled post processor (60s interval)
-│   │   ├── instagram_oauth.py   # OAuth token exchange
-│   │   ├── instagram_client.py  # Instagram Graph API client
-│   │   ├── insights_collector.py
-│   │   ├── key_selector.py      # Gemini API key rotation selector
-│   │   └── stripe_billing.py    # Stripe webhook handler
-│   │
-│   ├── llm_client.py            # Unified LLM interface (Gemini/Ollama)
-│   ├── image_maker.py           # Pillow image composition (text overlay)
-│   ├── characters.py            # Character config helpers (legacy)
-│   ├── phrases.py               # Phrase generation helpers (legacy)
-│   ├── pipeline_cli.py          # CLI entry point for pipeline
-│   └── cli.py                   # General CLI helpers
-│
-├── memelab/                     # Next.js 15 frontend dashboard
-│   ├── next.config.ts           # Proxy rewrites: /api/* → localhost:8000
-│   ├── package.json
-│   └── src/
-│       ├── app/                 # Next.js App Router
-│       │   ├── layout.tsx       # Root layout (AuthProvider wrap)
-│       │   ├── page.tsx         # / → redirect to /dashboard
-│       │   ├── globals.css      # Tailwind 4 @theme design tokens
-│       │   ├── login/page.tsx
-│       │   ├── register/page.tsx
-│       │   ├── landing/page.tsx
-│       │   └── (app)/           # Auth-protected route group
-│       │       ├── layout.tsx   # Auth guard + Shell wrapper
-│       │       ├── dashboard/page.tsx
-│       │       ├── gallery/page.tsx
-│       │       ├── pipeline/page.tsx
-│       │       ├── agents/page.tsx
-│       │       ├── trends/page.tsx
-│       │       ├── phrases/page.tsx
-│       │       ├── characters/
-│       │       │   ├── page.tsx
-│       │       │   ├── new/page.tsx
-│       │       │   └── [slug]/page.tsx + refs/page.tsx
-│       │       ├── jobs/page.tsx
-│       │       ├── videos/page.tsx
-│       │       ├── reels/
-│       │       │   ├── page.tsx
-│       │       │   └── [jobId]/page.tsx
-│       │       ├── ads/
-│       │       │   ├── page.tsx
-│       │       │   ├── new/page.tsx
-│       │       │   └── [jobId]/page.tsx
-│       │       ├── publishing/page.tsx
-│       │       ├── billing/page.tsx
-│       │       ├── settings/page.tsx + instagram/callback/page.tsx
-│       │       └── themes/page.tsx
-│       ├── components/
-│       │   ├── layout/          # Shell, Sidebar, Header, VideoProgress
-│       │   ├── ads/             # 8 step components + stepper + wizard
-│       │   ├── reels/           # 6 step components + stepper + SRT editor
-│       │   ├── agents/          # Agent config + modal
-│       │   ├── panels/          # PipelineDiagram (SVG), StatsCard
-│       │   └── ui/              # shadcn/ui primitives (button, card, dialog, etc.)
-│       ├── contexts/
-│       │   ├── auth-context.tsx # JWT auth state, login/logout/register
-│       │   └── character-context.tsx
-│       ├── hooks/
-│       │   ├── use-api.ts       # SWR hooks for status, images, pipeline
-│       │   ├── use-pipeline.ts  # Pipeline execution + polling
-│       │   ├── use-ads.ts       # Ad job polling hooks
-│       │   └── use-reels.ts     # Reels job polling hooks
-│       └── lib/
-│           ├── api.ts           # HTTP client + all API function calls + TypeScript types
-│           ├── constants.ts     # NAV_ITEMS, color maps
-│           ├── utils.ts         # cn() (clsx + tailwind-merge)
-│           └── animations.ts    # Framer Motion presets
-│
-├── assets/                      # Static assets
-│   ├── backgrounds/             # Character background images (organized by character)
-│   └── fonts/                   # Pillow font files (.ttf)
-│
-├── characters/                  # Per-character reference image directories
-│   ├── mago-mestre/refs/approved/
-│   └── mario-sincero/refs/approved/
-│
-├── output/                      # Generated output (not committed)
-│   ├── ads/                     # Product ad job directories
-│   ├── reels/                   # Reels job directories
-│   ├── videos/                  # Generated MP4 files
-│   └── backgrounds_generated/   # Gemini-generated backgrounds
-│
-├── tests/                       # Python test suite
-├── scripts/                     # One-off utility scripts
-├── config/                      # YAML config files (themes.yaml)
-├── data/                        # SQLite DB file (dev)
-├── docs/                        # Additional documentation
-└── .planning/                   # GSD planning docs (not committed)
+meme-lab/                          # Project root
+├── src/                           # Python FastAPI backend
+│   ├── api/                       # HTTP layer — routes, deps, models, serializers
+│   │   ├── app.py                 # FastAPI app factory + router registration + lifespan
+│   │   ├── deps.py                # Shared FastAPI dependencies (auth, db, theme resolver)
+│   │   ├── models.py              # Pydantic request/response schemas
+│   │   ├── serializers.py         # ORM → dict converters
+│   │   ├── registry.py            # Agent registry
+│   │   └── routes/                # One file per domain (16 route modules)
+│   ├── auth/                      # Auth domain (JWT, bcrypt, service)
+│   ├── billing/                   # Stripe billing schemas and service
+│   ├── database/                  # ORM models, repositories, migrations, session
+│   │   ├── models.py              # All 19 SQLAlchemy ORM models (single file)
+│   │   ├── base.py                # DeclarativeBase + TimestampMixin
+│   │   ├── repositories/          # Typed async repo classes
+│   │   ├── migrations/            # Alembic migration scripts (027 versions)
+│   │   └── seed.py                # DB seeding script
+│   ├── services/                  # Cross-domain services (credits, publisher, scheduler, etc.)
+│   ├── pipeline/                  # Multi-agent content pipeline (L1-L5 agents)
+│   │   ├── orchestrator.py        # Sync orchestrator
+│   │   ├── async_orchestrator.py  # Async orchestrator (current)
+│   │   ├── broker.py              # Trend broker
+│   │   ├── curator.py             # Content curator
+│   │   ├── workers/               # Individual pipeline workers
+│   │   └── processors/            # Aggregator, analyzer, generator
+│   ├── reels_pipeline/            # Instagram Reels pipeline (7 steps)
+│   │   ├── main.py                # Orchestrator: chains image→script→TTS→SRT→video
+│   │   ├── image_gen.py           # Gemini image generation for reel scenes
+│   │   ├── script_gen.py          # Gemini script generation
+│   │   ├── tts.py                 # Gemini TTS narration
+│   │   ├── transcriber.py         # Gemini transcription → SRT
+│   │   ├── video_builder.py       # FFmpeg xfade assembly
+│   │   ├── asset_registry.py      # Scene asset semantic reuse
+│   │   ├── models.py              # Pydantic schemas for reels API
+│   │   └── config.py              # Output dirs, constants
+│   ├── product_studio/            # Product Ad pipeline (8 steps)
+│   │   ├── pipeline.py            # 8-step orchestrator
+│   │   ├── scene_composer.py      # Gemini Vision product analysis
+│   │   ├── bg_remover.py          # rembg background removal
+│   │   ├── prompt_builder.py      # Cinematic prompt generation
+│   │   ├── copy_generator.py      # Headline + CTA generation
+│   │   ├── music_client.py        # Suno AI music generation
+│   │   ├── format_exporter.py     # FFmpeg multi-format export
+│   │   ├── models.py              # Pydantic schemas for ads API
+│   │   └── config.py              # Step order, output dirs, style presets
+│   ├── video_gen/                 # Kie.ai video generation client
+│   │   ├── kie_client.py          # KieSora2Client: create task, poll, download
+│   │   ├── video_prompt_builder.py # Motion prompt construction per theme
+│   │   ├── legend_renderer.py     # Subtitle/legend overlay (FFmpeg)
+│   │   ├── gcs_uploader.py        # GCS upload for Kie.ai image URLs
+│   │   └── stale_job_scanner.py   # Background thread to detect stuck jobs
+│   ├── image_gen/                 # Gemini image generation client
+│   │   └── gemini_client.py       # Image gen, ref loading, model discovery
+│   ├── llm_client.py              # LLM client (Gemini/Ollama abstraction)
+│   └── characters.py              # Character DNA utilities (legacy)
+├── memelab/                       # Next.js 15 frontend (App Router)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx         # Root layout (dark mode, Inter font, AuthProvider)
+│   │   │   ├── page.tsx           # Redirect / → /dashboard
+│   │   │   ├── login/page.tsx     # Login form
+│   │   │   ├── register/page.tsx  # Register form
+│   │   │   ├── landing/page.tsx   # Public landing page
+│   │   │   └── (app)/             # Authenticated route group
+│   │   │       ├── layout.tsx     # Auth guard + Shell wrapper
+│   │   │       ├── dashboard/     # Stats, charts, pipeline overview
+│   │   │       ├── characters/    # Character list, detail, new, refs sub-pages
+│   │   │       ├── gallery/       # Image browser + theme filter
+│   │   │       ├── videos/        # Video gallery + generation
+│   │   │       ├── reels/         # Reels job list + interactive wizard
+│   │   │       ├── ads/           # Ad job list + wizard
+│   │   │       ├── agents/        # Agent grid
+│   │   │       ├── pipeline/      # Pipeline control + SVG diagram
+│   │   │       ├── themes/        # Theme CRUD
+│   │   │       ├── phrases/       # Phrase generator
+│   │   │       ├── trends/        # Trending topics feed
+│   │   │       ├── jobs/          # Batch job monitor
+│   │   │       ├── publishing/    # Schedule queue + calendar
+│   │   │       ├── credits/       # Credit balance + log + admin top-up
+│   │   │       ├── billing/       # Stripe plan management
+│   │   │       └── settings/      # User settings + Instagram OAuth callback
+│   │   ├── components/
+│   │   │   ├── layout/            # Shell, Sidebar, Header, VideoProgress
+│   │   │   ├── reels/             # Reels step components (step-*.tsx)
+│   │   │   ├── ads/               # Ads wizard step components (step-*.tsx)
+│   │   │   ├── agents/            # Agent modal + config
+│   │   │   ├── panels/            # StatsCard, PipelineDiagram (SVG)
+│   │   │   └── ui/                # shadcn/ui primitives (button, card, dialog, etc.)
+│   │   ├── contexts/
+│   │   │   ├── auth-context.tsx   # JWT token storage + user state + auto-401 redirect
+│   │   │   └── character-context.tsx # Active character selection (shared across pages)
+│   │   ├── hooks/
+│   │   │   ├── use-api.ts         # SWR hooks for all backend endpoints
+│   │   │   ├── use-reels.ts       # SWR hooks for reels-specific endpoints
+│   │   │   ├── use-ads.ts         # SWR hooks for ads-specific endpoints
+│   │   │   └── use-pipeline.ts    # Pipeline execution hook with polling
+│   │   └── lib/
+│   │       ├── api.ts             # Typed HTTP client — all fetch calls, all TypeScript types
+│   │       ├── constants.ts       # NAV_ITEMS, color maps, platform labels
+│   │       ├── utils.ts           # cn() (clsx + tailwind-merge)
+│   │       └── animations.ts      # Framer Motion stagger variants
+│   └── next.config.ts             # Next.js rewrites: /api/* → http://127.0.0.1:8000/*
+├── config.py                      # Global config: paths, API keys (env), video models, pipeline settings
+├── alembic.ini                    # Alembic DB migration config
+├── pyproject.toml                 # Python project + deps
+├── requirements.txt               # Pip requirements
+├── characters/                    # Character ref images (filesystem)
+│   └── {character-slug}/refs/{approved,pending,rejected}/
+├── assets/                        # Static assets (backgrounds, fonts)
+├── output/                        # Generated files (gitignored)
+│   ├── backgrounds_generated/     # Gemini/ComfyUI generated backgrounds (PNG)
+│   ├── memes/                     # Composed meme images (background + text)
+│   └── videos/                    # Generated Kie.ai video files (MP4)
+├── data/                          # SQLite DB file (default, gitignored)
+└── tests/                         # Python test suite
 ```
+
+---
 
 ## Directory Purposes
 
 **`src/api/routes/`:**
-- Purpose: One module per feature domain; each defines a FastAPI `APIRouter` with a `prefix`
-- Contains: Route handlers, inline `BackgroundTask` calls, validation, ORM queries via repositories
-- Key files: `ads.py` (product ad wizard), `reels.py` (reels wizard), `video.py` (Kie.ai video), `generation.py` (meme images)
+- Purpose: One FastAPI `APIRouter` per domain — HTTP boundary only
+- Files: `auth.py`, `video.py`, `reels.py`, `ads.py`, `credits.py`, `characters.py`, `generation.py`, `jobs.py`, `themes.py`, `pipeline.py`, `content.py`, `agents.py`, `drive.py`, `publishing.py`, `billing.py`, `dashboard.py`, `instagram.py`
+- Pattern: routes import service/repo, call business logic, return serialized response
 
 **`src/database/repositories/`:**
-- Purpose: Encapsulate all SQLAlchemy queries; enforce user ownership for multi-tenant isolation
-- Contains: One class per entity (e.g., `CharacterRepository`, `UserRepository`)
-- Key files: `character_repo.py` (most complex — ownership check on every query), `user_repo.py`
+- Purpose: Type-safe async DB access; one repo per model group
+- Files: `character_repo.py`, `content_repo.py`, `job_repo.py`, `pipeline_repo.py`, `schedule_repo.py`, `theme_repo.py`, `usage_repo.py`, `user_repo.py`
+- Pattern: each repo takes `AsyncSession` in `__init__`, exposes async methods
 
-**`src/pipeline/agents/`:**
-- Purpose: Pluggable trend-data fetchers, each wrapping one external source
-- Contains: Classes extending `BaseAgent` or `AsyncBaseAgent`
-- Key files: `google_trends.py`, `reddit_memes.py`, `rss_feeds.py` (active); TikTok/Instagram/Twitter are stubs
+**`src/database/migrations/versions/`:**
+- Purpose: Alembic migration history — 27 migrations from `001_initial_schema.py` to `027_credit_system.py`
+- Naming: `NNN_description.py` (sequential) + one UUID-named migration for characters rendering column
+- Run migrations: `alembic upgrade head`
 
-**`memelab/src/app/(app)/`:**
-- Purpose: All auth-protected pages; the route group's `layout.tsx` enforces auth redirect
-- Contains: Page components, mostly `"use client"` with SWR hooks
-- Key files: `ads/[jobId]/page.tsx` (stepper UI), `reels/[jobId]/page.tsx` (reels stepper)
-
-**`memelab/src/components/ads/`:**
-- Purpose: 8-step product ad pipeline wizard UI
-- Contains: `wizard.tsx` (job creation form), `stepper.tsx` (step orchestration), `step-*.tsx` (one per step)
-- Key files: `stepper.tsx` (polls step state, renders per-step component), `wizard.tsx` (initial job creation)
+**`src/reels_pipeline/` and `src/product_studio/`:**
+- Purpose: Self-contained domain pipelines with their own models, config, and step executors
+- These pipelines are called from their respective route files, not from the generic pipeline orchestrator
+- Both follow the same interactive stepper pattern via `step_state` JSON
 
 **`memelab/src/lib/api.ts`:**
-- Purpose: Single file for all backend communication — HTTP client, TypeScript types, and every API function
-- CRITICAL: TypeScript types here must match FastAPI response shapes exactly
+- Purpose: Single source of truth for all HTTP calls from the frontend
+- Contains TypeScript interfaces mirroring FastAPI response shapes
+- All SWR hooks in `use-api.ts`, `use-reels.ts`, `use-ads.ts` delegate to functions defined here
+
+**`memelab/src/contexts/auth-context.tsx`:**
+- Purpose: Central auth state — stores tokens, provides `login/logout/register`, hydrates on mount
+- Token storage: `localStorage` (persist=true) or `sessionStorage` (session-only) based on `rememberMe` flag
+- 401 handling in `memelab/src/lib/api.ts` clears tokens and redirects to `/login`
+
+---
 
 ## Key File Locations
 
 **Entry Points:**
-- `src/api/app.py`: FastAPI app — start with `python -m src.api --port 8000`
-- `memelab/next.config.ts`: Next.js config + `/api/*` proxy rewrite
-- `memelab/src/app/layout.tsx`: Root Next.js layout (AuthProvider)
-- `memelab/src/app/(app)/layout.tsx`: Auth guard for all protected routes
+- `src/api/app.py`: FastAPI app factory — lifespan, router registration, CORS
+- `src/api/__main__.py`: CLI entry point — `python -m src.api --port 8000`
+- `memelab/src/app/layout.tsx`: Next.js root layout — `AuthProvider` wraps entire tree
+- `memelab/src/app/(app)/layout.tsx`: Auth guard — redirects unauthenticated users to `/login`
 
 **Configuration:**
-- `config.py`: All Python config (DATABASE_URL, API keys, model IDs, cost limits)
-- `.env`: Runtime secrets (never committed)
-- `.env.example`: Documents required variables
-- `memelab/src/app/globals.css`: Tailwind 4 design tokens (`@theme`)
+- `config.py`: All Python config — paths, feature flags (`VIDEO_ENABLED`, `REELS_ENABLED`), API keys from env, video model catalog, pipeline settings
+- `memelab/next.config.ts`: Next.js rewrites (proxy to FastAPI)
+- `memelab/src/app/globals.css`: Tailwind 4 `@theme` design tokens (colors, radius, font)
 
 **Core Logic:**
-- `src/api/deps.py`: Shared FastAPI dependencies (`get_current_user`, `db_session`)
-- `src/api/models.py`: All Pydantic schemas for the API
-- `src/database/models.py`: All SQLAlchemy ORM models (16 tables)
-- `src/database/session.py`: Async session factory
-- `src/llm_client.py`: Unified LLM interface
-- `memelab/src/lib/api.ts`: All frontend API calls and TypeScript types
+- `src/database/models.py`: All 19 ORM tables in one file
+- `src/services/credit_service.py`: `CreditService` — only safe way to mutate credits
+- `src/api/deps.py`: `get_current_user`, `db_session`, `get_user_character`, `resolver_tema`
+- `src/auth/jwt.py`: JWT create/verify (PyJWT, HS256, 2h TTL)
+- `config.py` function `compute_credit_cost(model_id, duration)`: credit pricing table
 
-**Pipeline Orchestrators:**
-- `src/pipeline/async_orchestrator.py`: Meme content pipeline (async)
-- `src/reels_pipeline/main.py`: Reels pipeline
-- `src/product_studio/pipeline.py`: Product ad pipeline
+**Domain Pipelines:**
+- `src/reels_pipeline/main.py`: Reels orchestrator — 7-step sequential execution
+- `src/product_studio/pipeline.py`: Ads orchestrator — 8-step `run_step_*()` methods
+- `src/video_gen/kie_client.py`: `KieSora2Client` — Kie.ai lifecycle: create → poll → download
 
-**Testing:**
-- `tests/`: Python tests
-- `memelab/src/__tests__/`: TypeScript/React tests
+---
 
 ## Naming Conventions
 
-**Python Files:**
-- snake_case for all modules: `kie_client.py`, `character_repo.py`, `image_worker.py`
-- `_client.py` suffix for external API clients
-- `_repo.py` suffix for repository classes
-- `_worker.py` suffix for pipeline workers
-- Route files named after domain: `ads.py`, `reels.py`, `video.py`
+**Python files:**
+- Route files: `{domain}.py` (e.g., `video.py`, `reels.py`, `credits.py`)
+- Repository files: `{model_group}_repo.py`
+- Service files: `{service_name}_service.py` or `{name}_client.py`
+- Pipeline files: `{step_name}.py` (e.g., `script_gen.py`, `video_builder.py`)
 
-**Python Classes:**
-- PascalCase: `ProductAdPipeline`, `KieSora2Client`, `CharacterRepository`
-- Pydantic models end with `Request` or `Response`: `AdCreateRequest`, `AdJobResponse`
+**TypeScript files:**
+- Pages: `page.tsx` in directory matching route
+- Step components: `step-{step_name}.tsx` (e.g., `step-script.tsx`, `step-video.tsx`)
+- Hooks: `use-{domain}.ts`
+- Context files: `{domain}-context.tsx`
 
-**TypeScript Files:**
-- kebab-case for all files: `auth-context.tsx`, `step-analysis.tsx`, `use-ads.ts`
-- `step-*.tsx` for pipeline step components
-- `use-*.ts` for SWR hooks
+**Database tables:**
+- snake_case plural (e.g., `character_refs`, `reels_jobs`, `product_ad_jobs`, `credit_logs`)
+- Indexes prefixed: `idx_{table_abbrev}_{column}` (e.g., `idx_reels_jobs_user_id`)
 
-**Routes/Directories:**
-- kebab-case for Next.js routes: `[jobId]`, `mago-mestre`
-- Snake_case for Python packages: `reels_pipeline`, `product_studio`, `video_gen`
+**Frontend route paths:**
+- All under `memelab/src/app/(app)/` for authenticated pages
+- Character detail: `/characters/[slug]/page.tsx`
+- Reel detail: `/reels/[jobId]/page.tsx`
+- Ad detail: `/ads/[jobId]/page.tsx`
+
+---
 
 ## Where to Add New Code
 
-**New API Route Domain:**
-- Create `src/api/routes/{domain}.py` with `router = APIRouter(prefix="/{domain}", tags=[...])`
-- Register in `src/api/app.py`: `app.include_router({domain}.router)`
-- Add Pydantic models to `src/api/models.py` (or a domain-specific `src/{domain}/models.py`)
+**New API domain (e.g., a new pipeline type):**
+1. Create `src/api/routes/{domain}.py` with `router = APIRouter(prefix="/{domain}", tags=[...])`
+2. Register in `src/api/app.py`: `from src.api.routes import {domain}` + `app.include_router({domain}.router)`
+3. Add ORM model to `src/database/models.py`
+4. Create Alembic migration: `alembic revision --autogenerate -m "add_{domain}"`
+5. Add frontend page at `memelab/src/app/(app)/{domain}/page.tsx`
+6. Add fetch functions to `memelab/src/lib/api.ts`
+7. Add SWR hook to `memelab/src/hooks/use-api.ts`
+8. Add nav item to `memelab/src/lib/constants.ts` NAV_ITEMS
 
-**New Pipeline Step (Reels or Ads):**
-- Add step logic to `src/reels_pipeline/` or `src/product_studio/`
-- Add step name to `ADS_STEP_ORDER` in `src/product_studio/config.py` (or reels equivalent)
-- Add `run_step_{name}()` method to the pipeline class
-- Add route handler in the relevant routes file
-- Add frontend step component in `memelab/src/components/ads/step-{name}.tsx` or `reels/`
-- Wire step into `stepper.tsx`
+**New credit-gated operation:**
+1. Inject `CreditService(session)` in the route handler
+2. Call `await credit_svc.check_and_deduct(user_id, model_id, duration, job_type, job_id)` before the Kie.ai call
+3. Wrap in try/except `InsufficientCreditsError` → HTTP 402
+4. Call `await credit_svc.refund(...)` in the except block for API failures
 
-**New Frontend Page:**
-- Create `memelab/src/app/(app)/{slug}/page.tsx` for authenticated pages
-- Add to `NAV_ITEMS` in `memelab/src/lib/constants.ts` for sidebar navigation
-- If data fetching needed, add a hook in `memelab/src/hooks/use-{domain}.ts`
-- Add API functions and types to `memelab/src/lib/api.ts`
+**New step in an interactive pipeline:**
+1. Add step name to `ADS_STEP_ORDER` in `src/product_studio/config.py` or `STEP_ORDER` in `src/api/routes/reels.py`
+2. Add `run_step_{name}()` method to the pipeline class
+3. Add step handler in the route's step execution endpoint
+4. Add `step-{name}.tsx` component in `memelab/src/components/{domain}/`
 
-**New Database Table:**
-- Add ORM model class to `src/database/models.py`
-- Create Alembic migration: `alembic revision --autogenerate -m "description"`
-- Add repository class in `src/database/repositories/{entity}_repo.py`
+**New ORM model:**
+- Add class to `src/database/models.py` (always in this single file)
+- Include `user_id` FK for multi-tenant isolation
+- Add relationship to parent model
+- Generate Alembic migration
 
-**New Trend Agent:**
-- Create `src/pipeline/agents/{source}.py` extending `AsyncBaseAgent`
-- Implement `is_available()` and `fetch()` methods
-- Register in `src/api/registry.py`
+**New repository:**
+- Create `src/database/repositories/{model_group}_repo.py`
+- Accept `AsyncSession` in `__init__`
+- Add to `src/database/repositories/__init__.py`
 
-**Shared UI Components:**
-- Add to `memelab/src/components/ui/` following shadcn/ui pattern (Radix UI + CVA + Tailwind)
+---
 
 ## Special Directories
 
 **`output/`:**
-- Purpose: All generated files (images, videos, ad job directories)
-- Generated: Yes
+- Purpose: All generated files (images, videos, memes)
+- Generated: Yes (by pipeline workers and video generation)
 - Committed: No (in `.gitignore`)
+- Sub-dirs: `backgrounds_generated/` (PNG), `memes/` (PNG), `videos/` (MP4), `reels/` (MP4 + assets), `ads/` (MP4)
 
-**`data/`:**
-- Purpose: SQLite database file for local development
-- Generated: Yes (on first run)
+**`characters/{slug}/refs/`:**
+- Purpose: Character reference images for visual consistency in Gemini image generation
+- Structure: `approved/`, `pending/`, `rejected/` subdirs per character
+- Committed: Yes (for built-in characters like `mago-mestre`)
+
+**`src/database/migrations/versions/`:**
+- Purpose: Alembic migration history
+- Generated: Yes (by `alembic revision`)
+- Committed: Yes (version control for schema changes)
+
+**`memelab/.next/`:**
+- Purpose: Next.js build output
+- Generated: Yes
 - Committed: No
 
 **`.planning/`:**
-- Purpose: GSD planning docs, phase plans, debug notes
-- Generated: By GSD tooling
-- Committed: Selectively (phases and docs yes, debug notes no)
-
-**`src/database/migrations/versions/`:**
-- Purpose: Alembic migration history (20 migrations covering all schema changes)
-- Generated: Via `alembic revision`
-- Committed: Yes — required for schema reproducibility
-
-**`src/image_gen/workflows/`:**
-- Purpose: ComfyUI workflow JSON files for local GPU image generation
-- Generated: No (authored manually)
+- Purpose: GSD planning artifacts (phases, codebase docs, research)
+- Generated: Yes (by GSD commands)
 - Committed: Yes
 
 ---
 
-*Structure analysis: 2026-03-30*
+*Structure analysis: 2026-04-02*

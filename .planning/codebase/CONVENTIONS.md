@@ -1,161 +1,263 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-30
+**Analysis Date:** 2026-04-02
 
 ## Naming Patterns
 
 **Files:**
-- React components: `kebab-case.tsx` (e.g., `step-analysis.tsx`, `loading-overlay.tsx`)
-- React hooks: `use-kebab-case.ts` (e.g., `use-api.ts`, `use-pipeline.ts`, `use-ads.ts`)
-- Next.js pages: `page.tsx` per route directory
-- Python modules: `snake_case.py` (e.g., `bg_remover.py`, `scene_composer.py`)
-- Python test files: `test_snake_case.py` (e.g., `test_auth.py`, `test_atomic_counter.py`)
+- Python modules: `snake_case.py` (e.g., `credit_service.py`, `usage_repo.py`)
+- TypeScript pages: `page.tsx` inside route directories (Next.js App Router convention)
+- TypeScript hooks: `use-kebab-case.ts` (e.g., `use-api.ts`, `use-reels.ts`)
+- TypeScript components: `kebab-case.tsx` (e.g., `step-prompt.tsx`, `step-assembly.tsx`)
 
-**Functions (TypeScript):**
-- Regular functions: `camelCase` (e.g., `formatDate`, `toggleSection`, `inferSource`)
-- React components: `PascalCase` (e.g., `AdWizard`, `ImageDropzone`, `SubmitOverlay`)
-- Hook exports: `useCamelCase` (e.g., `useStatus`, `useAdJobs`, `usePipeline`)
-- Event handlers: `handleNoun` or `handleVerb` (e.g., `handleSubmit`, `handleImageUpload`, `handleAnalyze`)
-- Toggle helpers: `toggleNoun` (e.g., `toggleSection`, `toggleFormat`)
-
-**Functions (Python):**
-- Module-level helpers: `snake_case` (e.g., `_init_step_state`, `_calc_progress`, `_get_user_job`)
-- Private helpers prefixed with `_` (e.g., `_job_to_response`, `_mock_session_for_list`)
-- Async DB dependencies: `async def db_session()`, `async def get_current_user()`
+**Functions:**
+- Python: `snake_case` for all functions and methods (e.g., `check_and_deduct`, `get_by_slug`)
+- TypeScript: `camelCase` for functions and handlers (e.g., `handleTopUp`, `formatDate`, `formatCost`)
+- React components: `PascalCase` (e.g., `CharacterCard`, `LoadingSkeleton`, `EmptyState`)
 
 **Variables:**
-- TypeScript: `camelCase` for locals, `SCREAMING_SNAKE_CASE` for module-level constants
-- Python: `snake_case` for locals, `SCREAMING_SNAKE_CASE` for module constants
-- Color/status maps: `NOUN_COLORS`, `STATUS_BADGE`, `STYLE_LABELS` — `Record<string, string>`
+- Python: `snake_case` throughout
+- TypeScript: `camelCase` for local state and variables
+- Configuration/label maps: `SCREAMING_SNAKE_CASE` constants (e.g., `TYPE_LABELS`, `STATUS_BADGE`, `STEP_LABELS`)
 
-**Types:**
-- TypeScript interfaces: `PascalCase` prefixed with subject (e.g., `AdCreateRequest`, `DriveImagesResponse`)
-- TypeScript enums/union types: string literals (e.g., `"idle" | "running" | "done" | "error"`)
-- Python Pydantic models: `PascalCase` (e.g., `SingleRequest`, `EnhanceRequest`, `AdJobResponse`)
+**Types / Interfaces:**
+- TypeScript interfaces: `PascalCase` exported from `memelab/src/lib/api.ts` (e.g., `CharacterSummary`, `VideoListItem`)
+- Python Pydantic models: `PascalCase` with suffix `Request`, `Response`, or plain noun (e.g., `CharacterCreateRequest`, `VideoStatusResponse`, `CreditLog`)
+- Python ORM models: `PascalCase` nouns matching table domain (e.g., `Character`, `UserCredit`, `CreditLog`)
 
 ## Code Style
 
 **Formatting:**
-- No Prettier or ESLint config file found — formatting is not enforced via tooling
-- ESLint is installed (`eslint-config-next`) but no custom `.eslintrc` — uses Next.js defaults
-- TypeScript strict mode enabled (`"strict": true` in `tsconfig.json`)
+- Python: no formatter config detected (no Black/Ruff config); consistent 4-space indentation throughout
+- TypeScript: no Prettier config detected; Next.js ESLint (`eslint-config-next`) is the only linting tool
+- TypeScript strict mode enabled (`"strict": true` in `memelab/tsconfig.json`)
 
-**Python:**
-- No `black` or `ruff` config found — style is hand-maintained
-- Docstrings only on module files and class-level defs where the intent is non-obvious
-- Inline comments used for decision references: `# per D-20`, `# Phase 8`, `# QUOT-02`
-
-**TypeScript:**
-- Single quotes not enforced — double quotes used in JSX attributes, backticks for template strings
-- Semicolons: not enforced — style is implicit
-- `"use client"` directive at the top of every interactive component/page
+**Linting:**
+- Frontend: Next.js ESLint only (`npm run lint` in `memelab/`)
+- Python: no linting config found; style enforced by convention
 
 ## Import Organization
 
-**TypeScript order (observed):**
-1. React and Next.js (`"react"`, `"next/navigation"`, `"next/link"`)
-2. Third-party libraries (`"framer-motion"`, `"lucide-react"`, `"swr"`)
-3. UI primitives from `@/components/ui/` (Radix-based shadcn components)
-4. Project components from `@/components/`
-5. Hooks from `@/hooks/`
-6. Utilities and constants from `@/lib/` (`api`, `utils`, `constants`, `animations`)
-7. Types imported via `import type { ... }` at end of block
+**Python order:**
+1. Standard library (e.g., `asyncio`, `logging`, `uuid`)
+2. Third-party (e.g., `fastapi`, `sqlalchemy`, `pydantic`)
+3. Internal — grouped by layer: `src.api.deps` → `src.database.models` → `src.services.*`
+
+**TypeScript order:**
+1. React/Next.js (`react`, `next/navigation`, `next/link`)
+2. Third-party UI (`lucide-react`, `framer-motion`, `swr`)
+3. Internal — path-aliased with `@/` prefix:
+   - `@/components/ui/*` — primitives
+   - `@/components/<domain>/*` — feature components
+   - `@/hooks/use-api`, `@/hooks/use-reels`, `@/hooks/use-ads`
+   - `@/lib/api`, `@/lib/utils`, `@/lib/constants`
+   - `@/contexts/*`
 
 **Path Aliases:**
-- `@/*` maps to `memelab/src/*` (configured in `tsconfig.json` and `vitest.config.ts`)
+- `@/*` maps to `memelab/src/*` (defined in `memelab/tsconfig.json`)
 
-**Python order (observed):**
-1. Standard library (`logging`, `asyncio`, `os`, `uuid`)
-2. Third-party (`fastapi`, `sqlalchemy`, `pydantic`)
-3. Internal `src.*` imports (absolute, not relative)
+## API Route Pattern (FastAPI)
+
+Every route module follows the same structure:
+
+```python
+# 1. Module docstring describing routes and phase decision references
+"""Domain API routes — description.
+Per D-XX: design decision reference.
+"""
+# 2. Standard imports
+# 3. logger = logging.getLogger("clip-flow.api.<domain>")
+# 4. router = APIRouter(prefix="/<domain>", tags=["Domain Name"])
+# 5. Helper functions prefixed with _ (e.g., _get_user_job, _calc_progress)
+# 6. Route handlers
+```
+
+Auth dependency is applied to every protected endpoint:
+```python
+@router.get("/balance")
+async def get_balance(
+    current_user=Depends(get_current_user),
+    session: AsyncSession = Depends(db_session),
+):
+    ...
+```
+
+All protected routes import from `src.api.deps`:
+```python
+from src.api.deps import db_session, get_current_user
+```
+
+## Auth Pattern (Frontend)
+
+All authenticated pages live under `memelab/src/app/(app)/`. The `(app)/layout.tsx` guards the entire route group using `useAuth()`:
+
+```tsx
+const { isAuthenticated, isLoading } = useAuth();
+// Redirects to /login if not authenticated
+```
+
+Token storage: `localStorage` (persist) or `sessionStorage` (session-only) based on `rememberMe`. The `request<T>()` function in `memelab/src/lib/api.ts` reads both storages and attaches `Authorization: Bearer <token>`. On 401, tokens are cleared and the page redirects to `/login`.
+
+The `useAuth()` hook is sourced from `memelab/src/contexts/auth-context.tsx`.
+
+## Session Management (Backend)
+
+Background tasks that need DB access must create their own session via `get_session_factory()` — never pass the request-scoped session from `Depends(db_session)`:
+
+```python
+# Per Phase 999.1 pattern (documented in src/api/routes/reels.py)
+from src.database.session import get_session_factory
+async with get_session_factory()() as session:
+    ...
+```
 
 ## Error Handling
 
-**TypeScript — API errors:**
-- `request<T>()` in `src/lib/api.ts` throws `Error("API {status}: {text}")` for non-2xx
-- 401 errors trigger automatic logout + redirect to `/login` (except for `/auth/` endpoints)
-- Component-level catches assign to a local `error: string | null` state variable
-- Silent failures in non-critical paths (e.g., `analyze` in `wizard.tsx` catches and does nothing)
-- Optimistic UI updates with explicit revert on catch (in `use-pipeline.ts`: `approve`, `reject`, etc.)
-- Polling loops use empty `catch {}` with comment `// keep polling` to avoid breaking the interval
+**Python — API layer:**
+- `HTTPException(status_code=4xx, detail="...")` for all client errors
+- 401: missing/invalid JWT; 403: ownership violation; 404: not found; 409: duplicate
+- `PermissionError` raised in repository; converted to 403 by `get_user_character()` in `src/api/deps.py`
+- `InsufficientCreditsError` raised by `CreditService`; callers catch and return 402/403
 
-**Python — FastAPI errors:**
-- `HTTPException(status_code=..., detail="...")` for all user-facing errors
-- 404 for not found, 403 for forbidden, 401 for auth failures, 409 for conflicts
-- Private helper `_get_user_job()` centralizes 404 check per resource type
-- Internal Python exceptions (`PermissionError`, `ValueError`) raised from repositories, caught and converted at the route layer
+**Python — service/repo layer:**
+- Raises `ValueError` (e.g., duplicate email), `PermissionError` (wrong owner), domain exceptions (`InsufficientCreditsError`)
+- Does NOT raise `HTTPException` — reserved for API routes only
+
+**TypeScript — API calls:**
+- `request<T>()` in `memelab/src/lib/api.ts` throws `Error("API ${status}: ${text}")` for non-2xx responses
+- Pages wrap mutations in `try/catch` with local error state
+- 401 triggers automatic redirect to `/login` (handled inside `request()`)
 
 ## Logging
 
-**Python:**
-- Each module creates its own logger: `logger = logging.getLogger("clip-flow.api.ads")`
-- Root config in `src/api/app.py`: `format="%(asctime)s [%(name)s] %(levelname)s: %(message)s"`
-- Log sanitizer (`src/api/log_sanitizer.py`) strips API keys, tokens, and DB passwords from all log records
-- Startup events logged at INFO level with relevant state (model count, scheduler status)
+Logger name convention: `clip-flow.api` (root), `clip-flow.api.reels`, `clip-flow.api.video`, `clip-flow.auth` — hierarchical by domain.
 
-**TypeScript:**
-- No logging framework — console only (not observed in component code)
-
-## Comments
-
-**Decision references:** Python code uses inline comments like `# per D-20`, `# Phase 8`, `# QUOT-02` to link implementation to planning decisions. Do not remove these — they trace why a behavior exists.
-
-**Section separators:** Both languages use `# ── Section name ──` or `// ── Section name ──` to divide large files into logical blocks.
-
-**JSDoc/TSDoc:** Not used. Types are expressed through TypeScript interfaces and Pydantic models, not prose comments.
-
-**When to comment:**
-- Decision rationale (especially workarounds): `// Use UTC methods to avoid server/client hydration mismatch`
-- Non-obvious algorithmic choices: `// Capture dragging.current in local var before setNodes (race condition)`
-- Empty catch blocks must explain intent: `// keep polling on transient errors`
-
-## Function Design
-
-**Size:** Functions stay focused — large pages are split into private sub-components (e.g., `Section`, `ImageDropzone`, `SubmitOverlay` in `wizard.tsx`)
-
-**Parameters:** Typed via interfaces or inline types. Optional params use `?` or `= defaultValue`. No positional-only patterns.
-
-**Return Values:**
-- TypeScript async functions return `Promise<void>` or `Promise<T>` explicitly in hooks
-- Python route handlers return Pydantic response models or dicts
-- Python helpers that can fail return `None` and callers check (e.g., `scalar_one_or_none()`)
-
-## Module Design
-
-**Exports:**
-- TypeScript: named exports for everything except page components (which are default exports)
-- No barrel `index.ts` files — each module is imported directly by path
-- Python: no `__all__` — modules export everything; private helpers prefixed with `_`
-
-**Barrel Files:** Not used. Import directly from `@/lib/api`, `@/lib/constants`, `@/hooks/use-api`.
-
-## Component Design Patterns
-
-**Shadcn/UI pattern:** UI primitives in `src/components/ui/` use `React.forwardRef`, `cva()` for variants, and `cn()` for class merging. New UI components must follow this pattern.
-
-**Page components:** All pages are `"use client"` — no server components in use. Pages own data fetching via SWR hooks and render sub-components with derived state.
-
-**Sub-components in page files:** When a component is only used within one page, it is defined in the same file (not extracted). Example: `Section`, `ImageDropzone`, `SubmitOverlay` all live in `wizard.tsx`.
-
-**SWR key pattern:** Cache keys are deterministic strings composed from params:
-```typescript
-const key = `drive-images-${query?.theme ?? ""}-${query?.category ?? ""}-${query?.limit ?? 20}-${query?.offset ?? 0}`;
-```
-Never use `JSON.stringify()` for SWR keys. Never use `null` unless conditionally disabling (e.g., `slug ? \`character-${slug}\` : null`).
-
-**Conditional SWR:** Pass `null` as key to disable a hook until a condition is met:
-```typescript
-return useSWR(
-  slug && enabled ? `refs-generate-${slug}` : null,
-  () => (slug ? api.getRefsGenerateStatus(slug) : null),
-  { refreshInterval: 2000 }
-);
+```python
+logger = logging.getLogger("clip-flow.api.<domain>")
+logger.info("Normal operation")
+logger.error("Failure only — not for expected validation errors")
 ```
 
-**Status/color maps:** Use `Record<string, string>` maps defined at module level for status-to-class mappings. Access with fallback: `STATUS_BADGE[job.status] ?? STATUS_BADGE.draft`.
+No structured logging — plain `%(asctime)s [%(name)s] %(levelname)s: %(message)s` format.
 
-**Optimistic updates:** Use `setState(s => ({...s, items: s.items.map(...)}))` pattern, then revert on catch.
+## Comments and Docstrings
+
+- Module docstrings on every `src/api/routes/*.py` file listing endpoints and phase decision refs
+- Phase reference format: `# Per D-XX:` or `# Phase 999.1 pattern:`
+- Class/method docstrings on service classes (`CreditService`, `AuthService`)
+- Inline comments only where logic is non-obvious; no docstrings on route handler functions
+
+## Frontend Component Structure
+
+Every page component follows this layout:
+
+```tsx
+"use client";
+
+// 1. Named sub-components (EmptyState, LoadingSkeleton, ItemCard) — defined first
+// 2. Default export: the Page component
+export default function DomainPage() {
+  // SWR hooks at top
+  const { data, isLoading } = useDomainHook();
+  // Local state below hooks
+  const [selected, setSelected] = useState(...);
+
+  return (
+    <div className="space-y-6">
+      {/* Page header: icon + h1 + subtitle description */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">Title</h1>
+          <p className="text-sm text-muted-foreground">Subtitle</p>
+        </div>
+      </div>
+      {/* Content — three-state pattern */}
+      {isLoading ? <LoadingSkeleton /> : !data?.length ? <EmptyState /> : <DataGrid />}
+    </div>
+  );
+}
+```
+
+## Per-Domain Conventions
+
+**Characters (`/characters/*`, `src/api/routes/characters.py`):**
+- Tenant-isolated via `user_id` FK; repository raises `PermissionError` for cross-tenant access
+- `get_user_character()` helper in `src/api/deps.py` wraps 403/404 pattern for all character sub-routes
+- Status values: `draft` | `refining` | `ready` — mapped to PT-BR labels in `STATUS_CONFIG` on frontend
+
+**Videos (`/generate/video`, `src/api/routes/video.py`):**
+- Credit-gated: calls `CreditService.check_and_deduct()` before submitting to Kie.ai API
+- Background tasks use `get_session_factory()` pattern, not request session
+- Stale job scanner runs in background thread via `src/video_gen/stale_job_scanner.py`
+
+**Reels (`/reels/*`, `src/api/routes/reels.py`):**
+- Interactive step-based pipeline; step state JSON stored in `ReelsJob.step_state`
+- Each step: `status: pending | generating | approved | error`
+- Frontend polls `useStepState(jobId)` at 2s interval
+
+**Ads (`/ads/*`, `src/api/routes/ads.py`):**
+- Same approve/regenerate pattern as reels (documented "Per D-20")
+- 8 steps; export step auto-completes without approval ("Per D-22")
+- Module-level helpers `_init_step_state()`, `_calc_progress()`, `_get_user_job()` follow `_` prefix
+
+**Credits (`/credits`, `src/api/routes/credits.py`, `src/services/credit_service.py`):**
+- Every credit mutation logs a `CreditLog` entry — fully auditable
+- `balance_after` stored on each log row (no need to reconstruct from history)
+- Admin-only operations check `current_user.role != "admin"` → 403
+
+## SWR Cache Key Convention
+
+Cache keys are deterministic strings constructed from parameters — never `JSON.stringify`:
+
+```typescript
+// Correct
+const key = `drive-images-${query?.theme ?? ""}-${query?.limit ?? 20}`;
+
+// Null/disabled pattern for conditional fetching
+return useSWR(slug ? `character-${slug}` : null, ...);
+```
+
+## PT-BR UI Labels
+
+All user-facing text in the frontend is Portuguese (Brazil): status labels, button text, table headers, error messages, empty states. Backend-facing values (API keys, model IDs, route names, JSON field names) remain in English.
+
+Pattern from `memelab/src/app/(app)/credits/page.tsx`:
+```typescript
+const TYPE_LABELS: Record<string, string> = {
+  deduction: "Deducao",
+  refund: "Reembolso",
+  top_up: "Recarga",
+  blocked: "Bloqueado",
+};
+```
+
+## Status/Color Mapping Pattern
+
+Both frontend and backend use `Record<string, { label, color }>` objects for status display. Tailwind classes use `bg-*/20 text-* border-*/30` for "pill" badges:
+
+```typescript
+const STATUS_CONFIG = {
+  draft:  { label: "Rascunho", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  ready:  { label: "Pronto",   color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+};
+```
+
+Color semantics (consistent across all domains):
+- amber/yellow: warning, pending, draft
+- emerald/green: success, ready, complete
+- blue: in-progress, generating
+- red: error, failed, deduction
+- purple: interactive mode
+
+## Module Exports
+
+- Python: no explicit `__all__`; direct imports by consumers
+- TypeScript: named exports for utilities, types, and hooks; default export for page/component files
+- No barrel files (no `index.ts` re-exporting from directories in `components/` or `hooks/`)
 
 ---
 
-*Convention analysis: 2026-03-30*
+*Convention analysis: 2026-04-02*

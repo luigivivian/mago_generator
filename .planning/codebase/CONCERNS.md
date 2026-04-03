@@ -1,214 +1,240 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-30
-
----
-
-## Security Considerations
-
-**Service account credential file uncommitted but unprotected:**
-- Risk: `g-credencial.json` (GCS service account key) exists in repo root and shows as untracked (`??`). The `.gitignore` only excludes `gen-lang-client-*.json` by pattern — `g-credencial.json` does not match that glob and is one `git add .` away from being committed.
-- Files: `/Users/luigivivian/meme-lab/g-credencial.json`, `/Users/luigivivian/meme-lab/.gitignore`
-- Current mitigation: Not yet tracked by git.
-- Recommendations: Add `g-credencial.json` explicitly to `.gitignore`. Move credentials to env var `GOOGLE_APPLICATION_CREDENTIALS` pointing to a path outside the repo.
-
-**JWT secret has insecure default:**
-- Risk: `SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")` — if the env var is not set in production, all JWTs are signed with a known public string.
-- Files: `src/auth/jwt.py:10`
-- Current mitigation: None — the fallback is a predictable string, not a generated secret.
-- Recommendations: Raise `RuntimeError` at startup if `SECRET_KEY` env var is absent, rather than silently using the default.
-
-**Unauthenticated image serving endpoint:**
-- Risk: `GET /drive/images/{filename}` has no `Depends(get_current_user)` — any caller who knows (or guesses) a filename can retrieve images without authentication.
-- Files: `src/api/routes/drive.py:124-147`
-- Current mitigation: `validate_filename()` blocks path traversal; filenames follow structured patterns.
-- Recommendations: Add auth dependency or document intentionally public. The `/download` variant at line 150 correctly requires auth.
-
-**Internal exception detail leaks to API responses:**
-- Risk: Multiple routes expose raw `str(e)` in HTTP 500 responses — stack traces and internal paths reach clients.
-- Files: `src/api/routes/billing.py:127,201`, `src/api/routes/publishing.py:271,287,308`, `src/api/routes/agents.py:83,288`, `src/api/routes/pipeline.py:219` (full traceback in response body)
-- Current mitigation: Error is also logged server-side.
-- Recommendations: Return generic messages for 500 responses; include an opaque error ID for correlation. The pipeline route at lines 211-219 literally returns `"traceback": tb` in the JSON body.
-
-**No MIME type or size validation on `upload_product_image`:**
-- Risk: The `POST /ads/upload-image` endpoint reads the entire file into memory without checking content type or enforcing a size limit. An attacker can upload arbitrarily large files or non-image content.
-- Files: `src/api/routes/ads.py:354-370`
-- Current mitigation: None — the background upload (`/pipeline/backgrounds/upload`) at line 690 does enforce a 5MB limit and extension check; this pattern was not carried to the ads upload.
-- Recommendations: Add size cap (e.g., 10MB) before `await file.read()` and validate content type against `image/*`.
-
-**Character ref upload has no size limit:**
-- Risk: `POST /characters/{slug}/refs/upload` loops over multiple files and calls `await file.read()` with no size gate.
-- Files: `src/api/routes/characters.py:856-865`
-- Current mitigation: Content type is checked (`file.content_type.startswith("image/")`), but no byte limit.
-- Recommendations: Cap total upload size or per-file size before writing to disk.
-
-**CORS locked to localhost only — no production origin configured:**
-- Risk: `allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"]` — API will reject cross-origin requests from a production frontend domain.
-- Files: `src/api/app.py:89`
-- Current mitigation: API appears dev-only currently.
-- Recommendations: Read allowed origins from env var (`CORS_ORIGINS`) so production deploy does not require a code change.
-
-**JWT tokens stored in `localStorage`:**
-- Risk: `localStorage` is accessible to any JavaScript running on the page, making tokens vulnerable to XSS attacks.
-- Files: `memelab/src/lib/api.ts:9`, `memelab/src/contexts/auth-context.tsx:92-95`
-- Current mitigation: Tokens are cleared on 401; session-only option uses `sessionStorage`.
-- Recommendations: Use `httpOnly` cookies for token storage to prevent XSS access, or implement a secure BFF pattern.
+**Analysis Date:** 2026-04-02
 
 ---
 
 ## Tech Debt
 
-**Five social-media trend agents are permanent stubs:**
-- Issue: `TikTokTrendsAgent`, `InstagramExploreAgent`, `TwitterXAgent`, `FacebookViralAgent`, `YouTubeShortsAgent` all return empty lists and log "é um stub".
-- Files: `src/pipeline/agents/tiktok_trends.py`, `src/pipeline/agents/instagram_explore.py`, `src/pipeline/agents/twitter_x.py`, `src/pipeline/agents/facebook_viral.py`, `src/pipeline/agents/youtube_shorts.py`
-- Impact: Five out of the trend data sources produce nothing; trend quality degrades silently if the active agents (Google, Reddit, RSS) rate-limit.
-- Fix approach: Either implement the APIs or remove the stubs and the corresponding `_load_stub_agents` registration in `src/pipeline/async_orchestrator.py:159-187`.
+### Dual `ContentPackage` Models
 
-**Two hardcoded TODO stubs in publishing:**
-- Issue: `GET /publishing/best-times` returns static hardcoded time slots with a `TODO: Integrar com Instagram Insights`. `_publish_tiktok` raises `NotImplementedError`.
-- Files: `src/api/routes/publishing.py:217-232`, `src/services/publisher.py:282-287`
-- Impact: TikTok publishing silently crashes any job routed to it; best-times is permanently generic.
-- Fix approach: Guard TikTok routes with a feature-flag check before the `NotImplementedError` can propagate; replace static best-times with real Insights once Instagram connection is stable.
+- Issue: `ContentPackage` exists in two places — `src/pipeline/models_v2.py` (dataclass, in-memory pipeline use) and `src/database/models.py` (ORM, persistence). Pipeline workers import the dataclass version; API routes and video/reels tasks import the ORM version. There is no type-safe bridge between them.
+- Files: `src/pipeline/models_v2.py`, `src/database/models.py`, `src/pipeline/workers/generation_layer.py`, `src/pipeline/workers/quality_worker.py`
+- Impact: A worker returning `src.pipeline.models_v2.ContentPackage` cannot be passed to code expecting the SQLAlchemy model. Bugs surface silently — wrong attribute names return `None` or raise `AttributeError` at runtime.
+- Fix approach: Consolidate to ORM-only, or add a typed converter with validation. At minimum, rename the dataclass to `ContentDraft` to make the split explicit.
 
-**`local Whisper` transcription deferred with `NotImplementedError`:**
-- Issue: `transcribe_to_srt` raises `NotImplementedError("Local Whisper deferred to follow-up")` when provider is `whisper_local`.
-- Files: `src/reels_pipeline/transcriber.py:40`
-- Impact: Callers specifying `whisper_local` get an unhandled error that surfaces as a reel step failure.
-- Fix approach: Either implement local Whisper via `openai-whisper` package or remove the provider option from the interface until implemented.
+### Dual `TrendSource` Enums
 
-**`BlockingScheduler` in legacy pipeline scheduler:**
-- Issue: `src/pipeline/scheduler.py` uses `BlockingScheduler` which blocks the calling thread entirely. This is a CLI-only tool, but it coexists with the async FastAPI scheduler.
-- Files: `src/pipeline/scheduler.py:28,40`
-- Impact: Low risk today (not used by API), but creates confusion — there are two scheduler systems (`scheduler.py` vs `services/scheduler_worker.py`).
-- Fix approach: Mark `src/pipeline/scheduler.py` as deprecated, direct users to `pipeline_cli.py` + `scheduler_worker`.
+- Issue: `TrendSource` is defined in both `src/pipeline/models.py` and `src/pipeline/models_v2.py`. The v2 version extends v1 but both exist. `src/pipeline/models_v2.py` imports `_OldTrendSource` from the original, creating a confusing aliased import chain.
+- Files: `src/pipeline/models.py`, `src/pipeline/models_v2.py`
+- Impact: Code importing from the wrong module uses an incomplete enum. New sources added to v2 are invisible to v1 callers.
+- Fix approach: Delete `src/pipeline/models.py` and migrate all remaining callers to `models_v2`.
 
-**`MOTION_TEMPLATES_V1` kept as dead weight:**
-- Issue: `MOTION_TEMPLATES_V1` is defined alongside `MOTION_TEMPLATES_V2` with the comment "Backward compatibility alias". `get_motion_templates()` still conditionally returns V1.
-- Files: `src/video_gen/video_prompt_builder.py:19-258`
-- Impact: 80+ lines of dead config that will silently drift from V2. Any caller passing version detection logic gets V1 with no warning.
-- Fix approach: Delete V1 and the version-select function; update any callers to use `MOTION_TEMPLATES` directly.
+### Global Mutable Config Mutation in Pipeline Route
 
-**`rembg` creates a new session on every call:**
-- Issue: `remove_background()` calls `new_session(model_name=ADS_REMBG_MODEL)` on every invocation. Loading the rembg ONNX model is expensive (~2-3s and 200MB+ RAM).
-- Files: `src/product_studio/bg_remover.py:21`
-- Impact: Each ad job's scene step pays a full model load penalty; repeated jobs are slow.
-- Fix approach: Cache the session at module level (or as a singleton) — `rembg` sessions are thread-safe.
+- Issue: `src/api/routes/pipeline.py` (lines 61-65) mutates the global `config.COST_MODE` at runtime to implement per-request cost overrides, then restores it (line 228). Under concurrent requests this is a race condition — Request A sets `COST_MODE = "eco"`, Request B reads it before Request A restores the original.
+- Files: `src/api/routes/pipeline.py` (lines 61-65, 228)
+- Impact: Incorrect cost mode applied to concurrent pipeline runs. Silent — no error is raised, but LLM tier selection is wrong.
+- Fix approach: Pass `cost_mode` explicitly through the call chain. The `AsyncOrchestrator` already accepts it as a constructor argument.
 
-**Ad analysis duplicated in two places:**
-- Issue: The product analysis LLM call is implemented twice: once in `pipeline.py:run_step_analysis` (with image) and again inline in `ads.py` background task (text-only fallback at lines 145-163) and again in `ads.py:analyze_product` endpoint (lines 384-402). All three build similar prompts independently.
-- Files: `src/api/routes/ads.py:145-163`, `src/api/routes/ads.py:384-410`, `src/product_studio/pipeline.py:66-80`
-- Impact: Prompt diverges between paths; bugs fixed in one location are missed in others.
-- Fix approach: Centralize in `ProductAdPipeline.run_step_analysis()` with an optional `image_path` parameter; route all three callers through it.
+### In-Memory Job State with No Eviction
 
-**`datetime.utcnow()` deprecated — used extensively:**
-- Issue: Python 3.12 deprecates `datetime.utcnow()` in favor of `datetime.now(timezone.utc)`. The codebase uses `utcnow()` in at least 10 places.
-- Files: `src/database/repositories/usage_repo.py:355,390,415,554`, `src/database/repositories/schedule_repo.py:95,126`, `src/api/routes/dashboard.py:76`, `src/services/publisher.py:311`, `src/billing/stripe_service.py:262,282,300`
-- Impact: Will emit deprecation warnings now, will break in Python 3.14+.
-- Fix approach: Global search-replace `datetime.utcnow()` → `datetime.now(timezone.utc)` with `from datetime import timezone` where missing.
+- Issue: Batch generation jobs (`src/api/routes/jobs.py`, `JOBS: dict`) and character ref generation jobs (`src/api/routes/characters.py`, `_ref_generation_jobs: dict`) track progress in process-local dicts. State is lost on restart. DB persistence in `jobs.py` only happens at job completion (`_persist_job_to_db`), so mid-run progress is invisible after a restart.
+- Files: `src/api/routes/jobs.py` (line 21), `src/api/routes/characters.py` (line 107)
+- Impact: After server restart, all in-flight or completed-but-unqueried jobs disappear from the API. Users polling status get 404 or stale data. Dicts also grow unboundedly with no eviction — memory leak under sustained usage.
+- Fix approach: Write job status to the DB at start and update incrementally. The `BatchJob` table already exists — use it for real-time tracking. Evict completed jobs from the in-memory dict after a TTL.
 
-**Relative path used in security boundary check:**
-- Issue: In `serve_artifact_file`, the allowed path `output_real = os.path.realpath("output/reels")` resolves relative to the process working directory, not the repo root. If the server is started from a different directory, the realpath check fails silently (resolves to wrong absolute path), allowing arbitrary file access.
-- Files: `src/api/routes/reels.py:857-858`
-- Impact: Path containment check is environment-dependent — fails when CWD is not repo root.
-- Fix approach: Use `Path(__file__).resolve().parents[N] / "output/reels"` or import the absolute output path from `config.py`.
+### Legacy `themes.yaml` Three-Way Theme Lookup
+
+- Issue: `src/api/deps.py:resolver_tema()` performs a cascading lookup across three sources: builtin `SITUACOES` dict, legacy `themes.yaml` file, then database. The YAML format is a remnant of the pre-database era.
+- Files: `src/api/deps.py` (lines 95-232, `load_themes_config`, `save_themes_config`, `resolver_tema`, `resolver_tema_batch`)
+- Impact: Three code paths that must stay in sync. The YAML file silently overrides DB themes if the key matches. New themes created via the UI (stored in DB) are shadowed by legacy YAML entries with the same key.
+- Fix approach: Migrate YAML themes to the database (one-time script), then delete `load_themes_config` and remove the YAML branch from `resolver_tema`.
+
+### `VIDEO_DAILY_BUDGET_USD` Endpoint Coexists with Credit System
+
+- Issue: `GET /generate/video/budget` (`src/api/routes/video.py` lines 1165-1193) still computes and returns `VIDEO_DAILY_BUDGET_USD`. The file header says "CreditService replaces old daily budget" (line 5), but this endpoint returns the old USD-based metric. The `VideoBudgetResponse` model exposes `daily_budget_usd`, which is no longer the enforcement mechanism.
+- Files: `src/api/routes/video.py` (lines 1165-1193), `src/api/models.py` (line 282), `src/database/repositories/usage_repo.py` (lines 413, 546)
+- Impact: UI consumers of `/budget` see a USD cap that is not enforced. Actual gating is credit-based. Creates confusion about which mechanism is active.
+- Fix approach: Rewrite `/budget` to return credit balance, or mark it deprecated and expose `/credits/balance` as the canonical source.
+
+### Legacy `assets/backgrounds/mago/` Directory Fallback
+
+- Issue: `src/api/routes/pipeline.py` (lines 409-413, 749-751) hardcodes a fallback for the `mago-mestre` slug to `assets/backgrounds/mago/`.
+- Files: `src/api/routes/pipeline.py` (lines 409-413, 749-751)
+- Impact: Low — cosmetic debt. Any future slug rename silently breaks the fallback.
+- Fix approach: Remove once confirmed no images exist only in the legacy directory.
+
+---
+
+## Security Considerations
+
+### `GET /drive/images/{filename}` — Unauthenticated Image Serving
+
+- Risk: `src/api/routes/drive.py:get_image()` (line 125) has no `Depends(get_current_user)`. Any caller who knows (or guesses) a filename can download any image from the server without authentication.
+- Files: `src/api/routes/drive.py` (lines 124-147)
+- Current mitigation: `validate_filename` rejects path traversal. The neighboring list/latest/by-theme and download endpoints all require auth.
+- Recommendations: Add `Depends(get_current_user)` to match all neighboring endpoints. If the intent is frontend `<img>` embedding, issue short-lived signed tokens instead.
+
+### Character Slug Is Globally Unique — Enables Slug Enumeration
+
+- Risk: `characters.slug` has a global `UNIQUE` constraint (`src/database/models.py` line 32). Two users cannot create characters with the same slug. `CharacterRepository.get_by_slug()` fetches first, then checks ownership — so the 404 vs 403 difference reveals whether a slug exists to any authenticated user.
+- Files: `src/database/models.py` (line 32), `src/database/repositories/character_repo.py` (lines 19-30)
+- Current mitigation: 403 is returned instead of character data. Slug contents are not revealed.
+- Recommendations: Change the unique constraint to `UniqueConstraint("user_id", "slug")` to enable per-user namespacing and remove slug enumeration risk.
+
+### Content Package Ownership Check Skipped When `character_id` Is Null
+
+- Risk: In `generate_video()` and `retry_video_generation()` (`src/api/routes/video.py` lines 483-491, 1220-1228), ownership is verified by loading the character linked to the package. If `pkg.character_id` is `None`, the check is skipped and any authenticated user can trigger video generation on that package.
+- Files: `src/api/routes/video.py` (lines 483-491, 1220-1228)
+- Current mitigation: Admin bypass only. Non-admin with null `character_id` package bypasses ownership check.
+- Recommendations: Add a direct `user_id` column to `ContentPackage`, or deny video generation for unowned packages.
+
+### Race Condition in Credit Pre-Check vs Background Deduction (TOCTOU)
+
+- Risk: `generate_video()` (lines 507-512) performs a read-only balance check then responds. The actual deduction happens inside the background task. Between the pre-check and deduction, concurrent requests can pass the pre-check using the same balance.
+- Files: `src/api/routes/video.py` (lines 507-512), `src/services/credit_service.py` (lines 131-145)
+- Current mitigation: `SELECT ... FOR UPDATE` in `check_and_deduct` on MySQL. SQLite falls back to single-writer serialization. On PostgreSQL with `asyncpg`, `with_for_update()` behavior depends on transaction isolation level.
+- Recommendations: Move the authoritative deduction into the request handler (before spawning background task) to eliminate the TOCTOU window.
 
 ---
 
 ## Performance Bottlenecks
 
-**`blocking time.sleep(5)` on event loop thread in `gemini_client.py`:**
-- Problem: `iterative_refinement()` calls `time.sleep(5)` (not `await asyncio.sleep(5)`) between refinement passes, blocking the entire asyncio event loop.
-- Files: `src/image_gen/gemini_client.py:1135`
-- Cause: Sync sleep called from a context that may be invoked on the event loop thread.
-- Improvement path: Replace with `await asyncio.sleep(5)` if the function is async, or ensure the call is always wrapped in `asyncio.to_thread`.
+### `_list_drive_images()` — Full Filesystem Scan on Every Request
 
-**`_list_drive_images` does filesystem stat on every request:**
-- Problem: `GET /drive/images` calls `_list_drive_images()` which does a full directory scan + `stat()` on every file every request. No caching.
-- Files: `src/api/routes/drive.py:49-78`
-- Cause: No TTL cache or DB-backed index for generated images.
-- Improvement path: Add a short TTL in-memory cache (e.g., 30s) on the result, or track generated files in the database.
+- Problem: `src/api/routes/drive.py:_list_drive_images()` walks the filesystem (including all character background subdirectories) on every call. Used by four endpoints: `/drive/images`, `/drive/images/latest`, `/drive/images/by-theme/{key}`, `/drive/themes`.
+- Files: `src/api/routes/drive.py` (lines 49-96)
+- Cause: No caching. `Path.glob()` and `stat()` calls are synchronous. The route handlers use `def` (not `async def`), so they run in the default thread pool — but each call still walks the full tree.
+- Improvement path: Cache the directory listing with a short TTL (5-10 seconds). Long-term: track images in the DB and query instead of scanning.
 
-**`images_by_theme` has no pagination limit:**
-- Problem: `GET /drive/images/by-theme/{theme_key}` returns all matching images with no `limit`/`offset` parameter.
-- Files: `src/api/routes/drive.py:118-121`
-- Cause: Pagination not applied to the theme-filtered endpoint.
-- Improvement path: Add `limit` and `offset` query params consistent with the main `/drive/images` endpoint.
+### Character List Loads All Rows Then Paginates in Python
+
+- Problem: `api_list_characters()` calls `repo.list_all()` which fetches all non-deleted characters for the user, then applies Python-level slice pagination.
+- Files: `src/api/routes/characters.py` (lines 157-182), `src/database/repositories/character_repo.py` (lines 45-55)
+- Cause: `list_all` does not accept `limit`/`offset` parameters.
+- Improvement path: Add `limit`/`offset` to `CharacterRepository.list_all` and push pagination into the SQL query.
+
+### Ref Generation Worker Blocks Thread with Fixed `time.sleep(10)`
+
+- Problem: `_generate_refs_worker` (`src/api/routes/characters.py` line 673) calls `time.sleep(10)` between each image — blocking the daemon thread for the full batch duration (up to 150 seconds for 15 refs at 10s each).
+- Files: `src/api/routes/characters.py` (line 673)
+- Cause: Fixed sleep for rate limit avoidance instead of adaptive backoff on actual 429 responses.
+- Improvement path: Use adaptive backoff. Convert to an async task so the sleep does not waste a thread.
 
 ---
 
 ## Fragile Areas
 
-**`traceback` stored in pipeline run DB record:**
-- Files: `src/api/routes/pipeline.py:219`
-- Why fragile: Full Python traceback (including file paths, variable values) written to `pipeline_runs.results` JSON column and returned in API responses. This leaks internal server structure.
-- Safe modification: Replace with `exception_type` + sanitized message only; keep full traceback in server logs.
-- Test coverage: No test for the failure path response shape.
+### Thread-Based Background Workers Are Untested and Exception-Swallowing
 
-**`step_state` JSON column mutated in-place with `flag_modified`:**
-- Files: `src/api/routes/ads.py:118-347`, `src/api/routes/reels.py` (similar pattern)
-- Why fragile: Both routes load `step_state = dict(job.step_state or {})`, mutate it, then call `flag_modified(job, "step_state")` to signal SQLAlchemy. If two requests race (e.g., rapid retrigger), the second write can clobber the first because there is no row-level lock.
-- Safe modification: Use a DB-level `SELECT FOR UPDATE` before mutating step_state, or move step state to dedicated columns with atomic updates.
-- Test coverage: No concurrency test exists.
+- Files: `src/api/routes/jobs.py` (lines 4, 167-172), `src/api/routes/characters.py` (lines 8, 712-720)
+- Why fragile: Both batch image jobs and character ref generation use `threading.Thread(daemon=True)`. Unhandled exceptions in daemon threads are silently swallowed. `_persist_job_to_db` creates a new event loop from a sync thread (`asyncio.new_event_loop()`) — correct but fragile. Any exception before `_persist_job_to_db` is called leaves the DB job record in `status="running"` permanently.
+- Safe modification: Do not add new background work via raw threads. Wrap the full thread body in broad try/except that writes failure status to the DB. Use FastAPI `BackgroundTasks` for new work.
+- Test coverage: Zero.
 
-**GCS fallback uploads to `litterbox.catbox.moe` (1-hour expiry):**
-- Files: `src/video_gen/gcs_uploader.py:91-107`
-- Why fragile: When GCS is unavailable, image URLs sent to Kie.ai expire after 1 hour. If video generation takes longer than 1 hour (it can: `KIE_POLL_TIMEOUT=600`s by default, but external API queues can be longer), the source image URL becomes invalid mid-generation.
-- Safe modification: Ensure GCS is always configured in production. Add a warning log when using the temp fallback, and surface it in the job status.
-- Test coverage: No test for fallback expiry scenario.
+### Stale Job Scanner Uses `created_at` as Proxy for Generation Start Time
 
-**`analyze_product` endpoint returns a 200 with empty defaults on Gemini failure:**
-- Files: `src/api/routes/ads.py:403-410`
-- Why fragile: Any Gemini API error silently returns `{"niche": "", "tone": "professional", "audience": "general", "scene_suggestions": []}`. Callers cannot distinguish success from failure.
-- Safe modification: Return 502 on Gemini failure, or include an `"error"` flag in the response so the UI can show the user a retry prompt.
-- Test coverage: No test for the failure branch.
+- Files: `src/video_gen/stale_job_scanner.py` (line 47)
+- Why fragile: Staleness is checked as `ContentPackage.created_at < (now - 15 minutes)`. But `created_at` is the package creation time, not when video generation was triggered. A package created hours ago with video triggered recently will be mis-classified as stale immediately.
+- Safe modification: Add a `video_started_at` timestamp column updated when `video_status` transitions to `"generating"`, and use that column in the stale check.
+- Test coverage: None.
+
+### `reels.py` — 2,358 Lines in a Single File
+
+- Files: `src/api/routes/reels.py`
+- Why fragile: Route handlers, background task implementations, step-state machines, preset definitions, and LLM prompt constants all co-located. `STEP_ORDER` (line 82) and `_init_step_state` (line 104) are tightly coupled to every step handler — a change to step names or order must be applied consistently across all three.
+- Safe modification: Read the full file before editing. Use the `STEP_ORDER` list as the canonical step registry and verify every handler uses consistent step names.
+- Test coverage: Not verified.
+
+### Pipeline Route Does Not Restore Config on Exception
+
+- Files: `src/api/routes/pipeline.py` (lines 61-65, 227-228)
+- Why fragile: The `_cfg.COST_MODE` mutation is restored on line 228, but this is not inside a `finally` block. If an exception propagates between mutation (line 65) and restore (line 228), the global config is permanently set to the request's value for the lifetime of the process.
+- Safe modification: Wrap with `try/finally` or, preferably, eliminate the mutation entirely.
 
 ---
 
-## Test Coverage Gaps
+## Scaling Limits
 
-**Product Studio pipeline untested:**
-- What's not tested: `src/product_studio/pipeline.py`, `src/product_studio/bg_remover.py`, `src/product_studio/scene_composer.py`, `src/product_studio/copy_generator.py`, `src/product_studio/prompt_builder.py`
-- Risk: 8-step ad pipeline has no automated regression coverage. A Gemini API shape change or rembg version bump would be caught only in production.
-- Priority: High
+### Single-Process Background Workers — Not Safe for Horizontal Scaling
 
-**Reels pipeline untested:**
-- What's not tested: `src/reels_pipeline/main.py`, `src/reels_pipeline/video_builder.py`, `src/reels_pipeline/transcriber.py`
-- Risk: FFmpeg invocation, subtitle generation, and crossfade logic have no unit or integration tests.
-- Priority: High
+- Current capacity: APScheduler (post publishing every 60s, Instagram token refresh every 12h) and the stale job scanner run inside the API process.
+- Limit: Running multiple API replicas causes each replica to independently trigger post publishing and stale scanning, resulting in duplicate publishes and duplicate stale marks.
+- Scaling path: Move scheduled jobs to a dedicated worker process. Use a DB-level advisory lock or a `is_processing` flag on the scheduled post to prevent concurrent execution across replicas.
 
-**`src/api/routes/ads.py` and `src/api/routes/reels.py` have no tests:**
-- What's not tested: All step execution, step approval, artifact serving, race condition protection
-- Files: `src/api/routes/ads.py`, `src/api/routes/reels.py`
-- Risk: Step state machine logic is entirely manual-tested; regressions go undetected.
-- Priority: High
+---
 
-**Frontend has zero test files:**
-- What's not tested: All React components, all API client functions in `memelab/src/lib/api.ts` (1716 lines), auth flow, ad wizard stepper
-- Files: `memelab/src/` (entire directory)
-- Risk: UI regressions caught only by manual QA.
-- Priority: Medium
+## Known Bugs
+
+### `video_status="blocked"` — Silent Failure with No User Notification
+
+- Symptoms: When `check_and_deduct` raises `InsufficientCreditsError` inside `_generate_video_task`, the package is set to `video_status="blocked"` but no event or notification is triggered. The user discovers the block only by polling status.
+- Files: `src/api/routes/video.py` (lines 219-223)
+- Trigger: User passes the pre-check (balance barely sufficient) but a concurrent request depletes the balance before the background task runs.
+- Workaround: User must manually poll `/generate/video/{id}/status`.
+
+### TikTok Publishing Raises `NotImplementedError` Silently
+
+- Symptoms: Scheduling a post to TikTok calls `_publish_tiktok` which raises `NotImplementedError`. The scheduler catches it as a generic failure and retries with exponential backoff until max retries, then marks the post permanently failed. The user is never told the platform is unimplemented.
+- Files: `src/services/publisher.py` (lines 282-287)
+- Trigger: Creating a scheduled post with `platform="tiktok"`.
+- Workaround: None. Post retries indefinitely then fails.
+
+### `/dashboard/pipeline-activity` Leaks Legacy Runs Across Tenants
+
+- Symptoms: The query in `src/api/routes/dashboard.py` (lines 79-95) includes `PipelineRun.character_id IS NULL` runs for all users via an `OR` clause. Legacy runs with no character are shown to every authenticated user, not scoped to the requesting user.
+- Files: `src/api/routes/dashboard.py` (lines 79-95)
+- Trigger: Any user loading the pipeline activity dashboard chart.
+- Workaround: None currently. Admin-level data leaks to regular users.
 
 ---
 
 ## Missing Critical Features
 
-**No production deployment configuration:**
-- Problem: CORS is hardcoded to `localhost:3000`. There is no `Dockerfile`, no `docker-compose.yml`, no environment variable documentation for production. The database defaults to SQLite (`data/clipflow.db`) which is not production-safe.
-- Blocks: Deploying the system to any non-local environment.
+### No Per-User Slug Namespace
 
-**No request rate limiting on the API:**
-- Problem: FastAPI has no rate-limiting middleware. Any authenticated user can hammer Gemini-backed endpoints (image generation, theme enhancement, ad analysis) at will, burning API quotas.
-- Blocks: Multi-tenant SaaS stability once more than one user is active.
+- Problem: Character slugs are globally unique, preventing two users from creating characters with the same name. Fixing this requires a schema migration to change the unique constraint to `(user_id, slug)`.
+- Blocks: Multi-tenant self-serve use.
+
+### No Credit Provisioning on User Registration
+
+- Problem: New users start with `balance=0`. No registration hook seeds initial credits. Users cannot use video generation until an admin manually calls `POST /credits/admin/top-up`.
+- Files: `src/auth/service.py` (register method), `src/services/credit_service.py`
+- Blocks: Self-serve onboarding.
+
+### Best Posting Times Are Hardcoded Static Data
+
+- Problem: `GET /publishing/best-times` returns a hardcoded dict (lines 217-232 in `src/api/routes/publishing.py`). A TODO comment marks integration with Instagram Insights.
+- Files: `src/api/routes/publishing.py` (lines 217-232)
+- Blocks: Accurate personalized posting recommendations.
 
 ---
 
-## Dependencies at Risk
+## Test Coverage Gaps
 
-**`litterbox.catbox.moe` as production dependency:**
-- Risk: Free third-party file host used as fallback when GCS is unavailable. No SLA, no auth, files expire after 1 hour.
-- Impact: Video generation pipeline silently degrades to an unreliable public file host.
-- Migration plan: Enforce GCS in production; remove the fallback or replace with a self-hosted MinIO endpoint.
+### Thread-Based Background Workers
+
+- What's not tested: `_run_batch_job` (`src/api/routes/jobs.py`), `_generate_refs_worker` (`src/api/routes/characters.py`), `_persist_job_to_db` (`src/api/routes/jobs.py`).
+- Risk: Race conditions, DB persistence failures, and silent error swallowing go undetected.
+- Priority: High
+
+### Credit System Race Conditions
+
+- What's not tested: Concurrent `check_and_deduct` calls for the same user, pre-check/deduction TOCTOU in `generate_video`, refund correctness on background error.
+- Files: `src/services/credit_service.py`, `src/api/routes/video.py`
+- Risk: Users overdraft credits under concurrent load.
+- Priority: High
+
+### Unauthenticated Image Endpoint
+
+- What's not tested: Whether `GET /drive/images/{filename}` correctly requires authentication. It does not — no auth dependency is present.
+- Files: `src/api/routes/drive.py` (line 125)
+- Priority: High
+
+### Stale Scanner Decision Branches
+
+- What's not tested: `scan_stale_jobs` logic paths — active task skip, succeeded recovery, failed propagation, no task_id handling.
+- Files: `src/video_gen/stale_job_scanner.py`
+- Risk: Stale detection silently mis-classifies active jobs as failed.
+- Priority: Medium
+
+### Global Config Mutation Under Concurrency
+
+- What's not tested: Concurrent `POST /pipeline/run` requests with different `cost_mode` values. A test would expose the race condition.
+- Files: `src/api/routes/pipeline.py` (lines 61-65)
+- Priority: Medium
 
 ---
 
-*Concerns audit: 2026-03-30*
+*Concerns audit: 2026-04-02*
