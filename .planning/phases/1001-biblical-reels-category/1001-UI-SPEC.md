@@ -42,10 +42,12 @@ Declared values (must be multiples of 4):
 | 3xl | 64px | Page-level spacing |
 
 Exceptions:
-- Sub-theme pills: `px-2.5 py-1` (10px/4px) for compact touch targets — matches existing pattern
+- Sub-theme pills: `px-3 py-1` (12px/4px) for compact touch targets — conforming values that provide adequate pill padding
 - Duration slider thumb: 44px min touch target on mobile (native range input)
 
-Source: existing codebase patterns (CardHeader `p-6`, CardContent `space-y-4`, pill buttons `px-2.5 py-1`)
+Note: the existing codebase uses `px-2.5` (10px) for sub-theme pills. Implementation must update this to `px-3` (12px) to conform to the spacing contract.
+
+Source: existing codebase patterns (CardHeader `p-6`, CardContent `space-y-4`)
 
 ---
 
@@ -56,13 +58,23 @@ Source: existing codebase patterns (CardHeader `p-6`, CardContent `space-y-4`, p
 | Body | 14px (`text-sm`) | 400 (normal) | 1.5 |
 | Label | 12px (`text-xs`) | 400 (normal) | 1.5 |
 | Heading | 18px (`text-lg`) | 600 (semibold) | 1.2 |
-| Display | 20px (`text-xl`) | 600 (semibold) | 1.2 |
+| Display | 24px (`text-2xl`) | 600 (semibold) | 1.2 |
+
+Display is used for page-level headings only (e.g., "Criar Reel Interativo" page title). Heading is used for section titles within cards (e.g., "Configuracao Biblica" section heading). The 6px gap between 18px and 24px creates clear visual hierarchy separation.
 
 Phase-specific additions:
 - **Verse reference overlay** in script preview: 14px (`text-sm`) at weight 600 (semibold) in amber-400 (`#fbbf24`)
 - **Scripture reference tag**: 12px (`text-xs`) at weight 400 in muted-foreground
 
 Source: existing CardTitle `text-lg font-semibold`, body `text-sm`, labels `text-xs text-muted-foreground`
+
+---
+
+## Focal Point
+
+**Primary screen:** When the user opens the reels wizard with `bible-stories` niche selected, the **BibleConfig section header ("Configuracao Biblica")** is the primary visual anchor. It appears below the sub-theme pills via `animate-fade-in`, drawing the user's eye to the biblical configuration fields that differentiate this niche from others.
+
+**Secondary anchor:** The script mode toggle ("Gerar com IA" / "Roteiro Manual") is the first interactive element within BibleConfig and serves as the secondary visual anchor, guiding the user toward their first decision.
 
 ---
 
