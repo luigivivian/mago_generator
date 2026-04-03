@@ -106,6 +106,7 @@ Plan: Not started
 
 - Phase 999.9 added: Kie API credit system with per-model pricing, logs, and balance management
 - Phase 1000 added: Character-scoped navigation — sidebar selector scoping all content by selected character
+- Phase 1001 added: Biblical reels category — Gemini-generated faithful biblical narratives with AI/manual script options
 
 ### Decisions
 

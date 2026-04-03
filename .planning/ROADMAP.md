@@ -52,3 +52,25 @@ Plans:
 - [x] 1000-01-PLAN.md — Backend: migration + character_slug on all listing endpoints
 - [x] 1000-02-PLAN.md — Frontend: API functions, SWR hooks, and page wiring
 - [ ] 1000-03-PLAN.md — "Todos os Personagens" option in sidebar selector
+
+### Phase 1001: Biblical reels category
+
+**Goal:** Nova categoria "Historias Biblicas" no wizard de reels. Gemini gera narrativas biblicas fieis ao texto original, sem alterar a historia. O roteiro guia a geracao de cenas, imagens e narracoes animadas. Opcao no wizard para gerar roteiro via IA (Gemini) ou inserir roteiro manual no input.
+
+**Requirements:**
+- Nova categoria "Historias Biblicas" no wizard de reels (dropdown de nicho)
+- Gemini gera roteiro fiel a historia biblica selecionada (nao altera fatos)
+- Opcao "Gerar roteiro com IA" vs "Roteiro manual" no wizard
+- Roteiro manual: textarea livre onde usuario cola/digita o script completo
+- Roteiro IA: usuario seleciona historia (ex: "David e Golias") e Gemini gera script narrativo
+- Script gerado segue fielmente a historia — sem licenca poetica ou alteracoes
+- Cenas do reels animam elementos da historia (cenarios biblicos, personagens, acoes)
+- Prompt de geracao de imagens adaptado para estilo biblico/historico
+- Narracoes TTS seguem o roteiro gerado fielmente
+- Categoria deve funcionar com o pipeline interativo existente (step-by-step)
+
+**Depends on:** None
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 1001 to break down)
