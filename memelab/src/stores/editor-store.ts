@@ -60,6 +60,12 @@ interface EditorState {
   deleteScene: (sceneId: string) => void;
   splitScene: (sceneId: string, frameOffset: number) => void;
   updateSubtitle: (subtitleId: string, updates: Partial<EditorSubtitle>) => void;
+  deleteSubtitle: (subtitleId: string) => void;
+  addSubtitle: (subtitle: EditorSubtitle) => void;
+  splitSubtitle: (subtitleId: string, frame: number) => void;
+  deleteAudioItem: (audioId: string) => void;
+  trimAudioItem: (audioId: string, newDuration: number) => void;
+  freezeFrame: (sceneId: string, framesToFreeze: number) => void;
   setTransition: (sceneId: string, type: EditorScene["transition"]["type"], durationFrames: number) => void;
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
@@ -235,6 +241,65 @@ export const useEditorStore = create<EditorState>()(
         set((state) => ({
           subtitles: state.subtitles.map((s) =>
             s.id === subtitleId ? { ...s, ...updates } : s,
+          ),
+        }));
+      },
+
+      deleteSubtitle: (subtitleId) => {
+        set((state) => ({
+          subtitles: state.subtitles.filter((s) => s.id !== subtitleId),
+          selectedSubtitleId:
+            state.selectedSubtitleId === subtitleId ? null : state.selectedSubtitleId,
+        }));
+      },
+
+      addSubtitle: (subtitle) => {
+        set((state) => ({
+          subtitles: [...state.subtitles, subtitle],
+        }));
+      },
+
+      splitSubtitle: (subtitleId, frame) => {
+        set((state) => {
+          const idx = state.subtitles.findIndex((s) => s.id === subtitleId);
+          if (idx === -1) return state;
+          const original = state.subtitles[idx];
+          if (frame <= original.startFrame || frame >= original.endFrame) return state;
+          const first: EditorSubtitle = {
+            ...original,
+            endFrame: frame,
+          };
+          const second: EditorSubtitle = {
+            ...original,
+            id: `sub-${Date.now()}-split`,
+            startFrame: frame,
+          };
+          const subtitles = [...state.subtitles];
+          subtitles.splice(idx, 1, first, second);
+          return { subtitles };
+        });
+      },
+
+      deleteAudioItem: (audioId) => {
+        set((state) => ({
+          audioItems: state.audioItems.filter((a) => a.id !== audioId),
+        }));
+      },
+
+      trimAudioItem: (audioId, newDuration) => {
+        set((state) => ({
+          audioItems: state.audioItems.map((a) =>
+            a.id === audioId ? { ...a, durationInFrames: newDuration } : a,
+          ),
+        }));
+      },
+
+      freezeFrame: (sceneId, framesToFreeze) => {
+        set((state) => ({
+          scenes: state.scenes.map((s) =>
+            s.id === sceneId
+              ? { ...s, durationInFrames: s.durationInFrames + framesToFreeze }
+              : s,
           ),
         }));
       },
