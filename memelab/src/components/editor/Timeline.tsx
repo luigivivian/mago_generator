@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -18,6 +18,7 @@ import { useTotalDuration } from "@/hooks/use-editor";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
 import { TimelineRuler } from "./TimelineRuler";
 import { TimelineTrack } from "./TimelineTrack";
+import { ContextMenu, type ContextTarget } from "./ContextMenu";
 import type { PlayerRef } from "@remotion/player";
 
 interface TimelineProps {
@@ -107,8 +108,29 @@ export function Timeline({ playerRef }: TimelineProps) {
 
   const sceneIds = scenes.map((s) => s.id);
 
+  // Compute context target based on current selection
+  const getContextTarget = useCallback((): ContextTarget => {
+    if (selectedSceneId) {
+      const idx = scenes.findIndex((s) => s.id === selectedSceneId);
+      if (idx !== -1) {
+        let start = 0;
+        for (let i = 0; i < idx; i++) start += scenes[i].durationInFrames;
+        return { type: "scene", sceneId: selectedSceneId, startFrame: start, durationFrames: scenes[idx].durationInFrames };
+      }
+    }
+    if (selectedSubtitleId) return { type: "subtitle", subtitleId: selectedSubtitleId };
+    if (selectedAudioId) return { type: "audio", audioId: selectedAudioId };
+    return { type: "empty" };
+  }, [selectedSceneId, selectedSubtitleId, selectedAudioId, scenes]);
+
+  const [ctxTarget, setCtxTarget] = useState<ContextTarget>({ type: "empty" });
+  const handleCtx = useCallback(
+    () => setCtxTarget(getContextTarget()),
+    [getContextTarget],
+  );
+
   return (
-    <div className="flex flex-col border-t border-zinc-700 bg-zinc-950 select-none">
+    <div className="flex flex-col border-t border-zinc-700 bg-zinc-950 select-none" onContextMenu={handleCtx}>
       {/* Ruler */}
       <TimelineRuler
         pixelsPerFrame={pixelsPerFrame}
@@ -119,6 +141,7 @@ export function Timeline({ playerRef }: TimelineProps) {
       />
 
       {/* Tracks */}
+      <ContextMenu target={ctxTarget} playheadFrame={playheadFrame}>
       <div className="flex flex-1 min-h-0">
         {/* Track labels */}
         <div className="w-20 shrink-0 border-r border-zinc-700">
@@ -191,6 +214,7 @@ export function Timeline({ playerRef }: TimelineProps) {
           </div>
         </div>
       </div>
+      </ContextMenu>
     </div>
   );
 }

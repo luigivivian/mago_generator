@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer } from "lucide-react";
+import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer, Volume2, Subtitles } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
@@ -14,12 +14,16 @@ const TRANSITION_OPTIONS: { value: EditorScene["transition"]["type"]; label: str
   { value: "flip", label: "Flip" },
 ];
 
+export type ContextTarget =
+  | { type: "scene"; sceneId: string; startFrame: number; durationFrames: number }
+  | { type: "subtitle"; subtitleId: string }
+  | { type: "audio"; audioId: string }
+  | { type: "empty" };
+
 interface ContextMenuProps {
   children: React.ReactNode;
-  sceneId: string;
+  target: ContextTarget;
   playheadFrame: number;
-  sceneDurationFrames: number;
-  sceneStartFrame: number;
 }
 
 interface MenuPosition {
@@ -89,17 +93,16 @@ function TransitionSubmenu({
   );
 }
 
-export function ContextMenu({
-  children,
-  sceneId,
+function SceneMenu({
+  target,
   playheadFrame,
-  sceneDurationFrames,
-  sceneStartFrame,
-}: ContextMenuProps) {
-  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  close,
+}: {
+  target: Extract<ContextTarget, { type: "scene" }>;
+  playheadFrame: number;
+  close: () => void;
+}) {
   const [showTransitions, setShowTransitions] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
   const duplicateScene = useEditorStore((s) => s.duplicateScene);
   const deleteScene = useEditorStore((s) => s.deleteScene);
   const splitScene = useEditorStore((s) => s.splitScene);
@@ -109,12 +112,11 @@ export function ContextMenu({
   const scenes = useEditorStore((s) => s.scenes);
   const subtitles = useEditorStore((s) => s.subtitles);
 
-  const scene = scenes.find((s) => s.id === sceneId);
+  const scene = scenes.find((s) => s.id === target.sceneId);
   const canDelete = scenes.length > 1;
-  const frameOffset = playheadFrame - sceneStartFrame;
-  const canSplit = frameOffset > 0 && frameOffset < sceneDurationFrames;
+  const frameOffset = playheadFrame - target.startFrame;
+  const canSplit = frameOffset > 0 && frameOffset < target.durationFrames;
 
-  // Find subtitle that overlaps the playhead within this scene
   const activeSubtitle = subtitles.find(
     (s) => playheadFrame >= s.startFrame && playheadFrame < s.endFrame,
   );
@@ -123,31 +125,137 @@ export function ContextMenu({
     playheadFrame > activeSubtitle.startFrame &&
     playheadFrame < activeSubtitle.endFrame;
 
+  if (showTransitions) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowTransitions(false)}
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-zinc-800 rounded"
+        >
+          ← Voltar
+        </button>
+        <div className="h-px bg-border my-1" />
+        <TransitionSubmenu
+          sceneId={target.sceneId}
+          currentType={scene?.transition.type ?? "none"}
+          onClose={close}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MenuItem icon={Copy} label="Duplicar Cena" onClick={() => { duplicateScene(target.sceneId); close(); }} />
+      <MenuItem icon={Trash2} label="Deletar Cena" onClick={() => { deleteScene(target.sceneId); close(); }} disabled={!canDelete} destructive />
+      <div className="h-px bg-border my-1" />
+      <MenuItem icon={Scissors} label="Dividir no Playhead" onClick={() => { splitScene(target.sceneId, frameOffset); close(); }} disabled={!canSplit} />
+      {canSplitSubtitle && (
+        <MenuItem icon={Subtitles} label="Cortar Legenda no Playhead" onClick={() => { splitSubtitle(activeSubtitle!.id, playheadFrame); close(); }} />
+      )}
+      <div className="h-px bg-border my-1" />
+      <MenuItem icon={Snowflake} label="Congelar Frame (+1s)" onClick={() => { freezeFrame(target.sceneId, EDITOR_FPS); close(); }} />
+      <MenuItem icon={Timer} label="Estender (+1s)" onClick={() => { trimScene(target.sceneId, target.durationFrames + EDITOR_FPS); close(); }} />
+      <div className="h-px bg-border my-1" />
+      <button
+        type="button"
+        onClick={() => setShowTransitions(true)}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-zinc-800 text-foreground"
+      >
+        <span className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5" />Transicao</span>
+        <span className="text-xs text-muted-foreground">→</span>
+      </button>
+    </>
+  );
+}
+
+function SubtitleMenu({
+  target,
+  playheadFrame,
+  close,
+}: {
+  target: Extract<ContextTarget, { type: "subtitle" }>;
+  playheadFrame: number;
+  close: () => void;
+}) {
+  const deleteSubtitle = useEditorStore((s) => s.deleteSubtitle);
+  const splitSubtitle = useEditorStore((s) => s.splitSubtitle);
+  const subtitles = useEditorStore((s) => s.subtitles);
+
+  const sub = subtitles.find((s) => s.id === target.subtitleId);
+  const canSplit = sub != null && playheadFrame > sub.startFrame && playheadFrame < sub.endFrame;
+
+  return (
+    <>
+      <MenuItem icon={Scissors} label="Dividir Legenda no Playhead" onClick={() => { splitSubtitle(target.subtitleId, playheadFrame); close(); }} disabled={!canSplit} />
+      <div className="h-px bg-border my-1" />
+      <MenuItem icon={Trash2} label="Deletar Legenda" onClick={() => { deleteSubtitle(target.subtitleId); close(); }} destructive />
+    </>
+  );
+}
+
+function AudioMenu({
+  target,
+  playheadFrame,
+  close,
+}: {
+  target: Extract<ContextTarget, { type: "audio" }>;
+  playheadFrame: number;
+  close: () => void;
+}) {
+  const deleteAudioItem = useEditorStore((s) => s.deleteAudioItem);
+  const audioItems = useEditorStore((s) => s.audioItems);
+
+  const audio = audioItems.find((a) => a.id === target.audioId);
+  const canSplit = audio != null && playheadFrame > audio.from && playheadFrame < audio.from + audio.durationInFrames;
+
+  return (
+    <>
+      {canSplit && (
+        <MenuItem icon={Scissors} label="Dividir Audio no Playhead" onClick={() => {
+          // Split audio by creating two items
+          if (!audio) return;
+          const store = useEditorStore.getState();
+          const splitFrame = playheadFrame;
+          const first = { ...audio, durationInFrames: splitFrame - audio.from };
+          const second = { ...audio, id: `audio-split-${Date.now()}`, from: splitFrame, durationInFrames: audio.from + audio.durationInFrames - splitFrame };
+          store.deleteAudioItem(audio.id);
+          // Re-add as two items — use set directly for atomicity
+          useEditorStore.setState((state) => ({
+            audioItems: [...state.audioItems, first, second],
+          }));
+          close();
+        }} />
+      )}
+      <div className="h-px bg-border my-1" />
+      <MenuItem icon={Trash2} label="Deletar Audio" onClick={() => { deleteAudioItem(target.audioId); close(); }} destructive />
+    </>
+  );
+}
+
+export function ContextMenu({ children, target, playheadFrame }: ContextMenuProps) {
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
+      if (target.type === "empty") return;
       e.preventDefault();
       e.stopPropagation();
       setMenuPos({ x: e.clientX, y: e.clientY });
-      setShowTransitions(false);
     },
-    [],
+    [target.type],
   );
 
-  const close = useCallback(() => {
-    setMenuPos(null);
-    setShowTransitions(false);
-  }, []);
+  const close = useCallback(() => setMenuPos(null), []);
 
   useEffect(() => {
     if (!menuPos) return;
     const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        close();
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) close();
     };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     window.addEventListener("mousedown", handleClick);
     window.addEventListener("keydown", handleEsc);
     return () => {
@@ -163,96 +271,12 @@ export function ContextMenu({
       {menuPos && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[180px] rounded-lg border border-border bg-zinc-950 py-1 shadow-xl"
+          className="fixed z-50 min-w-[200px] rounded-lg border border-border bg-zinc-950 py-1 shadow-xl"
           style={{ left: menuPos.x, top: menuPos.y }}
         >
-          {showTransitions ? (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowTransitions(false)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-zinc-800 rounded"
-              >
-                ← Voltar
-              </button>
-              <div className="h-px bg-border my-1" />
-              <TransitionSubmenu
-                sceneId={sceneId}
-                currentType={scene?.transition.type ?? "none"}
-                onClose={close}
-              />
-            </div>
-          ) : (
-            <>
-              <MenuItem
-                icon={Copy}
-                label="Duplicar Cena"
-                onClick={() => {
-                  duplicateScene(sceneId);
-                  close();
-                }}
-              />
-              <MenuItem
-                icon={Trash2}
-                label="Deletar Cena"
-                onClick={() => {
-                  deleteScene(sceneId);
-                  close();
-                }}
-                disabled={!canDelete}
-                destructive
-              />
-              <div className="h-px bg-border my-1" />
-              <MenuItem
-                icon={Scissors}
-                label="Dividir no Playhead"
-                onClick={() => {
-                  splitScene(sceneId, frameOffset);
-                  close();
-                }}
-                disabled={!canSplit}
-              />
-              {canSplitSubtitle && (
-                <MenuItem
-                  icon={Scissors}
-                  label="Cortar Legenda no Playhead"
-                  onClick={() => {
-                    splitSubtitle(activeSubtitle!.id, playheadFrame);
-                    close();
-                  }}
-                />
-              )}
-              <div className="h-px bg-border my-1" />
-              <MenuItem
-                icon={Snowflake}
-                label="Congelar Frame (+1s)"
-                onClick={() => {
-                  freezeFrame(sceneId, EDITOR_FPS);
-                  close();
-                }}
-              />
-              <MenuItem
-                icon={Timer}
-                label="Estender (+1s)"
-                onClick={() => {
-                  trimScene(sceneId, sceneDurationFrames + EDITOR_FPS);
-                  close();
-                }}
-              />
-              <div className="h-px bg-border my-1" />
-              <button
-                type="button"
-                onClick={() => setShowTransitions(true)}
-                className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-zinc-800 text-foreground"
-              >
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Transicao
-                </span>
-                <span className="text-xs text-muted-foreground">→</span>
-              </button>
-            </>
-          )}
+          {target.type === "scene" && <SceneMenu target={target} playheadFrame={playheadFrame} close={close} />}
+          {target.type === "subtitle" && <SubtitleMenu target={target} playheadFrame={playheadFrame} close={close} />}
+          {target.type === "audio" && <AudioMenu target={target} playheadFrame={playheadFrame} close={close} />}
         </div>
       )}
     </>
