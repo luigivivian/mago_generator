@@ -8,6 +8,7 @@ import type { PlayerRef } from "@remotion/player";
 import { useStepState } from "@/hooks/use-reels";
 import { useEditorStore } from "@/stores/editor-store";
 import { useAutosave } from "@/hooks/use-autosave";
+import { useEditorShortcuts } from "@/hooks/use-editor-shortcuts";
 import { EditorLayout } from "@/components/editor/EditorLayout";
 import { RemotionPreview } from "@/components/editor/RemotionPreview";
 import { Timeline } from "@/components/editor/Timeline";
@@ -25,6 +26,8 @@ export default function EditorPage() {
 
   const subtitles = useEditorStore((s) => s.subtitles);
   const playheadFrame = useEditorStore((s) => s.playheadFrame);
+
+  useEditorShortcuts(playerRef);
 
   useEffect(() => {
     if (!stepState || loadedRef.current) return;
