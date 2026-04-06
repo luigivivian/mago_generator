@@ -29,16 +29,29 @@ export default function EditorPage() {
   useEffect(() => {
     if (!stepState || loadedRef.current) return;
     const store = useEditorStore.getState();
-    if (stepState.editor && stepState.editor.scenes.length > 0) {
+
+    // Check if persisted editor state has correct durations
+    // If TTS scene_timings exist, they are authoritative — reload from step state
+    // to pick up narration-based durations instead of clip-based ones
+    const ttsTimings = (stepState.tts as Record<string, unknown> | undefined)?.scene_timings as
+      | Array<{ duration: number }> | undefined;
+    const hasTtsTimings = ttsTimings && ttsTimings.length > 0;
+    const savedEditor = stepState.editor;
+    const savedHasStaleTimings = savedEditor && hasTtsTimings && savedEditor.scenes.length > 0 &&
+      Math.abs(
+        savedEditor.scenes.reduce((s: number, sc: { durationInFrames: number }) => s + sc.durationInFrames, 0) / 30 -
+        ttsTimings.reduce((s, t) => s + t.duration, 0)
+      ) > 5; // >5s difference = stale
+
+    if (savedEditor && savedEditor.scenes.length > 0 && !savedHasStaleTimings) {
       store.loadFromEditorState({
-        scenes: stepState.editor.scenes as never[],
-        subtitles: stepState.editor.subtitles as never[],
-        transitions: stepState.editor.transitions as never[],
-        audioItems: stepState.editor.audioItems as never[],
+        scenes: savedEditor.scenes as never[],
+        subtitles: savedEditor.subtitles as never[],
+        transitions: savedEditor.transitions as never[],
+        audioItems: savedEditor.audioItems as never[],
       });
-      // If saved editor state has no subtitles, load from SRT
       if (
-        (!stepState.editor.subtitles || stepState.editor.subtitles.length === 0) &&
+        (!savedEditor.subtitles || savedEditor.subtitles.length === 0) &&
         stepState.srt?.path
       ) {
         store.loadSubtitlesFromSrt(jobId, stepState.srt.path);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useCallback } from "react";
+import { useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { PlayerRef } from "@remotion/player";
 import { useEditorStore } from "@/stores/editor-store";
@@ -29,21 +29,25 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
   const setPlayheadFrame = useEditorStore((s) => s.setPlayheadFrame);
   const totalDuration = useTotalDuration();
 
-  const handleFrameUpdate = useCallback(
-    (e: { detail: { frame: number } }) => {
-      setPlayheadFrame(e.detail.frame);
-    },
-    [setPlayheadFrame],
-  );
-
+  // Sync playhead frame from Remotion Player to store
+  // Uses an interval check since dynamic import makes ref timing unreliable
   useEffect(() => {
-    const { current } = playerRef;
-    if (!current) return;
-    current.addEventListener("frameupdate", handleFrameUpdate as never);
-    return () => {
-      current.removeEventListener("frameupdate", handleFrameUpdate as never);
+    let rafId: number;
+    let lastFrame = -1;
+    const tick = () => {
+      const player = playerRef.current;
+      if (player) {
+        const frame = player.getCurrentFrame();
+        if (frame !== lastFrame) {
+          lastFrame = frame;
+          setPlayheadFrame(frame);
+        }
+      }
+      rafId = requestAnimationFrame(tick);
     };
-  }, [playerRef, handleFrameUpdate, scenes.length]);
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [playerRef, setPlayheadFrame]);
 
   // Subtitles are rendered by SubtitleEditor overlay — not inside the Player
   const tracks: EditorTrack[] = useMemo(

@@ -92,22 +92,31 @@ export const useEditorStore = create<EditorState>()(
       loadFromStepState: (stepState, jobId, fps = EDITOR_FPS) => {
         const sceneStatuses = stepState.clips?.scenes ?? stepState.video?.scenes ?? [];
         const imagePaths = stepState.images?.paths ?? [];
+        // TTS scene_timings are authoritative for duration (narration length > clip length)
+        const ttsTimings = (stepState.tts as Record<string, unknown>)?.scene_timings as
+          | Array<{ index: number; start: number; end: number; duration: number; narracao?: string }>
+          | undefined;
 
-        const scenes: EditorScene[] = sceneStatuses.map((ss, i) => ({
-          id: genId(),
-          index: i,
-          clipUrl: ss.clip_path ? reelFileUrl(jobId, ss.clip_path) : undefined,
-          imgUrl: ss.img_path
-            ? reelFileUrl(jobId, ss.img_path)
-            : imagePaths[i]
-              ? reelFileUrl(jobId, imagePaths[i])
-              : undefined,
-          durationInFrames: (ss.duration ?? 5) * fps,
-          narration: ss.prompt ?? "",
-          voiceConfig: { ...DEFAULT_VOICE_CONFIG },
-          transition: { type: "none" as const, durationFrames: 0 },
-          status: "ready" as const,
-        }));
+        const scenes: EditorScene[] = sceneStatuses.map((ss, i) => {
+          const ttsTiming = ttsTimings?.find((t) => t.index === i);
+          // Use TTS duration (narration length) when available, otherwise clip duration
+          const durationSec = ttsTiming?.duration ?? ss.duration ?? 5;
+          return {
+            id: genId(),
+            index: i,
+            clipUrl: ss.clip_path ? reelFileUrl(jobId, ss.clip_path) : undefined,
+            imgUrl: ss.img_path
+              ? reelFileUrl(jobId, ss.img_path)
+              : imagePaths[i]
+                ? reelFileUrl(jobId, imagePaths[i])
+                : undefined,
+            durationInFrames: Math.round(durationSec * fps),
+            narration: ttsTiming?.narracao ?? ss.prompt ?? "",
+            voiceConfig: { ...DEFAULT_VOICE_CONFIG },
+            transition: { type: "none" as const, durationFrames: 0 },
+            status: "ready" as const,
+          };
+        });
 
         const audioItems: EditorAudioItem[] = [];
         if (stepState.tts?.path) {
