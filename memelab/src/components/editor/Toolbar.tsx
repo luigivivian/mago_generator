@@ -16,6 +16,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/use-editor";
+import { useEditorStore } from "@/stores/editor-store";
 import { exportRemotion } from "@/lib/api";
 
 interface ToolbarProps {
@@ -29,21 +30,27 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
   const [isPlaying, setIsPlaying] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Use scenes count to re-run effect after Player mounts with data
+  const scenesCount = useEditorStore((s) => s.scenes.length);
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
+    const { current } = playerRef;
+    if (!current) return;
+    setIsPlaying(current.isPlaying());
 
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
+    const onEnded = () => setIsPlaying(false);
 
-    player.addEventListener("play", onPlay);
-    player.addEventListener("pause", onPause);
+    current.addEventListener("play", onPlay);
+    current.addEventListener("pause", onPause);
+    current.addEventListener("ended", onEnded);
     return () => {
-      player.removeEventListener("play", onPlay);
-      player.removeEventListener("pause", onPause);
+      current.removeEventListener("play", onPlay);
+      current.removeEventListener("pause", onPause);
+      current.removeEventListener("ended", onEnded);
     };
-  }, [playerRef]);
+  }, [playerRef, scenesCount]);
 
   const togglePlay = useCallback(() => {
     playerRef.current?.toggle();

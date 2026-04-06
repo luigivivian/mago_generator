@@ -37,21 +37,22 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
   );
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-    player.addEventListener("frameupdate", handleFrameUpdate as never);
+    const { current } = playerRef;
+    if (!current) return;
+    current.addEventListener("frameupdate", handleFrameUpdate as never);
     return () => {
-      player.removeEventListener("frameupdate", handleFrameUpdate as never);
+      current.removeEventListener("frameupdate", handleFrameUpdate as never);
     };
-  }, [playerRef, handleFrameUpdate]);
+  }, [playerRef, handleFrameUpdate, scenes.length]);
 
+  // Subtitles are rendered by SubtitleEditor overlay — not inside the Player
   const tracks: EditorTrack[] = useMemo(
     () => [
       { type: "video" as const, items: scenes },
       { type: "audio" as const, items: audioItems },
-      { type: "subtitle" as const, items: subtitles },
+      { type: "subtitle" as const, items: [] },
     ],
-    [scenes, audioItems, subtitles],
+    [scenes, audioItems],
   );
 
   const inputProps = useMemo(() => ({ tracks }), [tracks]);

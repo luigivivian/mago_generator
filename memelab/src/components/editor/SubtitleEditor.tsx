@@ -28,8 +28,8 @@ function SubtitleOverlay({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const scaleFactor = Math.min(compositionWidth / 1080, 1);
-  const scaledFontSize = Math.max(12, subtitle.style.fontSize * scaleFactor);
+  const scaleFactor = compositionWidth / 1080;
+  const scaledFontSize = Math.max(10, Math.round(subtitle.style.fontSize * scaleFactor));
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

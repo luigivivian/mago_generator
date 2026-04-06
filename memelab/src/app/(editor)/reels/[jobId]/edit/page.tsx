@@ -80,13 +80,13 @@ export default function EditorPage() {
     <EditorLayout
       toolbar={<Toolbar playerRef={playerRef} saveStatus={saveStatus} />}
       preview={
-        <div className="relative">
+        <div className="relative" style={{ width: 270, height: 480 }}>
           <RemotionPreview playerRef={playerRef} />
           <SubtitleEditor
             subtitles={subtitles}
             currentFrame={playheadFrame}
-            compositionWidth={1080}
-            compositionHeight={1920}
+            compositionWidth={270}
+            compositionHeight={480}
           />
         </div>
       }
