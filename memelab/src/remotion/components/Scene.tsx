@@ -8,6 +8,7 @@ export const Scene: React.FC<{ scene: EditorScene }> = ({ scene }) => {
       {scene.clipUrl ? (
         <Video
           src={scene.clipUrl}
+          trimBefore={scene.trimFrom ?? 0}
           style={{ width: "100%", height: "100%" }}
           objectFit="cover"
         />

@@ -4,6 +4,7 @@ export interface EditorScene {
   clipUrl?: string;
   imgUrl?: string;
   durationInFrames: number;
+  trimFrom?: number; // frame offset within source clip for left-trim
   narration: string;
   voiceConfig: {
     voice: string;

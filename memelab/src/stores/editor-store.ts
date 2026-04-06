@@ -57,6 +57,7 @@ interface EditorState {
   trimAudioLeft: (audioId: string, newFrom: number) => void;
   moveAudioItem: (audioId: string, newFrom: number) => void;
   // Scene tools
+  trimSceneLeft: (sceneId: string, newTrimFrom: number) => void;
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
   setTransition: (sceneId: string, type: EditorScene["transition"]["type"], durationFrames: number) => void;
   // Selection
@@ -232,13 +233,13 @@ export const useEditorStore = create<EditorState>()(
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
           const oldDuration = state.scenes[idx].durationInFrames;
-          const delta = newDuration - oldDuration;
+          const clampedDuration = Math.max(15, newDuration);
+          const delta = clampedDuration - oldDuration;
           if (delta === 0) return state;
           const range = getSceneTimeRange(state.scenes, idx);
           const scenes = state.scenes.map((s) =>
-            s.id === sceneId ? { ...s, durationInFrames: Math.max(15, newDuration) } : s,
+            s.id === sceneId ? { ...s, durationInFrames: clampedDuration } : s,
           );
-          // Shift everything after this scene by the delta
           const subtitles = shiftSubtitles(state.subtitles, range.end, delta);
           const audioItems = shiftAudio(state.audioItems, range.end, delta);
           return { scenes, subtitles, audioItems };
@@ -448,14 +449,42 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
+      trimSceneLeft: (sceneId, newTrimFrom) => {
+        set((state) => {
+          const idx = state.scenes.findIndex((s) => s.id === sceneId);
+          if (idx === -1) return state;
+          const scene = state.scenes[idx];
+          const oldTrimFrom = scene.trimFrom ?? 0;
+          const delta = oldTrimFrom - newTrimFrom; // negative when trimming more from left
+          const clampedDuration = Math.max(15, scene.durationInFrames + delta);
+          const actualDelta = clampedDuration - scene.durationInFrames;
+          if (actualDelta === 0) return state;
+          const range = getSceneTimeRange(state.scenes, idx);
+          const scenes = state.scenes.map((s) =>
+            s.id === sceneId
+              ? { ...s, trimFrom: newTrimFrom, durationInFrames: clampedDuration }
+              : s,
+          );
+          const subtitles = shiftSubtitles(state.subtitles, range.end, actualDelta);
+          const audioItems = shiftAudio(state.audioItems, range.end, actualDelta);
+          return { scenes, subtitles, audioItems };
+        });
+      },
+
       freezeFrame: (sceneId, framesToFreeze) => {
-        set((state) => ({
-          scenes: state.scenes.map((s) =>
+        set((state) => {
+          const idx = state.scenes.findIndex((s) => s.id === sceneId);
+          if (idx === -1) return state;
+          const range = getSceneTimeRange(state.scenes, idx);
+          const scenes = state.scenes.map((s) =>
             s.id === sceneId
               ? { ...s, durationInFrames: s.durationInFrames + framesToFreeze }
               : s,
-          ),
-        }));
+          );
+          const subtitles = shiftSubtitles(state.subtitles, range.end, framesToFreeze);
+          const audioItems = shiftAudio(state.audioItems, range.end, framesToFreeze);
+          return { scenes, subtitles, audioItems };
+        });
       },
 
       setTransition: (sceneId, type, durationFrames) => {

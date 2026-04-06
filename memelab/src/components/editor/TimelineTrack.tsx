@@ -51,6 +51,7 @@ export function TimelineTrack({
                   ? (dur) => onTrim(item.id, dur)
                   : undefined
               }
+              onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
               trackType="video"
             />
           ))}

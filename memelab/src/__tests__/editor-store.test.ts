@@ -293,4 +293,218 @@ describe("editor-store", () => {
       expect(scene!.transition.durationFrames).toBe(20);
     });
   });
+
+  describe("trimScene clamp-before-delta", () => {
+    it("clamps to 15 frames min and shifts subtitles by clamped delta, not raw delta", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      // Each scene is 150 frames (5s * 30fps). Add a subtitle starting at frame 200 (in scene 1).
+      const sceneId = useEditorStore.getState().scenes[0].id;
+      act(() => {
+        useEditorStore.setState({
+          subtitles: [
+            {
+              id: "sub-clamp",
+              text: "After scene 0",
+              startFrame: 200,
+              endFrame: 230,
+              position: { x: 50, y: 80 },
+              style: { fontSize: 48, fontFamily: "Inter", color: "#FFFFFF", shadowColor: "#000000", shadowSize: 4 },
+            },
+          ],
+        });
+      });
+
+      // Trim scene 0 to 5 frames -> should clamp to 15
+      act(() => {
+        useEditorStore.getState().trimScene(sceneId, 5);
+      });
+
+      const state = useEditorStore.getState();
+      const scene = state.scenes.find((s) => s.id === sceneId);
+      expect(scene!.durationInFrames).toBe(15); // clamped
+
+      // Delta should be 15 - 150 = -135, NOT 5 - 150 = -145
+      const sub = state.subtitles.find((s) => s.id === "sub-clamp");
+      expect(sub!.startFrame).toBe(200 - 135); // 65
+      expect(sub!.endFrame).toBe(230 - 135); // 95
+    });
+
+    it("allows trimming above current duration without clamping", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      const sceneId = useEditorStore.getState().scenes[0].id;
+      act(() => {
+        useEditorStore.setState({
+          subtitles: [
+            {
+              id: "sub-expand",
+              text: "After scene 0",
+              startFrame: 200,
+              endFrame: 230,
+              position: { x: 50, y: 80 },
+              style: { fontSize: 48, fontFamily: "Inter", color: "#FFFFFF", shadowColor: "#000000", shadowSize: 4 },
+            },
+          ],
+        });
+      });
+
+      // Trim scene 0 to 200 frames (expand by 50)
+      act(() => {
+        useEditorStore.getState().trimScene(sceneId, 200);
+      });
+
+      const state = useEditorStore.getState();
+      const sub = state.subtitles.find((s) => s.id === "sub-expand");
+      expect(sub!.startFrame).toBe(250); // 200 + 50
+    });
+  });
+
+  describe("freezeFrame cascades subtitles and audio", () => {
+    it("shifts subtitles and audio after scene end by framesToFreeze", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      // Scene 0 ends at frame 150. Add subtitle and audio after it.
+      const sceneId = useEditorStore.getState().scenes[0].id;
+      act(() => {
+        useEditorStore.setState({
+          subtitles: [
+            {
+              id: "sub-freeze",
+              text: "After scene 0",
+              startFrame: 160,
+              endFrame: 190,
+              position: { x: 50, y: 80 },
+              style: { fontSize: 48, fontFamily: "Inter", color: "#FFFFFF", shadowColor: "#000000", shadowSize: 4 },
+            },
+          ],
+          audioItems: [
+            {
+              id: "audio-freeze",
+              audioUrl: "test.mp3",
+              from: 160,
+              durationInFrames: 60,
+            },
+          ],
+        });
+      });
+
+      act(() => {
+        useEditorStore.getState().freezeFrame(sceneId, 30);
+      });
+
+      const state = useEditorStore.getState();
+      const scene = state.scenes.find((s) => s.id === sceneId);
+      expect(scene!.durationInFrames).toBe(180); // 150 + 30
+
+      const sub = state.subtitles.find((s) => s.id === "sub-freeze");
+      expect(sub!.startFrame).toBe(190); // 160 + 30
+      expect(sub!.endFrame).toBe(220); // 190 + 30
+
+      const audio = state.audioItems.find((a) => a.id === "audio-freeze");
+      expect(audio!.from).toBe(190); // 160 + 30
+    });
+
+    it("does not shift subtitles before the frozen scene", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      const sceneId = useEditorStore.getState().scenes[1].id; // scene 1 starts at 150
+      act(() => {
+        useEditorStore.setState({
+          subtitles: [
+            {
+              id: "sub-before",
+              text: "Before scene 1",
+              startFrame: 10,
+              endFrame: 40,
+              position: { x: 50, y: 80 },
+              style: { fontSize: 48, fontFamily: "Inter", color: "#FFFFFF", shadowColor: "#000000", shadowSize: 4 },
+            },
+          ],
+        });
+      });
+
+      act(() => {
+        useEditorStore.getState().freezeFrame(sceneId, 30);
+      });
+
+      const sub = useEditorStore.getState().subtitles.find((s) => s.id === "sub-before");
+      expect(sub!.startFrame).toBe(10); // unchanged
+      expect(sub!.endFrame).toBe(40); // unchanged
+    });
+  });
+
+  describe("trimSceneLeft and trimFrom", () => {
+    it("trimSceneLeft increases trimFrom and decreases durationInFrames", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      const sceneId = useEditorStore.getState().scenes[0].id;
+      // Scene 0: 150 frames, trimFrom defaults to 0
+
+      act(() => {
+        useEditorStore.getState().trimSceneLeft(sceneId, 30); // trim 30 frames from left
+      });
+
+      const state = useEditorStore.getState();
+      const scene = state.scenes.find((s) => s.id === sceneId);
+      expect(scene!.trimFrom).toBe(30);
+      expect(scene!.durationInFrames).toBe(120); // 150 - 30
+    });
+
+    it("cascades subtitle shifts from left-trim", () => {
+      const stepState = makeStepState(2);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      const sceneId = useEditorStore.getState().scenes[0].id;
+      act(() => {
+        useEditorStore.setState({
+          subtitles: [
+            {
+              id: "sub-ltrim",
+              text: "After scene 0",
+              startFrame: 200,
+              endFrame: 230,
+              position: { x: 50, y: 80 },
+              style: { fontSize: 48, fontFamily: "Inter", color: "#FFFFFF", shadowColor: "#000000", shadowSize: 4 },
+            },
+          ],
+        });
+      });
+
+      act(() => {
+        useEditorStore.getState().trimSceneLeft(sceneId, 30);
+      });
+
+      // Duration shrank by 30, so delta = -30, subtitles after scene end shift back
+      const sub = useEditorStore.getState().subtitles.find((s) => s.id === "sub-ltrim");
+      expect(sub!.startFrame).toBe(170); // 200 - 30
+    });
+
+    it("EditorScene trimFrom is undefined by default", () => {
+      const stepState = makeStepState(1);
+      act(() => {
+        useEditorStore.getState().loadFromStepState(stepState, "test-job-123", 30);
+      });
+
+      const scene = useEditorStore.getState().scenes[0];
+      expect(scene.trimFrom).toBeUndefined();
+    });
+  });
 });
