@@ -52,6 +52,7 @@ interface EditorState {
   selectedSubtitleId: string | null;
   selectedAudioId: string | null;
   playheadFrame: number;
+  subtitlesEdited: boolean;
 
   loadFromStepState: (stepState: StepState, jobId: string, fps?: number) => void;
   loadFromEditorState: (editorState: EditorPersistState) => void;
@@ -79,6 +80,7 @@ interface EditorState {
   setSelectedSubtitle: (subtitleId: string | null) => void;
   setSelectedAudio: (audioId: string | null) => void;
   setPlayheadFrame: (frame: number) => void;
+  markSubtitlesClean: () => void;
   loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
   totalDuration: () => number;
   toEditorPersistState: () => EditorPersistState;
@@ -146,6 +148,7 @@ export const useEditorStore = create<EditorState>()(
       selectedSubtitleId: null,
       selectedAudioId: null,
       playheadFrame: 0,
+      subtitlesEdited: false,
 
       loadFromStepState: (stepState, jobId, fps = EDITOR_FPS) => {
         const sceneStatuses = stepState.clips?.scenes ?? stepState.video?.scenes ?? [];
@@ -409,11 +412,15 @@ export const useEditorStore = create<EditorState>()(
       },
 
       updateSubtitle: (subtitleId, updates) => {
-        set((state) => ({
-          subtitles: state.subtitles.map((s) =>
-            s.id === subtitleId ? { ...s, ...updates } : s,
-          ),
-        }));
+        set((state) => {
+          const hasTextChange = "text" in updates;
+          return {
+            subtitles: state.subtitles.map((s) =>
+              s.id === subtitleId ? { ...s, ...updates } : s,
+            ),
+            ...(hasTextChange ? { subtitlesEdited: true } : {}),
+          };
+        });
       },
 
       deleteSubtitle: (subtitleId) => {
@@ -509,6 +516,7 @@ export const useEditorStore = create<EditorState>()(
       setSelectedSubtitle: (subtitleId) => set({ selectedSubtitleId: subtitleId }),
       setSelectedAudio: (audioId) => set({ selectedAudioId: audioId }),
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
+      markSubtitlesClean: () => set({ subtitlesEdited: false }),
 
       loadSubtitlesFromSrt: (jobId, srtPath, fps = EDITOR_FPS) => {
         const token =

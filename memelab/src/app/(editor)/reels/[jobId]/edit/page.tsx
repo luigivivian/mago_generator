@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Volume2, X } from "lucide-react";
 import type { PlayerRef } from "@remotion/player";
 import { useStepState } from "@/hooks/use-reels";
 import { useEditorStore } from "@/stores/editor-store";
@@ -15,6 +15,53 @@ import { Timeline } from "@/components/editor/Timeline";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { SubtitleEditor } from "@/components/editor/SubtitleEditor";
 import { Toolbar } from "@/components/editor/Toolbar";
+import { regenerateStep } from "@/lib/api";
+
+function AudioRegenBanner({ jobId }: { jobId: string }) {
+  const subtitlesEdited = useEditorStore((s) => s.subtitlesEdited);
+  const markClean = useEditorStore((s) => s.markSubtitlesClean);
+  const [regenerating, setRegenerating] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  const handleRegenerate = useCallback(async () => {
+    setRegenerating(true);
+    try {
+      await regenerateStep(jobId, "tts");
+      markClean();
+      setDismissed(false);
+    } finally {
+      setRegenerating(false);
+    }
+  }, [jobId, markClean]);
+
+  if (!subtitlesEdited || dismissed) return null;
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-sm">
+      <Volume2 className="h-4 w-4 text-amber-400 shrink-0" />
+      <span className="text-amber-200 flex-1">
+        Legendas editadas. Deseja regenerar o audio para refletir as alteracoes?
+      </span>
+      <button
+        type="button"
+        onClick={handleRegenerate}
+        disabled={regenerating}
+        className="flex items-center gap-1.5 px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium disabled:opacity-50"
+      >
+        {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Volume2 className="h-3 w-3" />}
+        Regenerar Audio
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="p-1 rounded hover:bg-zinc-800 text-muted-foreground"
+        title="Dispensar"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
 
 export default function EditorPage() {
   const params = useParams<{ jobId: string }>();
@@ -94,7 +141,12 @@ export default function EditorPage() {
 
   return (
     <EditorLayout
-      toolbar={<Toolbar playerRef={playerRef} saveStatus={saveStatus} />}
+      toolbar={
+        <>
+          <Toolbar playerRef={playerRef} saveStatus={saveStatus} />
+          <AudioRegenBanner jobId={jobId} />
+        </>
+      }
       preview={
         <div className="relative" style={{ width: 270, height: 480 }}>
           <RemotionPreview playerRef={playerRef} />
