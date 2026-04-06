@@ -70,6 +70,7 @@ interface EditorState {
   moveSubtitle: (subtitleId: string, deltaFrames: number) => void;
   // Audio operations
   deleteAudioItem: (audioId: string) => void;
+  splitAudioItem: (audioId: string, frame: number) => void;
   trimAudioItem: (audioId: string, newDuration: number) => void;
   trimAudioLeft: (audioId: string, newFrom: number) => void;
   moveAudioItem: (audioId: string, newFrom: number) => void;
@@ -467,6 +468,27 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
+      splitAudioItem: (audioId, frame) => {
+        set((state) => {
+          const audioItems: EditorAudioItem[] = [];
+          for (const a of state.audioItems) {
+            if (a.id !== audioId) { audioItems.push(a); continue; }
+            const aEnd = a.from + a.durationInFrames;
+            if (frame <= a.from || frame >= aEnd) { audioItems.push(a); continue; }
+            const sourceOffset = a.startFrom ?? 0;
+            audioItems.push({ ...a, durationInFrames: frame - a.from });
+            audioItems.push({
+              ...a,
+              id: genId("audio"),
+              from: frame,
+              durationInFrames: aEnd - frame,
+              startFrom: sourceOffset + (frame - a.from),
+            });
+          }
+          return { audioItems };
+        });
+      },
+
       trimAudioItem: (audioId, newDuration) => {
         set((state) => ({
           audioItems: state.audioItems.map((a) =>
@@ -508,17 +530,14 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
-      moveSubtitle: (subtitleId, deltaFrames) => {
+      moveSubtitle: (subtitleId, newStartFrame) => {
         set((state) => ({
-          subtitles: state.subtitles.map((s) =>
-            s.id === subtitleId
-              ? {
-                  ...s,
-                  startFrame: Math.max(0, s.startFrame + deltaFrames),
-                  endFrame: Math.max(1, s.endFrame + deltaFrames),
-                }
-              : s,
-          ),
+          subtitles: state.subtitles.map((s) => {
+            if (s.id !== subtitleId) return s;
+            const duration = s.endFrame - s.startFrame;
+            const start = Math.max(0, newStartFrame);
+            return { ...s, startFrame: start, endFrame: start + duration };
+          }),
         }));
       },
 

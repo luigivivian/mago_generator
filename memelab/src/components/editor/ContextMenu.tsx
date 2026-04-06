@@ -214,18 +214,7 @@ function AudioMenu({
     <>
       {canSplit && (
         <MenuItem icon={Scissors} label="Dividir Audio no Playhead" onClick={() => {
-          // Split audio by creating two items
-          if (!audio) return;
-          const store = useEditorStore.getState();
-          const splitFrame = playheadFrame;
-          const sourceOffset = audio.startFrom ?? 0;
-          const first = { ...audio, durationInFrames: splitFrame - audio.from };
-          const second = { ...audio, id: `audio-split-${Date.now()}`, from: splitFrame, durationInFrames: audio.from + audio.durationInFrames - splitFrame, startFrom: sourceOffset + (splitFrame - audio.from) };
-          store.deleteAudioItem(audio.id);
-          // Re-add as two items — use set directly for atomicity
-          useEditorStore.setState((state) => ({
-            audioItems: [...state.audioItems, first, second],
-          }));
+          useEditorStore.getState().splitAudioItem(target.audioId, playheadFrame);
           close();
         }} />
       )}

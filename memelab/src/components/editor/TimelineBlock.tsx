@@ -117,7 +117,7 @@ function VideoBlock({
     >
       {/* Left trim handle */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-l-sm"
+        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-l-sm"
         onPointerDown={(e) => handleTrimPointerDown(e, "left")}
       />
 
@@ -147,7 +147,7 @@ function VideoBlock({
 
       {/* Right trim handle */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-r-sm"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-r-sm"
         onPointerDown={(e) => handleTrimPointerDown(e, "right")}
       />
 
@@ -197,7 +197,7 @@ function SubtitleBlock({
         } else if (dragRef.current.type === "right" && onTrimEnd) {
           onTrimEnd(Math.max(item.startFrame + MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
         } else if (dragRef.current.type === "move" && onMove) {
-          onMove(delta);
+          onMove(Math.max(0, dragRef.current.startVal + delta)); // absolute new startFrame
         }
       };
       const handleUp = () => {
@@ -218,7 +218,7 @@ function SubtitleBlock({
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-l-sm"
+        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-l-sm"
         onPointerDown={(e) => handlePointerDown(e, "left")}
       />
       <div
@@ -228,7 +228,7 @@ function SubtitleBlock({
         <span className="text-[10px] text-amber-200 truncate block">{item.text}</span>
       </div>
       <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-r-sm"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-r-sm"
         onPointerDown={(e) => handlePointerDown(e, "right")}
       />
     </div>
@@ -292,7 +292,7 @@ function AudioBlock({
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-l-sm"
+        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-l-sm"
         onPointerDown={(e) => handlePointerDown(e, "left")}
       />
       <div
@@ -304,7 +304,7 @@ function AudioBlock({
         </span>
       </div>
       <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-r-sm"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-r-sm"
         onPointerDown={(e) => handlePointerDown(e, "right")}
       />
     </div>

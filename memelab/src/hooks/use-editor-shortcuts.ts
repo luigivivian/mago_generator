@@ -74,23 +74,7 @@ export function useEditorShortcuts(
         if (store.selectedSubtitleId) {
           store.splitSubtitle(store.selectedSubtitleId, frame);
         } else if (store.selectedAudioId) {
-          // Split audio at playhead
-          const audio = store.audioItems.find((a) => a.id === store.selectedAudioId);
-          if (audio && frame > audio.from && frame < audio.from + audio.durationInFrames) {
-            const sourceOffset = audio.startFrom ?? 0;
-            const first = { ...audio, durationInFrames: frame - audio.from };
-            const second = {
-              ...audio,
-              id: `audio-split-${Date.now()}`,
-              from: frame,
-              durationInFrames: audio.from + audio.durationInFrames - frame,
-              startFrom: sourceOffset + (frame - audio.from),
-            };
-            store.deleteAudioItem(audio.id);
-            useEditorStore.setState((state) => ({
-              audioItems: [...state.audioItems, first, second],
-            }));
-          }
+          store.splitAudioItem(store.selectedAudioId, frame);
         } else if (store.selectedSceneId) {
           // Find frame offset within the selected scene
           let sceneStart = 0;
