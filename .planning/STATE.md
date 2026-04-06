@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-stopped_at: Phase 999.11 context gathered
-last_updated: "2026-04-06T19:23:54.302Z"
-last_activity: 2026-04-03
+status: Ready to execute
+stopped_at: Completed 999.11-03 plan
+last_updated: "2026-04-06T19:59:22.100Z"
+last_activity: 2026-04-06
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 20
-  completed_plans: 19
+  total_plans: 23
+  completed_plans: 21
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 1001 — biblical-reels-category
+**Current focus:** Phase 999.11 — editor-critical-bugs
 
 ## Current Position
 
-Phase: 1001
-Plan: Not started
+Phase: 999.11 (editor-critical-bugs) — EXECUTING
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -102,6 +102,8 @@ Plan: Not started
 | Phase 1001 P01 | 3min | 2 tasks | 4 files |
 | Phase 1001 P05 | 3min | 2 tasks | 3 files |
 | Phase 1001 P04 | 9min | 3 tasks | 4 files |
+| Phase 999.11 P01 | 4min | 2 tasks | 10 files |
+| Phase 999.11 P03 | 6min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -218,6 +220,9 @@ Recent decisions affecting current work:
 - [Phase 1001]: Verse highlighting renders below textareas as preview divs, not inside textarea elements
 - [Phase 1001]: Bible subtitle overlay: Bold=1, 1.3x font, amber &H00F5C518& in BGR format for ASS force_style
 - [Phase 1001]: Series CRUD endpoints placed before /{job_id} catch-all to avoid FastAPI path conflicts
+- [Phase 999.11]: genId monotonic counter (prefix-Date.now()-counter) ensures unique IDs even in tight loops; pure editor functions extracted to lib/editor/ with barrel export
+- [Phase 999.11]: D-01 already resolved: no timeupdate listener exists, RAF loop is sole playhead source
+- [Phase 999.11]: Generation counter + AbortController pattern for SRT fetch race in both loadFromStepState and loadSubtitlesFromSrt
 
 ### Pending Todos
 
@@ -239,7 +244,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last activity: 2026-04-03
-Last session: 2026-04-06T19:23:54.292Z
-Stopped at: Phase 999.11 context gathered
-Resume file: .planning/phases/999.11-editor-critical-bugs/999.11-CONTEXT.md
+Last activity: 2026-04-06
+Last session: 2026-04-06T19:59:22.087Z
+Stopped at: Completed 999.11-03 plan
+Resume file: None
