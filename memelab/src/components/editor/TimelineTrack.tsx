@@ -11,6 +11,9 @@ interface TimelineTrackProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onTrim?: (id: string, newDurationFrames: number) => void;
+  onTrimStart?: (id: string, newStartFrame: number) => void;
+  onTrimEnd?: (id: string, newEndFrame: number) => void;
+  onMove?: (id: string, value: number) => void;
 }
 
 const TRACK_CONFIG = {
@@ -26,6 +29,9 @@ export function TimelineTrack({
   selectedId,
   onSelect,
   onTrim,
+  onTrimStart,
+  onTrimEnd,
+  onMove,
 }: TimelineTrackProps) {
   const config = TRACK_CONFIG[type];
 
@@ -58,6 +64,10 @@ export function TimelineTrack({
               pixelsPerFrame={pixelsPerFrame}
               selected={item.id === selectedId}
               onSelect={() => onSelect(item.id)}
+              onTrim={onTrim ? (dur) => onTrim(item.id, dur) : undefined}
+              onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
+              onTrimEnd={onTrimEnd ? (v) => onTrimEnd(item.id, v) : undefined}
+              onMove={onMove ? (v) => onMove(item.id, v) : undefined}
               trackType={type}
             />
           ))}

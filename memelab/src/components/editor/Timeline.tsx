@@ -34,12 +34,18 @@ export function Timeline({ playerRef }: TimelineProps) {
   const audioItems = useEditorStore((s) => s.audioItems);
   const selectedSceneId = useEditorStore((s) => s.selectedSceneId);
   const selectedSubtitleId = useEditorStore((s) => s.selectedSubtitleId);
+  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
   const playheadFrame = useEditorStore((s) => s.playheadFrame);
   const reorderScenes = useEditorStore((s) => s.reorderScenes);
   const setSelectedScene = useEditorStore((s) => s.setSelectedScene);
   const setSelectedSubtitle = useEditorStore((s) => s.setSelectedSubtitle);
+  const setSelectedAudio = useEditorStore((s) => s.setSelectedAudio);
   const setPlayheadFrame = useEditorStore((s) => s.setPlayheadFrame);
   const trimScene = useEditorStore((s) => s.trimScene);
+  const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
+  const moveSubtitle = useEditorStore((s) => s.moveSubtitle);
+  const trimAudioItem = useEditorStore((s) => s.trimAudioItem);
+  const moveAudioItem = useEditorStore((s) => s.moveAudioItem);
   const totalFrames = useTotalDuration();
 
   const sensors = useSensors(
@@ -165,8 +171,10 @@ export function Timeline({ playerRef }: TimelineProps) {
               type="audio"
               items={audioItems}
               pixelsPerFrame={pixelsPerFrame}
-              selectedId={null}
-              onSelect={() => {}}
+              selectedId={selectedAudioId}
+              onSelect={setSelectedAudio}
+              onTrim={(id, dur) => trimAudioItem(id, dur)}
+              onMove={(id, newFrom) => moveAudioItem(id, newFrom)}
             />
 
             {/* Subtitle track */}
@@ -176,6 +184,9 @@ export function Timeline({ playerRef }: TimelineProps) {
               pixelsPerFrame={pixelsPerFrame}
               selectedId={selectedSubtitleId}
               onSelect={setSelectedSubtitle}
+              onTrimStart={(id, start) => updateSubtitle(id, { startFrame: start })}
+              onTrimEnd={(id, end) => updateSubtitle(id, { endFrame: end })}
+              onMove={(id, delta) => moveSubtitle(id, delta)}
             />
           </div>
         </div>

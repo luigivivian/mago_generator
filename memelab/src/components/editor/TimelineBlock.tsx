@@ -12,6 +12,9 @@ interface TimelineBlockProps {
   selected: boolean;
   onSelect: () => void;
   onTrim?: (newDurationFrames: number) => void;
+  onTrimStart?: (newStartFrame: number) => void;
+  onTrimEnd?: (newEndFrame: number) => void;
+  onMove?: (value: number) => void;
   trackType: "video" | "audio" | "subtitle";
 }
 
@@ -163,25 +166,71 @@ function SubtitleBlock({
   pixelsPerFrame,
   selected,
   onSelect,
+  onTrimStart,
+  onTrimEnd,
+  onMove,
 }: {
   item: EditorSubtitle;
   pixelsPerFrame: number;
   selected: boolean;
   onSelect: () => void;
+  onTrimStart?: (newStartFrame: number) => void;
+  onTrimEnd?: (newEndFrame: number) => void;
+  onMove?: (deltaFrames: number) => void;
 }) {
   const left = item.startFrame * pixelsPerFrame;
   const width = (item.endFrame - item.startFrame) * pixelsPerFrame;
+  const dragRef = useRef<{ startX: number; startVal: number; type: "left" | "right" | "move" } | null>(null);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, type: "left" | "right" | "move") => {
+      e.stopPropagation();
+      e.preventDefault();
+      const startVal = type === "left" ? item.startFrame : type === "right" ? item.endFrame : item.startFrame;
+      dragRef.current = { startX: e.clientX, startVal, type };
+
+      const handleMove = (ev: PointerEvent) => {
+        if (!dragRef.current) return;
+        const delta = Math.round((ev.clientX - dragRef.current.startX) / pixelsPerFrame);
+        if (dragRef.current.type === "left" && onTrimStart) {
+          onTrimStart(Math.max(0, Math.min(item.endFrame - MIN_DURATION_FRAMES, dragRef.current.startVal + delta)));
+        } else if (dragRef.current.type === "right" && onTrimEnd) {
+          onTrimEnd(Math.max(item.startFrame + MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
+        } else if (dragRef.current.type === "move" && onMove) {
+          onMove(delta);
+        }
+      };
+      const handleUp = () => {
+        dragRef.current = null;
+        document.removeEventListener("pointermove", handleMove);
+        document.removeEventListener("pointerup", handleUp);
+      };
+      document.addEventListener("pointermove", handleMove);
+      document.addEventListener("pointerup", handleUp);
+    },
+    [item.startFrame, item.endFrame, pixelsPerFrame, onTrimStart, onTrimEnd, onMove],
+  );
 
   return (
     <div
-      className={`absolute h-10 border rounded-sm flex items-center px-1.5 ${TRACK_COLORS.subtitle} ${selected ? "ring-2 ring-amber-500" : ""} cursor-pointer`}
+      className={`absolute h-10 border rounded-sm flex items-center ${TRACK_COLORS.subtitle} ${selected ? "ring-2 ring-amber-500" : ""}`}
       style={{ left, width }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
-      <span className="text-[10px] text-amber-200 truncate">{item.text}</span>
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-l-sm"
+        onPointerDown={(e) => handlePointerDown(e, "left")}
+      />
+      <div
+        className="flex-1 px-1.5 overflow-hidden cursor-grab active:cursor-grabbing"
+        onPointerDown={(e) => handlePointerDown(e, "move")}
+      >
+        <span className="text-[10px] text-amber-200 truncate block">{item.text}</span>
+      </div>
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-r-sm"
+        onPointerDown={(e) => handlePointerDown(e, "right")}
+      />
     </div>
   );
 }
@@ -191,31 +240,74 @@ function AudioBlock({
   pixelsPerFrame,
   selected,
   onSelect,
+  onTrim,
+  onMove,
 }: {
   item: EditorAudioItem;
   pixelsPerFrame: number;
   selected: boolean;
   onSelect: () => void;
+  onTrim?: (newDuration: number) => void;
+  onMove?: (newFrom: number) => void;
 }) {
   const left = item.from * pixelsPerFrame;
   const width = item.durationInFrames * pixelsPerFrame;
+  const dragRef = useRef<{ startX: number; startVal: number; type: "left" | "right" | "move" } | null>(null);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, type: "left" | "right" | "move") => {
+      e.stopPropagation();
+      e.preventDefault();
+      const startVal = type === "left" ? item.from : type === "right" ? item.durationInFrames : item.from;
+      dragRef.current = { startX: e.clientX, startVal, type };
+
+      const handlePtrMove = (ev: PointerEvent) => {
+        if (!dragRef.current) return;
+        const delta = Math.round((ev.clientX - dragRef.current.startX) / pixelsPerFrame);
+        if (dragRef.current.type === "right" && onTrim) {
+          onTrim(Math.max(MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
+        } else if (dragRef.current.type === "left" && onMove && onTrim) {
+          const newFrom = Math.max(0, dragRef.current.startVal + delta);
+          const shrink = newFrom - item.from;
+          onMove(newFrom);
+          onTrim(Math.max(MIN_DURATION_FRAMES, item.durationInFrames - shrink));
+        } else if (dragRef.current.type === "move" && onMove) {
+          onMove(Math.max(0, dragRef.current.startVal + delta));
+        }
+      };
+      const handleUp = () => {
+        dragRef.current = null;
+        document.removeEventListener("pointermove", handlePtrMove);
+        document.removeEventListener("pointerup", handleUp);
+      };
+      document.addEventListener("pointermove", handlePtrMove);
+      document.addEventListener("pointerup", handleUp);
+    },
+    [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onMove],
+  );
 
   return (
     <div
-      className={`absolute h-14 border rounded-sm flex items-center px-2 ${TRACK_COLORS.audio} ${selected ? "ring-2 ring-blue-500" : ""} cursor-pointer`}
-      style={{
-        left,
-        width,
-        background: "linear-gradient(90deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.3) 50%, rgba(59,130,246,0.15) 100%)",
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
+      className={`absolute h-14 border rounded-sm flex items-center ${TRACK_COLORS.audio} ${selected ? "ring-2 ring-blue-500" : ""}`}
+      style={{ left, width, background: "linear-gradient(90deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.3) 50%, rgba(59,130,246,0.15) 100%)" }}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
-      <span className="text-[10px] text-blue-300 truncate">
-        {(item.durationInFrames / 30).toFixed(1)}s
-      </span>
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-l-sm"
+        onPointerDown={(e) => handlePointerDown(e, "left")}
+      />
+      <div
+        className="flex-1 px-2 overflow-hidden cursor-grab active:cursor-grabbing"
+        onPointerDown={(e) => handlePointerDown(e, "move")}
+      >
+        <span className="text-[10px] text-blue-300 truncate block">
+          {(item.durationInFrames / 30).toFixed(1)}s
+        </span>
+      </div>
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-r-sm"
+        onPointerDown={(e) => handlePointerDown(e, "right")}
+      />
     </div>
   );
 }
@@ -242,6 +334,9 @@ export function TimelineBlock(props: TimelineBlockProps) {
         pixelsPerFrame={props.pixelsPerFrame}
         selected={props.selected}
         onSelect={props.onSelect}
+        onTrimStart={props.onTrimStart}
+        onTrimEnd={props.onTrimEnd}
+        onMove={props.onMove}
       />
     );
   }
@@ -253,6 +348,8 @@ export function TimelineBlock(props: TimelineBlockProps) {
         pixelsPerFrame={props.pixelsPerFrame}
         selected={props.selected}
         onSelect={props.onSelect}
+        onTrim={props.onTrim}
+        onMove={props.onMove}
       />
     );
   }
