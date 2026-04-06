@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 999.11-03 plan
-last_updated: "2026-04-06T19:59:22.100Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 999.11-02 plan
+last_updated: "2026-04-06T20:05:30.010Z"
 last_activity: 2026-04-06
 progress:
   total_phases: 7
@@ -104,6 +104,7 @@ Plan: 3 of 3
 | Phase 1001 P04 | 9min | 3 tasks | 4 files |
 | Phase 999.11 P01 | 4min | 2 tasks | 10 files |
 | Phase 999.11 P03 | 6min | 2 tasks | 8 files |
+| Phase 999.11 P02 | 12min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -223,10 +224,11 @@ Recent decisions affecting current work:
 - [Phase 999.11]: genId monotonic counter (prefix-Date.now()-counter) ensures unique IDs even in tight loops; pure editor functions extracted to lib/editor/ with barrel export
 - [Phase 999.11]: D-01 already resolved: no timeupdate listener exists, RAF loop is sole playhead source
 - [Phase 999.11]: Generation counter + AbortController pattern for SRT fetch race in both loadFromStepState and loadSubtitlesFromSrt
+- [Phase 999.11]: trimScene clamps to 15 frames BEFORE computing cascade delta; freezeFrame uses same cascade pattern; VideoBlock left handle separate from right handle
 
 ### Pending Todos
 
-4 pending todos in `.planning/todos/pending/`.
+5 pending todos in `.planning/todos/pending/`.
 
 ### Blockers/Concerns
 
@@ -245,6 +247,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last activity: 2026-04-06
-Last session: 2026-04-06T19:59:22.087Z
-Stopped at: Completed 999.11-03 plan
+Last session: 2026-04-06T20:05:30.006Z
+Stopped at: Completed 999.11-02 plan
 Resume file: None
