@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Copy, Trash2, Scissors, Sparkles } from "lucide-react";
+import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
+import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
 
 const TRANSITION_OPTIONS: { value: EditorScene["transition"]["type"]; label: string }[] = [
@@ -102,12 +103,25 @@ export function ContextMenu({
   const duplicateScene = useEditorStore((s) => s.duplicateScene);
   const deleteScene = useEditorStore((s) => s.deleteScene);
   const splitScene = useEditorStore((s) => s.splitScene);
+  const freezeFrame = useEditorStore((s) => s.freezeFrame);
+  const trimScene = useEditorStore((s) => s.trimScene);
+  const splitSubtitle = useEditorStore((s) => s.splitSubtitle);
   const scenes = useEditorStore((s) => s.scenes);
+  const subtitles = useEditorStore((s) => s.subtitles);
 
   const scene = scenes.find((s) => s.id === sceneId);
   const canDelete = scenes.length > 1;
   const frameOffset = playheadFrame - sceneStartFrame;
   const canSplit = frameOffset > 0 && frameOffset < sceneDurationFrames;
+
+  // Find subtitle that overlaps the playhead within this scene
+  const activeSubtitle = subtitles.find(
+    (s) => playheadFrame >= s.startFrame && playheadFrame < s.endFrame,
+  );
+  const canSplitSubtitle =
+    activeSubtitle != null &&
+    playheadFrame > activeSubtitle.startFrame &&
+    playheadFrame < activeSubtitle.endFrame;
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -197,6 +211,33 @@ export function ContextMenu({
                   close();
                 }}
                 disabled={!canSplit}
+              />
+              {canSplitSubtitle && (
+                <MenuItem
+                  icon={Scissors}
+                  label="Cortar Legenda no Playhead"
+                  onClick={() => {
+                    splitSubtitle(activeSubtitle!.id, playheadFrame);
+                    close();
+                  }}
+                />
+              )}
+              <div className="h-px bg-border my-1" />
+              <MenuItem
+                icon={Snowflake}
+                label="Congelar Frame (+1s)"
+                onClick={() => {
+                  freezeFrame(sceneId, EDITOR_FPS);
+                  close();
+                }}
+              />
+              <MenuItem
+                icon={Timer}
+                label="Estender (+1s)"
+                onClick={() => {
+                  trimScene(sceneId, sceneDurationFrames + EDITOR_FPS);
+                  close();
+                }}
               />
               <div className="h-px bg-border my-1" />
               <button
