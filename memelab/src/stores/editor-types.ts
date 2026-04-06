@@ -43,6 +43,7 @@ export interface EditorAudioItem {
   audioUrl: string;
   from: number;
   durationInFrames: number;
+  startFrom?: number; // frame offset within the source audio file
 }
 
 export interface EditorTrack {

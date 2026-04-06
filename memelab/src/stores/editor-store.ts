@@ -71,6 +71,7 @@ interface EditorState {
   // Audio operations
   deleteAudioItem: (audioId: string) => void;
   trimAudioItem: (audioId: string, newDuration: number) => void;
+  trimAudioLeft: (audioId: string, newFrom: number) => void;
   moveAudioItem: (audioId: string, newFrom: number) => void;
   // Scene tools
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
@@ -395,12 +396,14 @@ export const useEditorStore = create<EditorState>()(
           for (const a of state.audioItems) {
             const aEnd = a.from + a.durationInFrames;
             if (a.from < splitFrame && aEnd > splitFrame) {
+              const sourceOffset = a.startFrom ?? 0;
               audioItems.push({ ...a, durationInFrames: splitFrame - a.from });
               audioItems.push({
                 ...a,
                 id: genId("audio"),
                 from: splitFrame,
                 durationInFrames: aEnd - splitFrame,
+                startFrom: sourceOffset + (splitFrame - a.from),
               });
             } else {
               audioItems.push(a);
@@ -469,6 +472,21 @@ export const useEditorStore = create<EditorState>()(
           audioItems: state.audioItems.map((a) =>
             a.id === audioId ? { ...a, durationInFrames: newDuration } : a,
           ),
+        }));
+      },
+
+      trimAudioLeft: (audioId: string, newFrom: number) => {
+        set((state) => ({
+          audioItems: state.audioItems.map((a) => {
+            if (a.id !== audioId) return a;
+            const delta = newFrom - a.from;
+            return {
+              ...a,
+              from: newFrom,
+              durationInFrames: Math.max(15, a.durationInFrames - delta),
+              startFrom: (a.startFrom ?? 0) + delta,
+            };
+          }),
         }));
       },
 

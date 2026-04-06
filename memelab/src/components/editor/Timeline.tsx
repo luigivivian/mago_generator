@@ -46,6 +46,7 @@ export function Timeline({ playerRef }: TimelineProps) {
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
   const moveSubtitle = useEditorStore((s) => s.moveSubtitle);
   const trimAudioItem = useEditorStore((s) => s.trimAudioItem);
+  const trimAudioLeft = useEditorStore((s) => s.trimAudioLeft);
   const moveAudioItem = useEditorStore((s) => s.moveAudioItem);
   const totalFrames = useTotalDuration();
 
@@ -197,6 +198,7 @@ export function Timeline({ playerRef }: TimelineProps) {
               selectedId={selectedAudioId}
               onSelect={setSelectedAudio}
               onTrim={(id, dur) => trimAudioItem(id, dur)}
+              onTrimStart={(id, newFrom) => trimAudioLeft(id, newFrom)}
               onMove={(id, newFrom) => moveAudioItem(id, newFrom)}
             />
 

@@ -85,7 +85,7 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
           from={item.from}
           durationInFrames={item.durationInFrames}
         >
-          <Audio src={item.audioUrl} />
+          <Audio src={item.audioUrl} startFrom={item.startFrom ?? 0} />
         </Sequence>
       ))}
 

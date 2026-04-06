@@ -241,6 +241,7 @@ function AudioBlock({
   selected,
   onSelect,
   onTrim,
+  onTrimStart,
   onMove,
 }: {
   item: EditorAudioItem;
@@ -248,6 +249,7 @@ function AudioBlock({
   selected: boolean;
   onSelect: () => void;
   onTrim?: (newDuration: number) => void;
+  onTrimStart?: (newFrom: number) => void;
   onMove?: (newFrom: number) => void;
 }) {
   const left = item.from * pixelsPerFrame;
@@ -266,11 +268,8 @@ function AudioBlock({
         const delta = Math.round((ev.clientX - dragRef.current.startX) / pixelsPerFrame);
         if (dragRef.current.type === "right" && onTrim) {
           onTrim(Math.max(MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
-        } else if (dragRef.current.type === "left" && onMove && onTrim) {
-          const newFrom = Math.max(0, dragRef.current.startVal + delta);
-          const shrink = newFrom - item.from;
-          onMove(newFrom);
-          onTrim(Math.max(MIN_DURATION_FRAMES, item.durationInFrames - shrink));
+        } else if (dragRef.current.type === "left" && onTrimStart) {
+          onTrimStart(Math.max(0, dragRef.current.startVal + delta));
         } else if (dragRef.current.type === "move" && onMove) {
           onMove(Math.max(0, dragRef.current.startVal + delta));
         }
@@ -349,6 +348,7 @@ export function TimelineBlock(props: TimelineBlockProps) {
         selected={props.selected}
         onSelect={props.onSelect}
         onTrim={props.onTrim}
+        onTrimStart={props.onTrimStart}
         onMove={props.onMove}
       />
     );
