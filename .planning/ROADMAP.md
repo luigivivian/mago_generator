@@ -81,7 +81,7 @@ Plans:
 
 ### Phase 999.10: Full in-browser video editor (BACKLOG)
 
-**Goal:** Editor de video completo e intuitivo integrado ao memeLab, estilo VEED.io. Permite editar o video final cena por cena: mover frames, cortar, duplicar, estender cenas, customizar transicoes, reposicionar legendas, configurar voz/narração. UI dedicada com timeline, preview ao vivo, e controles drag-and-drop.
+**Goal:** Editor de video completo e intuitivo integrado ao memeLab, estilo VEED.io. Permite editar o video final cena por cena: mover frames, cortar, duplicar, estender cenas, customizar transicoes, reposicionar legendas, configurar voz/narracao. UI dedicada com timeline, preview ao vivo, e controles drag-and-drop.
 
 **Requirements:**
 - Timeline visual com tracks de video, audio e legendas
@@ -91,11 +91,18 @@ Plans:
 - Editor de legendas: mover, redimensionar, editar texto, estilizar fonte/cor
 - Configuracao de voz: selecionar voz TTS, ajustar velocidade, regenerar por cena
 - Controles de audio: volume, fade in/out, timing
-- Export do video final editado (server-side FFmpeg render)
+- Export do video final editado (server-side Remotion CLI render)
 - UI responsiva e intuitiva com atalhos de teclado
 - Undo/redo completo
 
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [ ] 999.10-01-PLAN.md — Install Remotion + deps, type definitions, Zustand store with undo/redo
+- [ ] 999.10-02-PLAN.md — Backend PATCH editor-state + POST export-remotion endpoints, frontend API functions
+- [ ] 999.10-03-PLAN.md — Remotion compositions: ReelComposition, Scene, SubtitleOverlay, Root
+- [ ] 999.10-04-PLAN.md — Editor page layout, Remotion Player preview, Toolbar
+- [ ] 999.10-05-PLAN.md — Multi-track timeline with drag-and-drop, trim handles, zoom, ruler
+- [ ] 999.10-06-PLAN.md — Properties panel, subtitle inline editor, context menu
+- [ ] 999.10-07-PLAN.md — Autosave hook, full component wiring, "Editar Video" entry points
+- [ ] 999.10-08-PLAN.md — Human verification of complete editor
