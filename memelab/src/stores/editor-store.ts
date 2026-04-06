@@ -50,25 +50,34 @@ interface EditorState {
   audioItems: EditorAudioItem[];
   selectedSceneId: string | null;
   selectedSubtitleId: string | null;
+  selectedAudioId: string | null;
   playheadFrame: number;
 
   loadFromStepState: (stepState: StepState, jobId: string, fps?: number) => void;
   loadFromEditorState: (editorState: EditorPersistState) => void;
+  // Linked scene operations — cascade to subtitles and audio
   reorderScenes: (fromIndex: number, toIndex: number) => void;
   trimScene: (sceneId: string, newDuration: number) => void;
   duplicateScene: (sceneId: string) => void;
   deleteScene: (sceneId: string) => void;
   splitScene: (sceneId: string, frameOffset: number) => void;
+  // Subtitle operations
   updateSubtitle: (subtitleId: string, updates: Partial<EditorSubtitle>) => void;
   deleteSubtitle: (subtitleId: string) => void;
   addSubtitle: (subtitle: EditorSubtitle) => void;
   splitSubtitle: (subtitleId: string, frame: number) => void;
+  moveSubtitle: (subtitleId: string, deltaFrames: number) => void;
+  // Audio operations
   deleteAudioItem: (audioId: string) => void;
   trimAudioItem: (audioId: string, newDuration: number) => void;
+  moveAudioItem: (audioId: string, newFrom: number) => void;
+  // Scene tools
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
   setTransition: (sceneId: string, type: EditorScene["transition"]["type"], durationFrames: number) => void;
+  // Selection
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
+  setSelectedAudio: (audioId: string | null) => void;
   setPlayheadFrame: (frame: number) => void;
   loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
   totalDuration: () => number;
@@ -76,12 +85,54 @@ interface EditorState {
 }
 
 let idCounter = 0;
-function genId(): string {
-  return `scene-${Date.now()}-${++idCounter}`;
+function genId(prefix = "scene"): string {
+  return `${prefix}-${Date.now()}-${++idCounter}`;
 }
 
 function reindexScenes(scenes: EditorScene[]): EditorScene[] {
   return scenes.map((s, i) => ({ ...s, index: i }));
+}
+
+// --- Linked operation helpers ---
+
+function getSceneTimeRange(scenes: EditorScene[], sceneIndex: number): { start: number; end: number } {
+  let start = 0;
+  for (let i = 0; i < sceneIndex; i++) start += scenes[i].durationInFrames;
+  return { start, end: start + scenes[sceneIndex].durationInFrames };
+}
+
+function shiftSubtitles(subs: EditorSubtitle[], afterFrame: number, delta: number): EditorSubtitle[] {
+  return subs
+    .map((s) => {
+      if (s.startFrame >= afterFrame) {
+        return { ...s, startFrame: s.startFrame + delta, endFrame: s.endFrame + delta };
+      }
+      if (s.endFrame > afterFrame) {
+        return { ...s, endFrame: Math.max(s.startFrame + 1, s.endFrame + delta) };
+      }
+      return s;
+    })
+    .filter((s) => s.endFrame > s.startFrame && s.startFrame >= 0);
+}
+
+function shiftAudio(items: EditorAudioItem[], afterFrame: number, delta: number): EditorAudioItem[] {
+  return items
+    .map((a) => {
+      if (a.from >= afterFrame) return { ...a, from: Math.max(0, a.from + delta) };
+      if (a.from + a.durationInFrames > afterFrame) {
+        return { ...a, durationInFrames: Math.max(1, a.durationInFrames + delta) };
+      }
+      return a;
+    })
+    .filter((a) => a.durationInFrames > 0);
+}
+
+function subsInRange(subs: EditorSubtitle[], start: number, end: number): EditorSubtitle[] {
+  return subs.filter((s) => s.startFrame >= start && s.endFrame <= end);
+}
+
+function subsOverlapping(subs: EditorSubtitle[], start: number, end: number): EditorSubtitle[] {
+  return subs.filter((s) => s.startFrame < end && s.endFrame > start);
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -93,6 +144,7 @@ export const useEditorStore = create<EditorState>()(
       audioItems: [],
       selectedSceneId: null,
       selectedSubtitleId: null,
+      selectedAudioId: null,
       playheadFrame: 0,
 
       loadFromStepState: (stepState, jobId, fps = EDITOR_FPS) => {
@@ -162,6 +214,7 @@ export const useEditorStore = create<EditorState>()(
           audioItems,
           selectedSceneId: null,
           selectedSubtitleId: null,
+          selectedAudioId: null,
           playheadFrame: 0,
         });
       },
@@ -174,25 +227,81 @@ export const useEditorStore = create<EditorState>()(
           audioItems: editorState.audioItems,
           selectedSceneId: null,
           selectedSubtitleId: null,
+          selectedAudioId: null,
           playheadFrame: 0,
         });
       },
 
       reorderScenes: (fromIndex, toIndex) => {
         set((state) => {
-          const scenes = [...state.scenes];
-          const [moved] = scenes.splice(fromIndex, 1);
-          scenes.splice(toIndex, 0, moved);
-          return { scenes: reindexScenes(scenes) };
+          const oldScenes = state.scenes;
+          const newScenes = [...oldScenes];
+          const [moved] = newScenes.splice(fromIndex, 1);
+          newScenes.splice(toIndex, 0, moved);
+
+          // Build old and new offset maps for each scene id
+          const oldOffsets: Record<string, { start: number; end: number }> = {};
+          let off = 0;
+          for (const s of oldScenes) {
+            oldOffsets[s.id] = { start: off, end: off + s.durationInFrames };
+            off += s.durationInFrames;
+          }
+          const newOffsets: Record<string, { start: number; end: number }> = {};
+          off = 0;
+          for (const s of newScenes) {
+            newOffsets[s.id] = { start: off, end: off + s.durationInFrames };
+            off += s.durationInFrames;
+          }
+
+          // Remap subtitles: find which scene each sub belonged to, shift to new position
+          const subtitles = state.subtitles.map((sub) => {
+            for (const s of oldScenes) {
+              const oldR = oldOffsets[s.id];
+              if (sub.startFrame >= oldR.start && sub.startFrame < oldR.end) {
+                const newR = newOffsets[s.id];
+                const delta = newR.start - oldR.start;
+                return {
+                  ...sub,
+                  startFrame: sub.startFrame + delta,
+                  endFrame: sub.endFrame + delta,
+                };
+              }
+            }
+            return sub;
+          });
+
+          // Remap audio items similarly
+          const audioItems = state.audioItems.map((a) => {
+            for (const s of oldScenes) {
+              const oldR = oldOffsets[s.id];
+              if (a.from >= oldR.start && a.from < oldR.end) {
+                const newR = newOffsets[s.id];
+                return { ...a, from: a.from + (newR.start - oldR.start) };
+              }
+            }
+            return a;
+          });
+
+          return { scenes: reindexScenes(newScenes), subtitles, audioItems };
         });
       },
 
       trimScene: (sceneId, newDuration) => {
-        set((state) => ({
-          scenes: state.scenes.map((s) =>
-            s.id === sceneId ? { ...s, durationInFrames: newDuration } : s,
-          ),
-        }));
+        set((state) => {
+          const idx = state.scenes.findIndex((s) => s.id === sceneId);
+          if (idx === -1) return state;
+          const oldDuration = state.scenes[idx].durationInFrames;
+          const delta = newDuration - oldDuration;
+          if (delta === 0) return state;
+          const range = getSceneTimeRange(state.scenes, idx);
+          const scenes = state.scenes.map((s) =>
+            s.id === sceneId ? { ...s, durationInFrames: Math.max(15, newDuration) } : s,
+          );
+          // Shift everything after this scene by the delta
+          const subtitles = shiftSubtitles(state.subtitles, range.end, delta);
+          const audioItems = shiftAudio(state.audioItems, range.end, delta);
+          return { scenes, subtitles, audioItems };
+        });
       },
 
       duplicateScene: (sceneId) => {
@@ -200,32 +309,61 @@ export const useEditorStore = create<EditorState>()(
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
           const original = state.scenes[idx];
-          const duplicate: EditorScene = {
-            ...original,
-            id: genId(),
-            index: idx + 1,
-          };
+          const range = getSceneTimeRange(state.scenes, idx);
+          const duration = original.durationInFrames;
+
+          const duplicate: EditorScene = { ...original, id: genId(), index: idx + 1 };
           const scenes = [...state.scenes];
           scenes.splice(idx + 1, 0, duplicate);
-          return { scenes: reindexScenes(scenes) };
+
+          // Clone subtitles within this scene's range, shifted to the duplicate position
+          const clonedSubs = subsInRange(state.subtitles, range.start, range.end).map((s) => ({
+            ...s,
+            id: genId("sub"),
+            startFrame: s.startFrame + duration,
+            endFrame: s.endFrame + duration,
+          }));
+          // Shift existing subtitles after the insertion point forward
+          const shifted = shiftSubtitles(state.subtitles, range.end, duration);
+          const subtitles = [...shifted, ...clonedSubs].sort((a, b) => a.startFrame - b.startFrame);
+
+          const audioItems = shiftAudio(state.audioItems, range.end, duration);
+
+          return { scenes: reindexScenes(scenes), subtitles, audioItems };
         });
       },
 
       deleteScene: (sceneId) => {
-        set((state) => ({
-          scenes: reindexScenes(state.scenes.filter((s) => s.id !== sceneId)),
-        }));
+        set((state) => {
+          const idx = state.scenes.findIndex((s) => s.id === sceneId);
+          if (idx === -1) return state;
+          const range = getSceneTimeRange(state.scenes, idx);
+          const duration = range.end - range.start;
+          // Remove subtitles entirely within the scene, shift later ones back
+          const subsAfterRemove = state.subtitles.filter(
+            (s) => !(s.startFrame >= range.start && s.endFrame <= range.end),
+          );
+          const subtitles = shiftSubtitles(subsAfterRemove, range.start, -duration);
+          const audioItems = shiftAudio(state.audioItems, range.start, -duration);
+          return {
+            scenes: reindexScenes(state.scenes.filter((s) => s.id !== sceneId)),
+            subtitles,
+            audioItems,
+            selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
+          };
+        });
       },
 
       splitScene: (sceneId, frameOffset) => {
         set((state) => {
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
-          if (idx === -1) return state;
+          if (idx === -1 || frameOffset <= 0 || frameOffset >= state.scenes[idx].durationInFrames)
+            return state;
           const original = state.scenes[idx];
-          const firstHalf: EditorScene = {
-            ...original,
-            durationInFrames: frameOffset,
-          };
+          const range = getSceneTimeRange(state.scenes, idx);
+          const splitFrame = range.start + frameOffset; // absolute frame
+
+          const firstHalf: EditorScene = { ...original, durationInFrames: frameOffset };
           const secondHalf: EditorScene = {
             ...original,
             id: genId(),
@@ -233,7 +371,40 @@ export const useEditorStore = create<EditorState>()(
           };
           const scenes = [...state.scenes];
           scenes.splice(idx, 1, firstHalf, secondHalf);
-          return { scenes: reindexScenes(scenes) };
+
+          // Split subtitles that span the split point
+          const subtitles: EditorSubtitle[] = [];
+          for (const sub of state.subtitles) {
+            if (sub.startFrame < splitFrame && sub.endFrame > splitFrame) {
+              subtitles.push({ ...sub, endFrame: splitFrame });
+              subtitles.push({
+                ...sub,
+                id: genId("sub"),
+                startFrame: splitFrame,
+              });
+            } else {
+              subtitles.push(sub);
+            }
+          }
+
+          // Split audio items that span the split point
+          const audioItems: EditorAudioItem[] = [];
+          for (const a of state.audioItems) {
+            const aEnd = a.from + a.durationInFrames;
+            if (a.from < splitFrame && aEnd > splitFrame) {
+              audioItems.push({ ...a, durationInFrames: splitFrame - a.from });
+              audioItems.push({
+                ...a,
+                id: genId("audio"),
+                from: splitFrame,
+                durationInFrames: aEnd - splitFrame,
+              });
+            } else {
+              audioItems.push(a);
+            }
+          }
+
+          return { scenes: reindexScenes(scenes), subtitles, audioItems };
         });
       },
 
@@ -312,8 +483,31 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
+      moveSubtitle: (subtitleId, deltaFrames) => {
+        set((state) => ({
+          subtitles: state.subtitles.map((s) =>
+            s.id === subtitleId
+              ? {
+                  ...s,
+                  startFrame: Math.max(0, s.startFrame + deltaFrames),
+                  endFrame: Math.max(1, s.endFrame + deltaFrames),
+                }
+              : s,
+          ),
+        }));
+      },
+
+      moveAudioItem: (audioId, newFrom) => {
+        set((state) => ({
+          audioItems: state.audioItems.map((a) =>
+            a.id === audioId ? { ...a, from: Math.max(0, newFrom) } : a,
+          ),
+        }));
+      },
+
       setSelectedScene: (sceneId) => set({ selectedSceneId: sceneId }),
       setSelectedSubtitle: (subtitleId) => set({ selectedSubtitleId: subtitleId }),
+      setSelectedAudio: (audioId) => set({ selectedAudioId: audioId }),
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
 
       loadSubtitlesFromSrt: (jobId, srtPath, fps = EDITOR_FPS) => {

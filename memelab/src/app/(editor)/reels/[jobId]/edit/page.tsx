@@ -42,7 +42,7 @@ export default function EditorPage() {
     const savedEditor = stepState.editor;
     const savedHasStaleTimings = savedEditor && hasTtsTimings && savedEditor.scenes.length > 0 &&
       Math.abs(
-        savedEditor.scenes.reduce((s: number, sc: { durationInFrames: number }) => s + sc.durationInFrames, 0) / 30 -
+        (savedEditor.scenes as Array<{ durationInFrames: number }>).reduce((s, sc) => s + sc.durationInFrames, 0) / 30 -
         ttsTimings.reduce((s, t) => s + t.duration, 0)
       ) > 5; // >5s difference = stale
 
