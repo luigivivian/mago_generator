@@ -9,39 +9,17 @@ import type {
   EditorAudioItem,
   EditorPersistState,
 } from "./editor-types";
-import { DEFAULT_VOICE_CONFIG, DEFAULT_SUBTITLE_STYLE, EDITOR_FPS } from "./editor-types";
-
-function srtTimeToFrames(time: string, fps: number): number {
-  const [h, m, rest] = time.split(":");
-  const [s, ms] = rest.split(/[,.]/);
-  const totalSeconds =
-    parseInt(h) * 3600 + parseInt(m) * 60 + parseInt(s) + parseInt(ms) / 1000;
-  return Math.round(totalSeconds * fps);
-}
-
-function parseSrt(text: string, fps: number): EditorSubtitle[] {
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\n(?=\d+\n\d{2}:\d{2})/g, "\n\n");
-  return normalized
-    .trim()
-    .split(/\n\n+/)
-    .map((block) => {
-      const lines = block.split("\n");
-      if (lines.length < 3) return null;
-      const idx = parseInt(lines[0]);
-      if (isNaN(idx)) return null;
-      const [start, end] = lines[1].split(" --> ");
-      const text = lines.slice(2).join("\n");
-      return {
-        id: `sub-${Date.now()}-${idx}`,
-        text,
-        startFrame: srtTimeToFrames(start?.trim() ?? "00:00:00,000", fps),
-        endFrame: srtTimeToFrames(end?.trim() ?? "00:00:00,000", fps),
-        position: { x: 50, y: 85 },
-        style: { ...DEFAULT_SUBTITLE_STYLE },
-      } as EditorSubtitle;
-    })
-    .filter((e): e is EditorSubtitle => e !== null);
-}
+import { DEFAULT_VOICE_CONFIG, EDITOR_FPS } from "./editor-types";
+import {
+  genId,
+  parseSrt,
+  shiftSubtitles,
+  shiftAudio,
+  getSceneTimeRange,
+  subsInRange,
+  subsOverlapping,
+  reindexScenes,
+} from "@/lib/editor";
 
 interface EditorState {
   scenes: EditorScene[];
@@ -86,57 +64,6 @@ interface EditorState {
   loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
   totalDuration: () => number;
   toEditorPersistState: () => EditorPersistState;
-}
-
-let idCounter = 0;
-function genId(prefix = "scene"): string {
-  return `${prefix}-${Date.now()}-${++idCounter}`;
-}
-
-function reindexScenes(scenes: EditorScene[]): EditorScene[] {
-  return scenes.map((s, i) => ({ ...s, index: i }));
-}
-
-// --- Linked operation helpers ---
-
-function getSceneTimeRange(scenes: EditorScene[], sceneIndex: number): { start: number; end: number } {
-  let start = 0;
-  for (let i = 0; i < sceneIndex; i++) start += scenes[i].durationInFrames;
-  return { start, end: start + scenes[sceneIndex].durationInFrames };
-}
-
-function shiftSubtitles(subs: EditorSubtitle[], afterFrame: number, delta: number): EditorSubtitle[] {
-  return subs
-    .map((s) => {
-      if (s.startFrame >= afterFrame) {
-        return { ...s, startFrame: s.startFrame + delta, endFrame: s.endFrame + delta };
-      }
-      if (s.endFrame > afterFrame) {
-        return { ...s, endFrame: Math.max(s.startFrame + 1, s.endFrame + delta) };
-      }
-      return s;
-    })
-    .filter((s) => s.endFrame > s.startFrame && s.startFrame >= 0);
-}
-
-function shiftAudio(items: EditorAudioItem[], afterFrame: number, delta: number): EditorAudioItem[] {
-  return items
-    .map((a) => {
-      if (a.from >= afterFrame) return { ...a, from: Math.max(0, a.from + delta) };
-      if (a.from + a.durationInFrames > afterFrame) {
-        return { ...a, durationInFrames: Math.max(1, a.durationInFrames + delta) };
-      }
-      return a;
-    })
-    .filter((a) => a.durationInFrames > 0);
-}
-
-function subsInRange(subs: EditorSubtitle[], start: number, end: number): EditorSubtitle[] {
-  return subs.filter((s) => s.startFrame >= start && s.endFrame <= end);
-}
-
-function subsOverlapping(subs: EditorSubtitle[], start: number, end: number): EditorSubtitle[] {
-  return subs.filter((s) => s.startFrame < end && s.endFrame > start);
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -185,7 +112,7 @@ export const useEditorStore = create<EditorState>()(
         if (stepState.tts?.path) {
           const totalDuration = scenes.reduce((sum, s) => sum + s.durationInFrames, 0);
           audioItems.push({
-            id: `audio-${Date.now()}`,
+            id: genId("audio"),
             audioUrl: reelFileUrl(jobId, stepState.tts.path),
             from: 0,
             durationInFrames: totalDuration,
@@ -453,7 +380,7 @@ export const useEditorStore = create<EditorState>()(
           };
           const second: EditorSubtitle = {
             ...original,
-            id: `sub-${Date.now()}-split`,
+            id: genId("sub"),
             startFrame: frame,
           };
           const subtitles = [...state.subtitles];
