@@ -14,14 +14,118 @@ import {
   Check,
   Loader2,
   ArrowLeft,
+  Scissors,
+  Copy,
+  Trash2,
+  Snowflake,
 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
+import { EDITOR_FPS } from "@/stores/editor-types";
 import { exportRemotion } from "@/lib/api";
 
 interface ToolbarProps {
   playerRef: React.RefObject<PlayerRef | null>;
   saveStatus: "idle" | "saving" | "saved";
+}
+
+function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRef | null> }) {
+  const selectedSceneId = useEditorStore((s) => s.selectedSceneId);
+  const selectedSubtitleId = useEditorStore((s) => s.selectedSubtitleId);
+  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
+  const playheadFrame = useEditorStore((s) => s.playheadFrame);
+  const hasSelection = !!(selectedSceneId || selectedSubtitleId || selectedAudioId);
+
+  const handleSplit = useCallback(() => {
+    const store = useEditorStore.getState();
+    const frame = store.playheadFrame;
+    if (store.selectedSubtitleId) {
+      store.splitSubtitle(store.selectedSubtitleId, frame);
+    } else if (store.selectedAudioId) {
+      const audio = store.audioItems.find((a) => a.id === store.selectedAudioId);
+      if (audio && frame > audio.from && frame < audio.from + audio.durationInFrames) {
+        const sourceOffset = audio.startFrom ?? 0;
+        const first = { ...audio, durationInFrames: frame - audio.from };
+        const second = {
+          ...audio,
+          id: `audio-split-${Date.now()}`,
+          from: frame,
+          durationInFrames: audio.from + audio.durationInFrames - frame,
+          startFrom: sourceOffset + (frame - audio.from),
+        };
+        store.deleteAudioItem(audio.id);
+        useEditorStore.setState((state) => ({
+          audioItems: [...state.audioItems, first, second],
+        }));
+      }
+    } else if (store.selectedSceneId) {
+      let sceneStart = 0;
+      for (const s of store.scenes) {
+        if (s.id === store.selectedSceneId) break;
+        sceneStart += s.durationInFrames;
+      }
+      const offset = frame - sceneStart;
+      if (offset > 0) store.splitScene(store.selectedSceneId, offset);
+    }
+  }, []);
+
+  const handleDuplicate = useCallback(() => {
+    const store = useEditorStore.getState();
+    if (store.selectedSceneId) store.duplicateScene(store.selectedSceneId);
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    const store = useEditorStore.getState();
+    if (store.selectedSubtitleId) store.deleteSubtitle(store.selectedSubtitleId);
+    else if (store.selectedAudioId) store.deleteAudioItem(store.selectedAudioId);
+    else if (store.selectedSceneId && store.scenes.length > 1) store.deleteScene(store.selectedSceneId);
+  }, []);
+
+  const handleFreeze = useCallback(() => {
+    const store = useEditorStore.getState();
+    if (store.selectedSceneId) store.freezeFrame(store.selectedSceneId, EDITOR_FPS);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={handleSplit}
+        disabled={!hasSelection}
+        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        title="Cortar no Playhead (S)"
+      >
+        <Scissors className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={handleDuplicate}
+        disabled={!selectedSceneId}
+        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        title="Duplicar (D)"
+      >
+        <Copy className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={handleFreeze}
+        disabled={!selectedSceneId}
+        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        title="Congelar Frame +1s (F)"
+      >
+        <Snowflake className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={!hasSelection}
+        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-red-400 hover:text-red-300"
+        title="Deletar (Delete)"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
 }
 
 export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
@@ -104,10 +208,14 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
         onClick={redo}
         disabled={!canRedo}
         className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
-        title="Refazer"
+        title="Refazer (Ctrl+Shift+Z)"
       >
         <Redo2 className="h-4 w-4" />
       </button>
+
+      <div className="h-5 w-px bg-border" />
+
+      <ToolbarEditButtons playerRef={playerRef} />
 
       <div className="flex-1" />
 
