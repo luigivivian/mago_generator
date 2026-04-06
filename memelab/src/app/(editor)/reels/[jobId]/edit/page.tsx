@@ -87,11 +87,17 @@ export default function EditorPage() {
       | Array<{ duration: number }> | undefined;
     const hasTtsTimings = ttsTimings && ttsTimings.length > 0;
     const savedEditor = stepState.editor;
-    const savedHasStaleTimings = savedEditor && hasTtsTimings && savedEditor.scenes.length > 0 &&
-      Math.abs(
+    const clipSceneCount = (stepState.clips?.scenes ?? stepState.video?.scenes ?? []).length;
+    const savedSceneCount = savedEditor?.scenes?.length ?? 0;
+    const savedHasStaleTimings = savedEditor && savedEditor.scenes.length > 0 && (
+      // Scene count mismatch with source data = stale (user split/deleted during a previous session)
+      (clipSceneCount > 0 && savedSceneCount !== clipSceneCount) ||
+      // Duration mismatch with TTS > 2s = stale
+      (hasTtsTimings && Math.abs(
         (savedEditor.scenes as Array<{ durationInFrames: number }>).reduce((s, sc) => s + sc.durationInFrames, 0) / 30 -
         ttsTimings.reduce((s, t) => s + t.duration, 0)
-      ) > 5; // >5s difference = stale
+      ) > 2)
+    );
 
     if (savedEditor && savedEditor.scenes.length > 0 && !savedHasStaleTimings) {
       store.loadFromEditorState({
