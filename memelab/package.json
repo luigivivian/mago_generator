@@ -19,6 +19,9 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@remotion/media": "4.0.445",
+    "@remotion/player": "4.0.445",
+    "@remotion/transitions": "4.0.445",
     "@xyflow/react": "^12.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -30,6 +33,7 @@
     "react-dom": "^19.1.0",
     "recharts": "^3.8.1",
     "swr": "^2.3.3",
+    "remotion": "4.0.445",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
