@@ -78,3 +78,24 @@ Plans:
 - [x] 1001-03-PLAN.md — Frontend wizard: BibleConfig component + subThemes expansion
 - [ ] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring + verse overlay in video
 - [x] 1001-05-PLAN.md — Unit tests + E2E CLI test for biblical reels pipeline
+
+### Phase 999.10: Full in-browser video editor (BACKLOG)
+
+**Goal:** Editor de video completo e intuitivo integrado ao memeLab, estilo VEED.io. Permite editar o video final cena por cena: mover frames, cortar, duplicar, estender cenas, customizar transicoes, reposicionar legendas, configurar voz/narração. UI dedicada com timeline, preview ao vivo, e controles drag-and-drop.
+
+**Requirements:**
+- Timeline visual com tracks de video, audio e legendas
+- Edicao cena por cena: cortar, duplicar, estender, reordenar via drag-and-drop
+- Preview ao vivo do video durante edicao
+- Customizacao de transicoes entre cenas (tipo, duracao, easing)
+- Editor de legendas: mover, redimensionar, editar texto, estilizar fonte/cor
+- Configuracao de voz: selecionar voz TTS, ajustar velocidade, regenerar por cena
+- Controles de audio: volume, fade in/out, timing
+- Export do video final editado (server-side FFmpeg render)
+- UI responsiva e intuitiva com atalhos de teclado
+- Undo/redo completo
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
