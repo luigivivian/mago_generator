@@ -21,6 +21,10 @@ import {
   reindexScenes,
 } from "@/lib/editor";
 
+// SRT fetch race guard — generation counter + AbortController (D-04)
+let srtGeneration = 0;
+let srtAbortController: AbortController | null = null;
+
 interface EditorState {
   scenes: EditorScene[];
   subtitles: EditorSubtitle[];
@@ -119,22 +123,27 @@ export const useEditorStore = create<EditorState>()(
           });
         }
 
-        // Parse subtitles from SRT file if available
+        // Parse subtitles from SRT file if available (D-04: generation counter + abort)
         const srtPath = stepState.srt?.path;
         if (srtPath) {
+          srtAbortController?.abort();
+          srtGeneration++;
+          const thisGen = srtGeneration;
+          const controller = new AbortController();
+          srtAbortController = controller;
+
           const token =
             typeof window !== "undefined"
               ? (localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token"))
               : null;
           const headers: Record<string, string> = {};
           if (token) headers["Authorization"] = `Bearer ${token}`;
-          fetch(reelFileUrl(jobId, srtPath), { headers })
+          fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal })
             .then((r) => r.text())
             .then((text) => {
+              if (thisGen !== srtGeneration) return; // stale
               const subtitles = parseSrt(text, fps);
-              if (subtitles.length > 0) {
-                set({ subtitles });
-              }
+              if (subtitles.length > 0) set({ subtitles });
             })
             .catch(() => {});
         }
@@ -476,26 +485,35 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
-      setSelectedScene: (sceneId) => set({ selectedSceneId: sceneId }),
-      setSelectedSubtitle: (subtitleId) => set({ selectedSubtitleId: subtitleId }),
-      setSelectedAudio: (audioId) => set({ selectedAudioId: audioId }),
+      setSelectedScene: (sceneId) =>
+        set({ selectedSceneId: sceneId, selectedSubtitleId: null, selectedAudioId: null }),
+      setSelectedSubtitle: (subtitleId) =>
+        set({ selectedSubtitleId: subtitleId, selectedSceneId: null, selectedAudioId: null }),
+      setSelectedAudio: (audioId) =>
+        set({ selectedAudioId: audioId, selectedSceneId: null, selectedSubtitleId: null }),
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
       markSubtitlesClean: () => set({ subtitlesEdited: false }),
 
       loadSubtitlesFromSrt: (jobId, srtPath, fps = EDITOR_FPS) => {
+        // D-04: generation counter + abort for race prevention
+        srtAbortController?.abort();
+        srtGeneration++;
+        const thisGen = srtGeneration;
+        const controller = new AbortController();
+        srtAbortController = controller;
+
         const token =
           typeof window !== "undefined"
             ? (localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token"))
             : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
-        fetch(reelFileUrl(jobId, srtPath), { headers })
+        fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal })
           .then((r) => r.text())
           .then((text) => {
+            if (thisGen !== srtGeneration) return; // stale
             const subtitles = parseSrt(text, fps);
-            if (subtitles.length > 0) {
-              set({ subtitles });
-            }
+            if (subtitles.length > 0) set({ subtitles });
           })
           .catch(() => {});
       },
