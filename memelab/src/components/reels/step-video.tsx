@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ThumbsUp,
   Send,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,6 +213,13 @@ export function StepVideo({
                   Download
                 </Button>
               </a>
+
+              <Link href={`/reels/${jobId}/edit`}>
+                <Button variant="outline" size="sm">
+                  <Pencil className="mr-2 h-3 w-3" />
+                  Editar Video
+                </Button>
+              </Link>
 
               {/* Approve button — shown when not yet approved */}
               {!feedbackStatus && (

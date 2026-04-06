@@ -17,6 +17,7 @@ import {
   ArrowRight,
   RefreshCw,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -646,15 +647,24 @@ function JobHistory() {
                 )}
 
                 {job.status === "complete" && job.video_url && (
-                  <a
-                    href={job.video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Ver video
-                  </a>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={job.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Ver video
+                    </a>
+                    <a
+                      href={`/reels/${job.job_id}/edit`}
+                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </a>
+                  </div>
                 )}
 
                 {job.status === "failed" && job.error_message && (
