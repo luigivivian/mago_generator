@@ -3,6 +3,7 @@
 import { useEffect, useCallback } from "react";
 import type { PlayerRef } from "@remotion/player";
 import { useEditorStore } from "@/stores/editor-store";
+import { EDITOR_FPS } from "@/stores/editor-types";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -27,19 +28,18 @@ export function useEditorShortcuts(
         e.preventDefault();
         const player = playerRef.current;
         if (!player) return;
-        if (player.isPlaying()) {
-          player.pause();
-        } else {
-          player.play();
-        }
+        if (player.isPlaying()) player.pause();
+        else player.play();
         return;
       }
 
-      // Backspace/Delete = delete selected item
+      // Backspace/Delete = delete selected item (priority: subtitle > audio > scene)
       if (e.code === "Backspace" || e.code === "Delete") {
         e.preventDefault();
         if (store.selectedSubtitleId) {
           store.deleteSubtitle(store.selectedSubtitleId);
+        } else if (store.selectedAudioId) {
+          store.deleteAudioItem(store.selectedAudioId);
         } else if (store.selectedSceneId && store.scenes.length > 1) {
           store.deleteScene(store.selectedSceneId);
         }
@@ -53,6 +53,62 @@ export function useEditorShortcuts(
           if (temporal.futureStates.length > 0) temporal.redo();
         } else {
           if (temporal.pastStates.length > 0) temporal.undo();
+        }
+        return;
+      }
+
+      // D = duplicate selected scene
+      if (e.code === "KeyD" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (store.selectedSceneId) {
+          store.duplicateScene(store.selectedSceneId);
+        }
+        return;
+      }
+
+      // S = split at playhead (scene, subtitle, or audio — whichever is selected)
+      if (e.code === "KeyS" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const frame = store.playheadFrame;
+
+        if (store.selectedSubtitleId) {
+          store.splitSubtitle(store.selectedSubtitleId, frame);
+        } else if (store.selectedAudioId) {
+          // Split audio at playhead
+          const audio = store.audioItems.find((a) => a.id === store.selectedAudioId);
+          if (audio && frame > audio.from && frame < audio.from + audio.durationInFrames) {
+            const first = { ...audio, durationInFrames: frame - audio.from };
+            const second = {
+              ...audio,
+              id: `audio-split-${Date.now()}`,
+              from: frame,
+              durationInFrames: audio.from + audio.durationInFrames - frame,
+            };
+            store.deleteAudioItem(audio.id);
+            useEditorStore.setState((state) => ({
+              audioItems: [...state.audioItems, first, second],
+            }));
+          }
+        } else if (store.selectedSceneId) {
+          // Find frame offset within the selected scene
+          let sceneStart = 0;
+          for (const s of store.scenes) {
+            if (s.id === store.selectedSceneId) break;
+            sceneStart += s.durationInFrames;
+          }
+          const offset = frame - sceneStart;
+          if (offset > 0) {
+            store.splitScene(store.selectedSceneId, offset);
+          }
+        }
+        return;
+      }
+
+      // F = freeze frame on selected scene (+1s)
+      if (e.code === "KeyF" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (store.selectedSceneId) {
+          store.freezeFrame(store.selectedSceneId, EDITOR_FPS);
         }
         return;
       }
