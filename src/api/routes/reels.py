@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.deps import get_current_user, db_session
+from src.api.models import EditorStatePayload
 from src.database.models import ReelsConfig, ReelsJob, SceneAsset
 from src.reels_pipeline.models import (
     ReelGenerateRequest,
@@ -671,9 +672,131 @@ async def get_step_state(
         images=step_state.get("images"),
         clips=step_state.get("clips"),
         video=step_state.get("video"),
+        editor=step_state.get("editor"),
         feedback_status=job.feedback_status,
         posted_platforms=job.posted_platforms,
     )
+
+
+# ── Video Editor (Phase 999.10) ───────────────────────────────────────────────
+
+@router.patch("/{job_id}/editor-state", summary="Persist video editor state (per D-23, D-24)")
+async def patch_editor_state(
+    job_id: str,
+    payload: EditorStatePayload,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """Save editor timeline state to step_state.editor. Autosave target (debounced 2s)."""
+    job = await _get_user_job(job_id, current_user.id, db)
+    step_state = dict(job.step_state or {})
+    step_state["editor"] = payload.model_dump()
+    job.step_state = step_state
+    flag_modified(job, "step_state")
+    await db.commit()
+    return {"job_id": job_id, "saved": True}
+
+
+@router.post("/{job_id}/export-remotion", summary="Trigger server-side Remotion render (per D-03)")
+async def export_remotion(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """Spawn Remotion CLI render in background. Updates step_state.video on completion."""
+    from src.database.session import get_session_factory
+
+    job = await _get_user_job(job_id, current_user.id, db)
+    step_state = dict(job.step_state or {})
+    editor_state = step_state.get("editor", {})
+    if not editor_state:
+        raise HTTPException(status_code=400, detail="No editor state to export. Save editor first.")
+
+    # Write props file for Remotion CLI
+    job_dir = step_state.get("prompt", {}).get("job_dir", "")
+    if not job_dir:
+        raise HTTPException(status_code=400, detail="No job directory found. Run pipeline first.")
+
+    props_path = os.path.join(job_dir, "remotion-props.json")
+    os.makedirs(os.path.dirname(props_path), exist_ok=True)
+    with open(props_path, "w") as f:
+        json.dump(editor_state, f)
+
+    session_factory = get_session_factory()
+    background_tasks.add_task(
+        _export_remotion_task, job_id, props_path, job_dir, session_factory
+    )
+
+    return {"job_id": job_id, "status": "rendering"}
+
+
+async def _export_remotion_task(
+    job_id: str, props_path: str, job_dir: str, session_factory
+):
+    """Background task: run Remotion CLI render and update step_state.video."""
+    output_path = os.path.join(job_dir, "editor-export.mp4")
+    try:
+        result = subprocess.run(
+            [
+                "npx", "remotion", "render",
+                "src/remotion/index.ts", "ReelEditor",
+                output_path,
+                f"--props={props_path}",
+                "--codec=h264",
+                "--crf=18",
+            ],
+            cwd=os.path.join(os.path.dirname(__file__), "..", "..", "..", "memelab"),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        async with session_factory() as db:
+            job = (
+                await db.execute(
+                    select(ReelsJob).where(ReelsJob.job_id == job_id)
+                )
+            ).scalar_one_or_none()
+            if not job:
+                logger.error("export-remotion: job %s not found after render", job_id)
+                return
+
+            step_state = dict(job.step_state or {})
+            if result.returncode == 0:
+                video_data = step_state.get("video", {})
+                video_data["path"] = output_path
+                video_data["export_status"] = "complete"
+                step_state["video"] = video_data
+            else:
+                video_data = step_state.get("video", {})
+                video_data["export_status"] = "failed"
+                video_data["export_error"] = result.stderr[-500:] if result.stderr else "Unknown error"
+                step_state["video"] = video_data
+                logger.error("Remotion render failed for %s: %s", job_id, result.stderr[-200:])
+
+            job.step_state = step_state
+            flag_modified(job, "step_state")
+            await db.commit()
+
+    except subprocess.TimeoutExpired:
+        logger.error("Remotion render timed out for %s", job_id)
+        async with session_factory() as db:
+            job = (
+                await db.execute(
+                    select(ReelsJob).where(ReelsJob.job_id == job_id)
+                )
+            ).scalar_one_or_none()
+            if job:
+                step_state = dict(job.step_state or {})
+                video_data = step_state.get("video", {})
+                video_data["export_status"] = "failed"
+                video_data["export_error"] = "Render timed out after 300s"
+                step_state["video"] = video_data
+                job.step_state = step_state
+                flag_modified(job, "step_state")
+                await db.commit()
+    except Exception:
+        logger.exception("Remotion export error for %s", job_id)
 
 
 @router.post("/{job_id}/step/{step_name}", summary="Execute a pipeline step")
