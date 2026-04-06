@@ -75,6 +75,8 @@ export function Timeline({ playerRef }: TimelineProps) {
     [setPlayheadFrame, playerRef],
   );
 
+  // Playhead syncs via RAF loop in RemotionPreview only (D-01)
+
   // Attach non-passive wheel listener for zoom
   useEffect(() => {
     const el = scrollRef.current;
@@ -84,19 +86,20 @@ export function Timeline({ playerRef }: TimelineProps) {
     return () => el.removeEventListener("wheel", handler);
   }, [handleWheel]);
 
-  // Sync playhead with player timeupdate
+  // Auto-scroll timeline to keep playhead visible during playback
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-    const handler = (e: { detail: { frame: number } }) => {
-      setPlayheadFrame(e.detail.frame);
-    };
-    // @remotion/player fires "timeupdate" with frame info
-    const playerEl = player as unknown as EventTarget;
-    playerEl.addEventListener("timeupdate", handler as EventListener);
-    return () =>
-      playerEl.removeEventListener("timeupdate", handler as EventListener);
-  }, [playerRef, setPlayheadFrame]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const playheadPx = playheadFrame * pixelsPerFrame;
+    const viewLeft = el.scrollLeft;
+    const viewRight = viewLeft + el.clientWidth;
+    const margin = el.clientWidth * 0.15;
+    if (playheadPx < viewLeft + margin) {
+      el.scrollLeft = Math.max(0, playheadPx - margin);
+    } else if (playheadPx > viewRight - margin) {
+      el.scrollLeft = playheadPx - el.clientWidth + margin;
+    }
+  }, [playheadFrame, pixelsPerFrame]);
 
   // Sync scroll position
   useEffect(() => {
@@ -144,15 +147,42 @@ export function Timeline({ playerRef }: TimelineProps) {
       {/* Tracks */}
       <ContextMenu target={ctxTarget} playheadFrame={playheadFrame}>
       <div className="flex flex-1 min-h-0">
-        {/* Track labels */}
+        {/* Track labels — highlight selected track */}
         <div className="w-20 shrink-0 border-r border-zinc-700">
-          <div className="h-14 flex items-center px-2 text-xs text-zinc-400 border-b border-zinc-800">
+          <div
+            className={`h-14 flex items-center px-2 text-xs border-b border-zinc-800 transition-colors cursor-pointer ${
+              selectedSceneId
+                ? "text-purple-300 bg-purple-500/10 border-l-2 border-l-purple-500"
+                : "text-zinc-400 border-l-2 border-l-transparent"
+            }`}
+            onClick={() => {
+              if (!selectedSceneId && scenes.length > 0) setSelectedScene(scenes[0].id);
+            }}
+          >
             Video
           </div>
-          <div className="h-14 flex items-center px-2 text-xs text-zinc-400 border-b border-zinc-800">
+          <div
+            className={`h-14 flex items-center px-2 text-xs border-b border-zinc-800 transition-colors cursor-pointer ${
+              selectedAudioId
+                ? "text-blue-300 bg-blue-500/10 border-l-2 border-l-blue-500"
+                : "text-zinc-400 border-l-2 border-l-transparent"
+            }`}
+            onClick={() => {
+              if (!selectedAudioId && audioItems.length > 0) setSelectedAudio(audioItems[0].id);
+            }}
+          >
             Audio
           </div>
-          <div className="h-10 flex items-center px-2 text-xs text-zinc-400">
+          <div
+            className={`h-10 flex items-center px-2 text-xs transition-colors cursor-pointer ${
+              selectedSubtitleId
+                ? "text-amber-300 bg-amber-500/10 border-l-2 border-l-amber-500"
+                : "text-zinc-400 border-l-2 border-l-transparent"
+            }`}
+            onClick={() => {
+              if (!selectedSubtitleId && subtitles.length > 0) setSelectedSubtitle(subtitles[0].id);
+            }}
+          >
             Legendas
           </div>
         </div>
@@ -165,9 +195,16 @@ export function Timeline({ playerRef }: TimelineProps) {
           >
             {/* Playhead line across all tracks */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-red-500 pointer-events-none z-20"
+              className="absolute top-0 bottom-0 pointer-events-none z-20"
               style={{ left: playheadFrame * pixelsPerFrame }}
-            />
+            >
+              {/* Triangle head */}
+              <div className="absolute -top-1 -translate-x-1/2 w-0 h-0"
+                style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "6px solid #ef4444" }}
+              />
+              {/* Vertical line */}
+              <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 -translate-x-1/2" />
+            </div>
 
             {/* Video track (sortable) */}
             <DndContext

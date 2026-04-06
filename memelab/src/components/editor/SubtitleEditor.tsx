@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import type { EditorSubtitle } from "@/stores/editor-types";
 
@@ -26,7 +26,17 @@ function SubtitleOverlay({
   const isSelected = selectedSubtitleId === subtitle.id;
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef<string>(subtitle.text);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Sync from store only when NOT focused (D-03: prevents clobbering user typing)
+  useEffect(() => {
+    draftRef.current = subtitle.text;
+    if (editRef.current && document.activeElement !== editRef.current) {
+      editRef.current.textContent = subtitle.text;
+    }
+  }, [subtitle.id, subtitle.text]);
 
   const scaleFactor = compositionWidth / 1080;
   const scaledFontSize = Math.max(10, Math.round(subtitle.style.fontSize * scaleFactor));
@@ -72,6 +82,7 @@ function SubtitleOverlay({
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLDivElement>) => {
       const newText = e.currentTarget.textContent ?? "";
+      draftRef.current = newText;
       if (newText !== subtitle.text) {
         updateSubtitle(subtitle.id, { text: newText });
       }
@@ -94,6 +105,7 @@ function SubtitleOverlay({
       }}
     >
       <div
+        ref={editRef}
         contentEditable
         suppressContentEditableWarning
         onBlur={handleBlur}

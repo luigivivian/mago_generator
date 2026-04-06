@@ -114,8 +114,14 @@ function SceneMenu({
 
   const scene = scenes.find((s) => s.id === target.sceneId);
   const canDelete = scenes.length > 1;
-  const frameOffset = playheadFrame - target.startFrame;
-  const canSplit = frameOffset > 0 && frameOffset < target.durationFrames;
+
+  // Recompute startFrame from live store state (D-10: avoids stale snapshot)
+  const sceneIdx = scenes.findIndex((s) => s.id === target.sceneId);
+  let liveStartFrame = 0;
+  for (let i = 0; i < sceneIdx; i++) liveStartFrame += scenes[i].durationInFrames;
+  const liveDurationFrames = sceneIdx !== -1 ? scenes[sceneIdx].durationInFrames : target.durationFrames;
+  const frameOffset = playheadFrame - liveStartFrame;
+  const canSplit = frameOffset > 0 && frameOffset < liveDurationFrames;
 
   const activeSubtitle = subtitles.find(
     (s) => playheadFrame >= s.startFrame && playheadFrame < s.endFrame,
@@ -156,7 +162,7 @@ function SceneMenu({
       )}
       <div className="h-px bg-border my-1" />
       <MenuItem icon={Snowflake} label="Congelar Frame (+1s)" onClick={() => { freezeFrame(target.sceneId, EDITOR_FPS); close(); }} />
-      <MenuItem icon={Timer} label="Estender (+1s)" onClick={() => { trimScene(target.sceneId, target.durationFrames + EDITOR_FPS); close(); }} />
+      <MenuItem icon={Timer} label="Estender (+1s)" onClick={() => { trimScene(target.sceneId, liveDurationFrames + EDITOR_FPS); close(); }} />
       <div className="h-px bg-border my-1" />
       <button
         type="button"
