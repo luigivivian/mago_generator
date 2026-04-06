@@ -106,3 +106,48 @@ Plans:
 - [ ] 999.10-06-PLAN.md — Properties panel, subtitle inline editor, context menu
 - [ ] 999.10-07-PLAN.md — Autosave hook, full component wiring, "Editar Video" entry points
 - [ ] 999.10-08-PLAN.md — Human verification of complete editor
+
+### Phase 999.11: Editor critical bugs — data integrity and stability fixes (BACKLOG)
+
+**Goal:** Fix critical and high-severity bugs in the video editor that cause data corruption, silent failures, and poor UX.
+
+**Requirements:**
+- Fix SRT fetch race condition in loadFromStepState (abort stale fetches)
+- Fix AudioContext leak on zoom (singleton context, resample peaks client-side)
+- Fix freezeFrame missing subtitle/audio cascade shift
+- Fix video left-trim having no start-offset semantics (add trimFrom to EditorScene)
+- Fix contentEditable subtitle text lost on re-render (local draft state)
+- Fix duplicate subtitle IDs in parseSrt and splitSubtitle (use genId)
+- Fix trimScene cascade delta ignoring min-duration clamp
+- Fix autosave timer/request leak after unmount (AbortController)
+- Fix context menu stale startFrame offset on split
+- Remove duplicate playhead sync (RAF + timeupdate)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.12: Editor UX enhancements — pro editing features (BACKLOG)
+
+**Goal:** Improve the video editor UX with features commonly found in professional editors (VEED, CapCut, Descript-style).
+
+**Requirements:**
+- Safe-zone guides overlay for TikTok/Instagram UI danger zones
+- Multi-select on timeline for bulk operations
+- Snap-to-grid/playhead during drag and trim
+- Auto-pause playback when dragging subtitle overlay
+- Per-clip volume control with UI slider
+- Arrow-key nudging for fine-positioning subtitles/audio
+- Zoom-to-fit button to reset timeline view
+- Click-outside-to-deselect on empty timeline areas
+- Export progress indicator with polling
+- Pre-export validation (gaps, overlaps, out-of-bounds audio)
+- Resizable timeline panel height
+- Per-track mute/solo toggle
+- Subtitle style presets (save/apply)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
