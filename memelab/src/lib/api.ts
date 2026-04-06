@@ -1666,6 +1666,13 @@ export interface ImageReuseInfo {
   version?: number;
 }
 
+export interface EditorPersistState {
+  scenes: Record<string, unknown>[];
+  subtitles: Record<string, unknown>[];
+  transitions: Record<string, unknown>[];
+  audioItems: Record<string, unknown>[];
+}
+
 export interface StepState {
   job_id: string;
   current_step: number;
@@ -1676,6 +1683,7 @@ export interface StepState {
   srt?: { path: string; approved: boolean; status?: string };
   clips?: { status?: string; scenes?: SceneStatus[]; approved?: boolean };
   video?: { path: string; approved: boolean; status?: string; scenes?: SceneStatus[] };
+  editor?: EditorPersistState;
   feedback_status?: "approved" | "posted" | null;
   posted_platforms?: string[];
 }
@@ -1910,4 +1918,20 @@ export interface AdStepData {
 
 export async function deleteAdJob(jobId: string) {
   return request<void>(`/ads/${jobId}`, { method: "DELETE" });
+}
+
+// ===== Video Editor (Phase 999.10) =====
+
+export async function patchEditorState(jobId: string, editorState: EditorPersistState) {
+  return request<{ job_id: string; saved: boolean }>(
+    `/reels/${jobId}/editor-state`,
+    { method: "PATCH", body: JSON.stringify(editorState) },
+  );
+}
+
+export async function exportRemotion(jobId: string) {
+  return request<{ job_id: string; status: string }>(
+    `/reels/${jobId}/export-remotion`,
+    { method: "POST" },
+  );
 }
