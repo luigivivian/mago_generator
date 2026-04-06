@@ -48,11 +48,13 @@ export function EditorLayout({ toolbar, preview, timeline, panel }: EditorLayout
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-col flex-1 min-w-0">
-          <div className="flex-shrink-0 flex items-center justify-center p-4 bg-background">
-            {preview}
+          <div className="flex-1 flex items-center justify-center p-4 bg-background min-h-0 overflow-hidden">
+            <div className="h-full w-full flex items-center justify-center">
+              {preview}
+            </div>
           </div>
 
-          <div className="flex-1 overflow-auto border-t border-border">
+          <div className="h-[220px] shrink-0 overflow-auto border-t border-border">
             {timeline ?? (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Timeline aqui

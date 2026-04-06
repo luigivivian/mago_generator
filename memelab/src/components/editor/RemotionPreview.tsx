@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import type { PlayerRef } from "@remotion/player";
 import { useEditorStore } from "@/stores/editor-store";
@@ -26,7 +26,24 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
   const scenes = useEditorStore((s) => s.scenes);
   const subtitles = useEditorStore((s) => s.subtitles);
   const audioItems = useEditorStore((s) => s.audioItems);
+  const setPlayheadFrame = useEditorStore((s) => s.setPlayheadFrame);
   const totalDuration = useTotalDuration();
+
+  const handleFrameUpdate = useCallback(
+    (e: { detail: { frame: number } }) => {
+      setPlayheadFrame(e.detail.frame);
+    },
+    [setPlayheadFrame],
+  );
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    player.addEventListener("frameupdate", handleFrameUpdate as never);
+    return () => {
+      player.removeEventListener("frameupdate", handleFrameUpdate as never);
+    };
+  }, [playerRef, handleFrameUpdate]);
 
   const tracks: EditorTrack[] = useMemo(
     () => [
@@ -51,7 +68,7 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
   }
 
   return (
-    <div className="relative w-full max-w-[360px] mx-auto" style={{ aspectRatio: "9/16" }}>
+    <div className="relative mx-auto" style={{ width: 270, height: 480 }}>
       <Player
         ref={playerRef}
         component={ReelComposition}
@@ -60,6 +77,7 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
         fps={EDITOR_FPS}
         durationInFrames={Math.max(totalDuration, 1)}
         inputProps={inputProps}
+        acknowledgeRemotionLicense
         style={{ width: "100%", height: "100%" }}
       />
     </div>

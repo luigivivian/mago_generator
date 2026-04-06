@@ -36,6 +36,13 @@ export default function EditorPage() {
         transitions: stepState.editor.transitions as never[],
         audioItems: stepState.editor.audioItems as never[],
       });
+      // If saved editor state has no subtitles, load from SRT
+      if (
+        (!stepState.editor.subtitles || stepState.editor.subtitles.length === 0) &&
+        stepState.srt?.path
+      ) {
+        store.loadSubtitlesFromSrt(jobId, stepState.srt.path);
+      }
     } else {
       store.loadFromStepState(stepState, jobId);
     }

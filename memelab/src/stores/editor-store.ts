@@ -9,7 +9,39 @@ import type {
   EditorAudioItem,
   EditorPersistState,
 } from "./editor-types";
-import { DEFAULT_VOICE_CONFIG, EDITOR_FPS } from "./editor-types";
+import { DEFAULT_VOICE_CONFIG, DEFAULT_SUBTITLE_STYLE, EDITOR_FPS } from "./editor-types";
+
+function srtTimeToFrames(time: string, fps: number): number {
+  const [h, m, rest] = time.split(":");
+  const [s, ms] = rest.split(/[,.]/);
+  const totalSeconds =
+    parseInt(h) * 3600 + parseInt(m) * 60 + parseInt(s) + parseInt(ms) / 1000;
+  return Math.round(totalSeconds * fps);
+}
+
+function parseSrt(text: string, fps: number): EditorSubtitle[] {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\n(?=\d+\n\d{2}:\d{2})/g, "\n\n");
+  return normalized
+    .trim()
+    .split(/\n\n+/)
+    .map((block) => {
+      const lines = block.split("\n");
+      if (lines.length < 3) return null;
+      const idx = parseInt(lines[0]);
+      if (isNaN(idx)) return null;
+      const [start, end] = lines[1].split(" --> ");
+      const text = lines.slice(2).join("\n");
+      return {
+        id: `sub-${Date.now()}-${idx}`,
+        text,
+        startFrame: srtTimeToFrames(start?.trim() ?? "00:00:00,000", fps),
+        endFrame: srtTimeToFrames(end?.trim() ?? "00:00:00,000", fps),
+        position: { x: 50, y: 85 },
+        style: { ...DEFAULT_SUBTITLE_STYLE },
+      } as EditorSubtitle;
+    })
+    .filter((e): e is EditorSubtitle => e !== null);
+}
 
 interface EditorState {
   scenes: EditorScene[];
@@ -32,6 +64,7 @@ interface EditorState {
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
   setPlayheadFrame: (frame: number) => void;
+  loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
   totalDuration: () => number;
   toEditorPersistState: () => EditorPersistState;
 }
@@ -58,11 +91,17 @@ export const useEditorStore = create<EditorState>()(
 
       loadFromStepState: (stepState, jobId, fps = EDITOR_FPS) => {
         const sceneStatuses = stepState.clips?.scenes ?? stepState.video?.scenes ?? [];
+        const imagePaths = stepState.images?.paths ?? [];
+
         const scenes: EditorScene[] = sceneStatuses.map((ss, i) => ({
           id: genId(),
           index: i,
           clipUrl: ss.clip_path ? reelFileUrl(jobId, ss.clip_path) : undefined,
-          imgUrl: ss.img_path ? reelFileUrl(jobId, ss.img_path) : undefined,
+          imgUrl: ss.img_path
+            ? reelFileUrl(jobId, ss.img_path)
+            : imagePaths[i]
+              ? reelFileUrl(jobId, imagePaths[i])
+              : undefined,
           durationInFrames: (ss.duration ?? 5) * fps,
           narration: ss.prompt ?? "",
           voiceConfig: { ...DEFAULT_VOICE_CONFIG },
@@ -79,6 +118,26 @@ export const useEditorStore = create<EditorState>()(
             from: 0,
             durationInFrames: totalDuration,
           });
+        }
+
+        // Parse subtitles from SRT file if available
+        const srtPath = stepState.srt?.path;
+        if (srtPath) {
+          const token =
+            typeof window !== "undefined"
+              ? (localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token"))
+              : null;
+          const headers: Record<string, string> = {};
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          fetch(reelFileUrl(jobId, srtPath), { headers })
+            .then((r) => r.text())
+            .then((text) => {
+              const subtitles = parseSrt(text, fps);
+              if (subtitles.length > 0) {
+                set({ subtitles });
+              }
+            })
+            .catch(() => {});
         }
 
         set({
@@ -182,6 +241,24 @@ export const useEditorStore = create<EditorState>()(
       setSelectedScene: (sceneId) => set({ selectedSceneId: sceneId }),
       setSelectedSubtitle: (subtitleId) => set({ selectedSubtitleId: subtitleId }),
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
+
+      loadSubtitlesFromSrt: (jobId, srtPath, fps = EDITOR_FPS) => {
+        const token =
+          typeof window !== "undefined"
+            ? (localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token"))
+            : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        fetch(reelFileUrl(jobId, srtPath), { headers })
+          .then((r) => r.text())
+          .then((text) => {
+            const subtitles = parseSrt(text, fps);
+            if (subtitles.length > 0) {
+              set({ subtitles });
+            }
+          })
+          .catch(() => {});
+      },
 
       totalDuration: () => {
         const state = get();

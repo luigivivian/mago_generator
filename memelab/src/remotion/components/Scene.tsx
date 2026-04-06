@@ -8,12 +8,14 @@ export const Scene: React.FC<{ scene: EditorScene }> = ({ scene }) => {
       {scene.clipUrl ? (
         <Video
           src={scene.clipUrl}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ width: "100%", height: "100%" }}
+          objectFit="cover"
         />
       ) : scene.imgUrl ? (
         <Img
           src={scene.imgUrl}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ width: "100%", height: "100%" }}
+          objectFit="cover"
         />
       ) : null}
     </AbsoluteFill>
