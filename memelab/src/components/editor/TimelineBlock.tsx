@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Loader2 } from "lucide-react";
 import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/editor-types";
+import { EDITOR_FPS } from "@/stores/editor-types";
+import { useEditorStore } from "@/stores/editor-store";
+import { useAudioWaveform } from "@/hooks/use-audio-waveform";
 
 interface TimelineBlockProps {
   item: EditorScene | EditorAudioItem | EditorSubtitle;
@@ -285,28 +288,98 @@ function AudioBlock({
     [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onMove],
   );
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const waveform = useAudioWaveform(item.audioUrl, Math.max(50, Math.round(width / 2)));
+  const subtitles = useEditorStore((s) => s.subtitles);
+
+  // Draw waveform on canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !waveform) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(56 * dpr); // h-14 = 56px
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, 56);
+
+    // Compute which portion of the waveform to draw based on startFrom/duration
+    const totalSourceFrames = Math.round(waveform.duration * EDITOR_FPS);
+    const trimStart = item.startFrom ?? 0;
+    const startRatio = totalSourceFrames > 0 ? trimStart / totalSourceFrames : 0;
+    const durationRatio = totalSourceFrames > 0 ? item.durationInFrames / totalSourceFrames : 1;
+
+    const peakStart = Math.floor(startRatio * waveform.peaks.length);
+    const peakCount = Math.max(1, Math.floor(durationRatio * waveform.peaks.length));
+    const visiblePeaks = waveform.peaks.slice(peakStart, peakStart + peakCount);
+
+    const barWidth = Math.max(1, width / visiblePeaks.length);
+    const centerY = 28;
+
+    ctx.fillStyle = "rgba(96, 165, 250, 0.5)"; // blue-400/50
+    for (let i = 0; i < visiblePeaks.length; i++) {
+      const h = visiblePeaks[i] * 22; // max half-height
+      ctx.fillRect(i * barWidth, centerY - h, Math.max(1, barWidth - 0.5), h * 2);
+    }
+  }, [waveform, width, item.startFrom, item.durationInFrames]);
+
+  // Compute overlapping subtitles for this audio range
+  const audioStart = item.from;
+  const audioEnd = item.from + item.durationInFrames;
+  const overlappingSubs = subtitles.filter(
+    (s) => s.startFrame < audioEnd && s.endFrame > audioStart,
+  );
+
   return (
     <div
-      className={`absolute h-14 border rounded-sm flex items-center ${TRACK_COLORS.audio} ${selected ? "ring-2 ring-blue-500" : ""}`}
-      style={{ left, width, background: "linear-gradient(90deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.3) 50%, rgba(59,130,246,0.15) 100%)" }}
+      className={`absolute h-14 border rounded-sm overflow-hidden ${TRACK_COLORS.audio} ${selected ? "ring-2 ring-blue-500" : ""}`}
+      style={{ left, width }}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
+      {/* Waveform */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{ width: "100%", height: "100%" }}
+      />
+
+      {/* Subtitle text overlays */}
+      <div className="absolute inset-0 pointer-events-none flex items-end">
+        {overlappingSubs.map((sub) => {
+          const subLeft = Math.max(0, (sub.startFrame - audioStart) * pixelsPerFrame);
+          const subWidth = (Math.min(sub.endFrame, audioEnd) - Math.max(sub.startFrame, audioStart)) * pixelsPerFrame;
+          return (
+            <span
+              key={sub.id}
+              className="absolute text-[8px] text-blue-200/70 truncate leading-none pb-0.5 px-0.5"
+              style={{ left: subLeft, width: subWidth }}
+            >
+              {sub.text}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Trim handles */}
       <div
         className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-l-sm"
         onPointerDown={(e) => handlePointerDown(e, "left")}
       />
       <div
-        className="flex-1 px-2 overflow-hidden cursor-grab active:cursor-grabbing"
+        className="absolute inset-0 left-2 right-2 cursor-grab active:cursor-grabbing z-[5]"
         onPointerDown={(e) => handlePointerDown(e, "move")}
-      >
-        <span className="text-[10px] text-blue-300 truncate block">
-          {(item.durationInFrames / 30).toFixed(1)}s
-        </span>
-      </div>
+      />
       <div
         className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-blue-400/60 hover:bg-blue-400 z-10 rounded-r-sm"
         onPointerDown={(e) => handlePointerDown(e, "right")}
       />
+
+      {/* Duration label */}
+      <span className="absolute top-0.5 left-3 text-[9px] text-blue-300/80 pointer-events-none z-[6]">
+        {(item.durationInFrames / 30).toFixed(1)}s
+      </span>
     </div>
   );
 }
