@@ -123,10 +123,12 @@ Plans:
 - Fix context menu stale startFrame offset on split
 - Remove duplicate playhead sync (RAF + timeupdate)
 
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [ ] 999.11-01-PLAN.md — Extract pure functions to lib/editor/ with tests, fix Date.now() IDs
+- [ ] 999.11-02-PLAN.md — Fix trimScene clamp, freezeFrame cascade, add trimFrom + Remotion wiring
+- [ ] 999.11-03-PLAN.md — Fix AudioContext leak, autosave cleanup, SRT fetch race, contentEditable, playhead dedup, context menu stale offset
 
 ### Phase 999.12: Editor UX enhancements — pro editing features (BACKLOG)
 
