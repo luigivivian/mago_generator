@@ -333,3 +333,13 @@ class VideoCreditsResponse(BaseModel):
     daily_budget_brl: float
     daily_spent_brl: float
     daily_remaining_brl: float
+
+
+# ===== Video Editor (Phase 999.10) =====
+
+class EditorStatePayload(BaseModel):
+    """Payload for persisting editor state to step_state.editor (per D-23, D-24)."""
+    scenes: list[dict] = []
+    subtitles: list[dict] = []
+    transitions: list[dict] = []
+    audioItems: list[dict] = []

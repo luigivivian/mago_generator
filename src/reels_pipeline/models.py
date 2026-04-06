@@ -78,6 +78,7 @@ class StepStateResponse(BaseModel):
     images: Optional[dict] = None
     clips: Optional[dict] = None
     video: Optional[dict] = None
+    editor: Optional[dict] = None
     feedback_status: Optional[str] = None
     posted_platforms: Optional[list] = None
 
