@@ -47,12 +47,14 @@ function VideoBlock({
   selected,
   onSelect,
   onTrim,
+  onTrimStart,
 }: {
   item: EditorScene;
   pixelsPerFrame: number;
   selected: boolean;
   onSelect: () => void;
   onTrim?: (newDurationFrames: number) => void;
+  onTrimStart?: (newTrimFrom: number) => void;
 }) {
   const {
     attributes,
@@ -63,7 +65,7 @@ function VideoBlock({
     isDragging,
   } = useSortable({ id: item.id });
 
-  const trimStartRef = useRef<{ startX: number; startDuration: number; side: "left" | "right" } | null>(null);
+  const trimStartRef = useRef<{ startX: number; startDuration: number; startTrimFrom: number; side: "left" | "right" } | null>(null);
 
   const handleTrimPointerDown = useCallback(
     (e: React.PointerEvent, side: "left" | "right") => {
@@ -72,20 +74,21 @@ function VideoBlock({
       trimStartRef.current = {
         startX: e.clientX,
         startDuration: item.durationInFrames,
+        startTrimFrom: item.trimFrom ?? 0,
         side,
       };
 
       const handlePointerMove = (ev: PointerEvent) => {
-        if (!trimStartRef.current || !onTrim) return;
+        if (!trimStartRef.current) return;
         const deltaX = ev.clientX - trimStartRef.current.startX;
         const deltaFrames = Math.round(deltaX / pixelsPerFrame);
-        let newDuration: number;
-        if (trimStartRef.current.side === "right") {
-          newDuration = trimStartRef.current.startDuration + deltaFrames;
-        } else {
-          newDuration = trimStartRef.current.startDuration - deltaFrames;
+        if (trimStartRef.current.side === "right" && onTrim) {
+          const newDuration = trimStartRef.current.startDuration + deltaFrames;
+          onTrim(Math.max(MIN_DURATION_FRAMES, newDuration));
+        } else if (trimStartRef.current.side === "left" && onTrimStart) {
+          const newTrimFrom = Math.max(0, trimStartRef.current.startTrimFrom + deltaFrames);
+          onTrimStart(newTrimFrom);
         }
-        onTrim(Math.max(MIN_DURATION_FRAMES, newDuration));
       };
 
       const handlePointerUp = () => {
@@ -97,7 +100,7 @@ function VideoBlock({
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);
     },
-    [item.durationInFrames, pixelsPerFrame, onTrim],
+    [item.durationInFrames, item.trimFrom, pixelsPerFrame, onTrim, onTrimStart],
   );
 
   const width = item.durationInFrames * pixelsPerFrame;
@@ -395,6 +398,7 @@ export function TimelineBlock(props: TimelineBlockProps) {
         selected={props.selected}
         onSelect={props.onSelect}
         onTrim={props.onTrim}
+        onTrimStart={props.onTrimStart}
       />
     );
   }

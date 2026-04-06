@@ -45,6 +45,7 @@ export function Timeline({ playerRef }: TimelineProps) {
   const trimScene = useEditorStore((s) => s.trimScene);
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
   const moveSubtitle = useEditorStore((s) => s.moveSubtitle);
+  const trimSceneLeft = useEditorStore((s) => s.trimSceneLeft);
   const trimAudioItem = useEditorStore((s) => s.trimAudioItem);
   const trimAudioLeft = useEditorStore((s) => s.trimAudioLeft);
   const moveAudioItem = useEditorStore((s) => s.moveAudioItem);
@@ -186,6 +187,7 @@ export function Timeline({ playerRef }: TimelineProps) {
                   selectedId={selectedSceneId}
                   onSelect={setSelectedScene}
                   onTrim={(id, dur) => trimScene(id, dur)}
+                  onTrimStart={(id, newTrimFrom) => trimSceneLeft(id, newTrimFrom)}
                 />
               </SortableContext>
             </DndContext>
