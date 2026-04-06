@@ -7,8 +7,12 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import type { PlayerRef } from "@remotion/player";
 import { useStepState } from "@/hooks/use-reels";
 import { useEditorStore } from "@/stores/editor-store";
+import { useAutosave } from "@/hooks/use-autosave";
 import { EditorLayout } from "@/components/editor/EditorLayout";
 import { RemotionPreview } from "@/components/editor/RemotionPreview";
+import { Timeline } from "@/components/editor/Timeline";
+import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
+import { SubtitleEditor } from "@/components/editor/SubtitleEditor";
 import { Toolbar } from "@/components/editor/Toolbar";
 
 export default function EditorPage() {
@@ -17,12 +21,25 @@ export default function EditorPage() {
   const { data: stepState, error, isLoading } = useStepState(jobId);
   const playerRef = useRef<PlayerRef>(null);
   const loadedRef = useRef(false);
+  const saveStatus = useAutosave(jobId);
+
+  const subtitles = useEditorStore((s) => s.subtitles);
+  const playheadFrame = useEditorStore((s) => s.playheadFrame);
 
   useEffect(() => {
-    if (stepState && !loadedRef.current) {
-      useEditorStore.getState().loadFromStepState(stepState, jobId);
-      loadedRef.current = true;
+    if (!stepState || loadedRef.current) return;
+    const store = useEditorStore.getState();
+    if (stepState.editor && stepState.editor.scenes.length > 0) {
+      store.loadFromEditorState({
+        scenes: stepState.editor.scenes as never[],
+        subtitles: stepState.editor.subtitles as never[],
+        transitions: stepState.editor.transitions as never[],
+        audioItems: stepState.editor.audioItems as never[],
+      });
+    } else {
+      store.loadFromStepState(stepState, jobId);
     }
+    loadedRef.current = true;
   }, [stepState, jobId]);
 
   if (isLoading || !stepState) {
@@ -54,8 +71,20 @@ export default function EditorPage() {
 
   return (
     <EditorLayout
-      toolbar={<Toolbar playerRef={playerRef} saveStatus="idle" />}
-      preview={<RemotionPreview playerRef={playerRef} />}
+      toolbar={<Toolbar playerRef={playerRef} saveStatus={saveStatus} />}
+      preview={
+        <div className="relative">
+          <RemotionPreview playerRef={playerRef} />
+          <SubtitleEditor
+            subtitles={subtitles}
+            currentFrame={playheadFrame}
+            compositionWidth={1080}
+            compositionHeight={1920}
+          />
+        </div>
+      }
+      timeline={<Timeline playerRef={playerRef} />}
+      panel={<PropertiesPanel jobId={jobId} />}
     />
   );
 }

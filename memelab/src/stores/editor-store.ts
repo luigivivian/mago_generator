@@ -21,6 +21,7 @@ interface EditorState {
   playheadFrame: number;
 
   loadFromStepState: (stepState: StepState, jobId: string, fps?: number) => void;
+  loadFromEditorState: (editorState: EditorPersistState) => void;
   reorderScenes: (fromIndex: number, toIndex: number) => void;
   trimScene: (sceneId: string, newDuration: number) => void;
   duplicateScene: (sceneId: string) => void;
@@ -85,6 +86,18 @@ export const useEditorStore = create<EditorState>()(
           subtitles: [],
           transitions: [],
           audioItems,
+          selectedSceneId: null,
+          selectedSubtitleId: null,
+          playheadFrame: 0,
+        });
+      },
+
+      loadFromEditorState: (editorState) => {
+        set({
+          scenes: editorState.scenes,
+          subtitles: editorState.subtitles,
+          transitions: editorState.transitions,
+          audioItems: editorState.audioItems,
           selectedSceneId: null,
           selectedSubtitleId: null,
           playheadFrame: 0,
