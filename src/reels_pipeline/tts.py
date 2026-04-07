@@ -106,9 +106,10 @@ async def generate_narration(
     voice_name = voice or REELS_TTS_VOICE
     client = _get_client()
 
-    # Default speaking rate bumped to 1.2 — reels feel boring at 1.0 for short-form
-    # content. Callers can still override explicitly (bible/creation may want slower).
-    speaking_rate = speed or 1.2
+    # Default speaking rate: 1.35 — short-form content (Reels/TikTok) needs
+    # urgency. 1.2 was still too slow per user feedback on reel 034. Callers
+    # can still override explicitly (bible/meditation may want ~1.1).
+    speaking_rate = speed or 1.35
 
     # Build TTS prompt with emotional style direction
     style_prompt = _TONE_STYLE_PROMPTS.get(
@@ -117,8 +118,16 @@ async def generate_narration(
         "Vary your pace and emphasis to keep the listener engaged.",
     )
     speed_hint = f" Speak at {int(speaking_rate * 100)}% of normal speed." if speaking_rate != 1.0 else ""
+    # Short-form flow hint: minimize pauses between sentences. Gemini TTS
+    # naturally inserts dramatic pauses that kill the energy of Reels/TikTok
+    # narration, which needs continuous urgency.
+    flow_hint = (
+        " Deliver with short-form content energy: minimize pauses between "
+        "sentences, maintain continuous flow and urgency. No dramatic "
+        "dead-air pauses."
+    )
     tts_prompt = (
-        f"{style_prompt}{speed_hint} "
+        f"{style_prompt}{speed_hint}{flow_hint} "
         f"Read the following narration in Brazilian Portuguese.\n\n"
         f"{text}"
     )

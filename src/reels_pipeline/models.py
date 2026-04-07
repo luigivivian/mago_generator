@@ -129,7 +129,7 @@ class ReelsConfigRequest(BaseModel):
     script_system_prompt: Optional[str] = None
     tts_provider: Optional[str] = "gemini"
     tts_voice: Optional[str] = "Charon"
-    tts_speed: Optional[float] = 1.2
+    tts_speed: Optional[float] = 1.35
     transcription_provider: Optional[str] = "gemini"
     image_duration: Optional[float] = 4.0
     transition_type: Optional[str] = "fade"
@@ -160,7 +160,7 @@ class ReelsConfigResponse(BaseModel):
     script_system_prompt: Optional[str] = None
     tts_provider: str = "gemini"
     tts_voice: str = "Charon"
-    tts_speed: float = 1.2
+    tts_speed: float = 1.35
     transcription_provider: str = "gemini"
     image_duration: float = 4.0
     transition_type: str = "fade"
