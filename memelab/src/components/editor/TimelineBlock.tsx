@@ -13,7 +13,7 @@ interface TimelineBlockProps {
   item: EditorScene | EditorAudioItem | EditorSubtitle;
   pixelsPerFrame: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onTrim?: (newDurationFrames: number) => void;
   onTrimStart?: (newStartFrame: number) => void;
   onTrimEnd?: (newEndFrame: number) => void;
@@ -52,7 +52,7 @@ function VideoBlock({
   item: EditorScene;
   pixelsPerFrame: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onTrim?: (newDurationFrames: number) => void;
   onTrimStart?: (newTrimFrom: number) => void;
 }) {
@@ -118,7 +118,7 @@ function VideoBlock({
       className={`relative h-14 border rounded-sm flex items-center shrink-0 ${TRACK_COLORS.video} ${selected ? "ring-2 ring-purple-500" : ""}`}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect();
+        onSelect(e);
       }}
     >
       {/* Left trim handle */}
@@ -179,7 +179,7 @@ function SubtitleBlock({
   item: EditorSubtitle;
   pixelsPerFrame: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onTrimStart?: (newStartFrame: number) => void;
   onTrimEnd?: (newEndFrame: number) => void;
   onMove?: (deltaFrames: number) => void;
@@ -221,7 +221,7 @@ function SubtitleBlock({
     <div
       className={`absolute h-10 border rounded-sm flex items-center ${TRACK_COLORS.subtitle} ${selected ? "ring-2 ring-amber-500" : ""}`}
       style={{ left, width }}
-      onClick={(e) => { e.stopPropagation(); onSelect(); }}
+      onClick={(e) => { e.stopPropagation(); onSelect(e); }}
     >
       <div
         className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-amber-400/60 hover:bg-amber-400 z-10 rounded-l-sm"
@@ -253,7 +253,7 @@ function AudioBlock({
   item: EditorAudioItem;
   pixelsPerFrame: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onTrim?: (newDuration: number) => void;
   onTrimStart?: (newFrom: number) => void;
   onMove?: (newFrom: number) => void;
@@ -339,7 +339,7 @@ function AudioBlock({
     <div
       className={`absolute h-14 border rounded-sm overflow-hidden ${TRACK_COLORS.audio} ${selected ? "ring-2 ring-blue-500" : ""}`}
       style={{ left, width }}
-      onClick={(e) => { e.stopPropagation(); onSelect(); }}
+      onClick={(e) => { e.stopPropagation(); onSelect(e); }}
     >
       {/* Waveform */}
       <canvas

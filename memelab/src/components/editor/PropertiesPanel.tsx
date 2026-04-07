@@ -364,6 +364,56 @@ interface PropertiesPanelProps {
 export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
   const scene = useSelectedScene();
   const subtitle = useSelectedSubtitle();
+  // 999.12 D-01: surface multi-select state
+  const selection = useEditorStore((s) => s.selection);
+  const bulkDeleteSelected = useEditorStore((s) => s.bulkDeleteSelected);
+  const bulkDuplicateSelected = useEditorStore((s) => s.bulkDuplicateSelected);
+
+  // 999.12 D-01: when more than 1 item is selected, show a compact summary
+  // instead of the per-item editor (which only fits one).
+  if (selection.size > 1) {
+    let scenes = 0;
+    let subs = 0;
+    let audio = 0;
+    for (const key of selection) {
+      const colonIdx = key.indexOf(":");
+      if (colonIdx === -1) continue;
+      const kind = key.slice(0, colonIdx);
+      if (kind === "scene") scenes++;
+      else if (kind === "subtitle") subs++;
+      else if (kind === "audio") audio++;
+    }
+    const parts: string[] = [];
+    if (scenes) parts.push(`${scenes} cena${scenes > 1 ? "s" : ""}`);
+    if (subs) parts.push(`${subs} legenda${subs > 1 ? "s" : ""}`);
+    if (audio) parts.push(`${audio} audio${audio > 1 ? "s" : ""}`);
+    return (
+      <div className="p-4 space-y-3">
+        <p className="text-sm text-foreground">
+          {selection.size} itens selecionados
+          <span className="block text-xs text-muted-foreground mt-0.5">
+            {parts.join(" · ")}
+          </span>
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => bulkDuplicateSelected()}
+            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:bg-card/80"
+          >
+            Duplicar todos (Cmd+D)
+          </button>
+          <button
+            type="button"
+            onClick={() => bulkDeleteSelected()}
+            className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/20"
+          >
+            Excluir todos (Delete)
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!scene && !subtitle) {
     return (

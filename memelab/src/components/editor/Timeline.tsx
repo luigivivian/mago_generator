@@ -36,11 +36,18 @@ export function Timeline({ playerRef }: TimelineProps) {
   const selectedSceneId = useEditorStore((s) => s.selectedSceneId);
   const selectedSubtitleId = useEditorStore((s) => s.selectedSubtitleId);
   const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
+  // 999.12 D-01: full multi-select set drives block highlighting
+  const selection = useEditorStore((s) => s.selection);
   const playheadFrame = useEditorStore((s) => s.playheadFrame);
   const reorderScenes = useEditorStore((s) => s.reorderScenes);
   const setSelectedScene = useEditorStore((s) => s.setSelectedScene);
   const setSelectedSubtitle = useEditorStore((s) => s.setSelectedSubtitle);
   const setSelectedAudio = useEditorStore((s) => s.setSelectedAudio);
+  const toggleSelection = useEditorStore((s) => s.toggleSelection);
+  const replaceSelection = useEditorStore((s) => s.replaceSelection);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+  const bulkDeleteSelected = useEditorStore((s) => s.bulkDeleteSelected);
+  const bulkDuplicateSelected = useEditorStore((s) => s.bulkDuplicateSelected);
   const setPlayheadFrame = useEditorStore((s) => s.setPlayheadFrame);
   const trimScene = useEditorStore((s) => s.trimScene);
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
@@ -50,6 +57,43 @@ export function Timeline({ playerRef }: TimelineProps) {
   const trimAudioLeft = useEditorStore((s) => s.trimAudioLeft);
   const moveAudioItem = useEditorStore((s) => s.moveAudioItem);
   const totalFrames = useTotalDuration();
+
+  // 999.12 D-01: selection set membership lookups for each track
+  const selectedSceneIds = new Set<string>();
+  const selectedSubtitleIds = new Set<string>();
+  const selectedAudioIds = new Set<string>();
+  for (const key of selection) {
+    const colonIdx = key.indexOf(":");
+    if (colonIdx === -1) continue;
+    const kind = key.slice(0, colonIdx);
+    const id = key.slice(colonIdx + 1);
+    if (kind === "scene") selectedSceneIds.add(id);
+    else if (kind === "subtitle") selectedSubtitleIds.add(id);
+    else if (kind === "audio") selectedAudioIds.add(id);
+  }
+
+  // 999.12 D-01: route a click to toggle (modifier) or replace (plain)
+  const handleSceneSelect = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      if (e.shiftKey || e.metaKey || e.ctrlKey) toggleSelection("scene", id);
+      else replaceSelection("scene", id);
+    },
+    [toggleSelection, replaceSelection],
+  );
+  const handleSubtitleSelect = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      if (e.shiftKey || e.metaKey || e.ctrlKey) toggleSelection("subtitle", id);
+      else replaceSelection("subtitle", id);
+    },
+    [toggleSelection, replaceSelection],
+  );
+  const handleAudioSelect = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      if (e.shiftKey || e.metaKey || e.ctrlKey) toggleSelection("audio", id);
+      else replaceSelection("audio", id);
+    },
+    [toggleSelection, replaceSelection],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -110,6 +154,29 @@ export function Timeline({ playerRef }: TimelineProps) {
     el.addEventListener("scroll", handler);
     return () => el.removeEventListener("scroll", handler);
   }, [setScrollLeft]);
+
+  // 999.12 D-02: keyboard shortcuts for bulk operations.
+  // Skip when focus is in a text input/textarea/contenteditable so the
+  // PropertiesPanel and inline subtitle editor still receive their keys.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      if (selection.size === 0) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        bulkDeleteSelected();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        bulkDuplicateSelected();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selection, bulkDeleteSelected, bulkDuplicateSelected]);
 
   const sceneIds = scenes.map((s) => s.id);
 
@@ -227,7 +294,9 @@ export function Timeline({ playerRef }: TimelineProps) {
                   items={scenes}
                   pixelsPerFrame={pixelsPerFrame}
                   selectedId={selectedSceneId}
-                  onSelect={setSelectedScene}
+                  selectedIds={selectedSceneIds}
+                  onSelect={handleSceneSelect}
+                  onEmptyClick={clearSelection}
                   onTrim={(id, dur) => trimScene(id, dur)}
                   onTrimStart={(id, newTrimFrom) => trimSceneLeft(id, newTrimFrom)}
                 />
@@ -240,7 +309,9 @@ export function Timeline({ playerRef }: TimelineProps) {
               items={audioItems}
               pixelsPerFrame={pixelsPerFrame}
               selectedId={selectedAudioId}
-              onSelect={setSelectedAudio}
+              selectedIds={selectedAudioIds}
+              onSelect={handleAudioSelect}
+              onEmptyClick={clearSelection}
               onTrim={(id, dur) => trimAudioItem(id, dur)}
               onTrimStart={(id, newFrom) => trimAudioLeft(id, newFrom)}
               onMove={(id, newFrom) => moveAudioItem(id, newFrom)}
@@ -252,7 +323,9 @@ export function Timeline({ playerRef }: TimelineProps) {
               items={subtitles}
               pixelsPerFrame={pixelsPerFrame}
               selectedId={selectedSubtitleId}
-              onSelect={setSelectedSubtitle}
+              selectedIds={selectedSubtitleIds}
+              onSelect={handleSubtitleSelect}
+              onEmptyClick={clearSelection}
               onTrimStart={(id, start) => updateSubtitle(id, { startFrame: start })}
               onTrimEnd={(id, end) => updateSubtitle(id, { endFrame: end })}
               onMove={(id, delta) => moveSubtitle(id, delta)}

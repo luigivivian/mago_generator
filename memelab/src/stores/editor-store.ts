@@ -8,8 +8,9 @@ import type {
   EditorTransition,
   EditorAudioItem,
   EditorPersistState,
+  SelectableKind,
 } from "./editor-types";
-import { DEFAULT_VOICE_CONFIG, EDITOR_FPS } from "./editor-types";
+import { DEFAULT_VOICE_CONFIG, EDITOR_FPS, selectionKey, parseSelectionKey } from "./editor-types";
 import {
   genId,
   parseSrt,
@@ -33,6 +34,8 @@ interface EditorState {
   selectedSceneId: string | null;
   selectedSubtitleId: string | null;
   selectedAudioId: string | null;
+  // 999.12 D-01: multi-select via "kind:id" key set
+  selection: Set<string>;
   playheadFrame: number;
   subtitlesEdited: boolean;
 
@@ -64,6 +67,13 @@ interface EditorState {
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
   setSelectedAudio: (audioId: string | null) => void;
+  // 999.12 D-01..D-03: multi-select
+  toggleSelection: (kind: SelectableKind, id: string) => void;
+  addToSelection: (kind: SelectableKind, id: string) => void;
+  replaceSelection: (kind: SelectableKind, id: string) => void;
+  clearSelection: () => void;
+  bulkDeleteSelected: () => void;
+  bulkDuplicateSelected: () => void;
   setPlayheadFrame: (frame: number) => void;
   markSubtitlesClean: () => void;
   loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
@@ -81,6 +91,7 @@ export const useEditorStore = create<EditorState>()(
       selectedSceneId: null,
       selectedSubtitleId: null,
       selectedAudioId: null,
+      selection: new Set<string>(),
       playheadFrame: 0,
       subtitlesEdited: false,
 
@@ -518,11 +529,182 @@ export const useEditorStore = create<EditorState>()(
       },
 
       setSelectedScene: (sceneId) =>
-        set({ selectedSceneId: sceneId, selectedSubtitleId: null, selectedAudioId: null }),
+        set({
+          selectedSceneId: sceneId,
+          selectedSubtitleId: null,
+          selectedAudioId: null,
+          selection: sceneId ? new Set([selectionKey("scene", sceneId)]) : new Set<string>(),
+        }),
       setSelectedSubtitle: (subtitleId) =>
-        set({ selectedSubtitleId: subtitleId, selectedSceneId: null, selectedAudioId: null }),
+        set({
+          selectedSubtitleId: subtitleId,
+          selectedSceneId: null,
+          selectedAudioId: null,
+          selection: subtitleId ? new Set([selectionKey("subtitle", subtitleId)]) : new Set<string>(),
+        }),
       setSelectedAudio: (audioId) =>
-        set({ selectedAudioId: audioId, selectedSceneId: null, selectedSubtitleId: null }),
+        set({
+          selectedAudioId: audioId,
+          selectedSceneId: null,
+          selectedSubtitleId: null,
+          selection: audioId ? new Set([selectionKey("audio", audioId)]) : new Set<string>(),
+        }),
+
+      // 999.12 D-01..D-03: multi-select actions
+      toggleSelection: (kind, id) =>
+        set((state) => {
+          const key = selectionKey(kind, id);
+          const next = new Set(state.selection);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          // Sync scalar fields with the FIRST entry of this kind in the set
+          const findFirst = (k: SelectableKind): string | null => {
+            for (const entry of next) {
+              const ref = parseSelectionKey(entry);
+              if (ref?.kind === k) return ref.id;
+            }
+            return null;
+          };
+          return {
+            selection: next,
+            selectedSceneId: findFirst("scene"),
+            selectedSubtitleId: findFirst("subtitle"),
+            selectedAudioId: findFirst("audio"),
+          };
+        }),
+      addToSelection: (kind, id) =>
+        set((state) => {
+          const next = new Set(state.selection);
+          next.add(selectionKey(kind, id));
+          return {
+            selection: next,
+            selectedSceneId: kind === "scene" ? id : state.selectedSceneId,
+            selectedSubtitleId: kind === "subtitle" ? id : state.selectedSubtitleId,
+            selectedAudioId: kind === "audio" ? id : state.selectedAudioId,
+          };
+        }),
+      replaceSelection: (kind, id) =>
+        set({
+          selection: new Set([selectionKey(kind, id)]),
+          selectedSceneId: kind === "scene" ? id : null,
+          selectedSubtitleId: kind === "subtitle" ? id : null,
+          selectedAudioId: kind === "audio" ? id : null,
+        }),
+      clearSelection: () =>
+        set({
+          selection: new Set<string>(),
+          selectedSceneId: null,
+          selectedSubtitleId: null,
+          selectedAudioId: null,
+        }),
+
+      bulkDeleteSelected: () =>
+        set((state) => {
+          if (state.selection.size === 0) return state;
+          const sceneIds: string[] = [];
+          const subIds: string[] = [];
+          const audioIds: string[] = [];
+          for (const key of state.selection) {
+            const ref = parseSelectionKey(key);
+            if (!ref) continue;
+            if (ref.kind === "scene") sceneIds.push(ref.id);
+            else if (ref.kind === "subtitle") subIds.push(ref.id);
+            else if (ref.kind === "audio") audioIds.push(ref.id);
+          }
+
+          // 1. Delete scenes (cascade subtitles/audio inside their ranges).
+          // We iterate from highest index to lowest so frame ranges remain valid
+          // as we shift later content backward.
+          let scenes = state.scenes;
+          let subtitles = state.subtitles;
+          let audioItems = state.audioItems;
+          const sortedSceneIdxs = sceneIds
+            .map((id) => scenes.findIndex((s) => s.id === id))
+            .filter((i) => i !== -1)
+            .sort((a, b) => b - a);
+          for (const idx of sortedSceneIdxs) {
+            const range = getSceneTimeRange(scenes, idx);
+            const dur = range.end - range.start;
+            const removedScene = scenes[idx];
+            subtitles = subtitles.filter(
+              (s) => !(s.startFrame >= range.start && s.endFrame <= range.end),
+            );
+            subtitles = shiftSubtitles(subtitles, range.start, -dur);
+            audioItems = shiftAudio(audioItems, range.start, -dur);
+            scenes = scenes.filter((s) => s.id !== removedScene.id);
+          }
+          scenes = reindexScenes(scenes);
+
+          // 2. Delete subtitles
+          subtitles = subtitles.filter((s) => !subIds.includes(s.id));
+
+          // 3. Delete audio items
+          audioItems = audioItems.filter((a) => !audioIds.includes(a.id));
+
+          return {
+            scenes,
+            subtitles,
+            audioItems,
+            selection: new Set<string>(),
+            selectedSceneId: null,
+            selectedSubtitleId: null,
+            selectedAudioId: null,
+          };
+        }),
+
+      bulkDuplicateSelected: () =>
+        set((state) => {
+          if (state.selection.size === 0) return state;
+          // For now: only scenes and subtitles. Audio duplicate would
+          // collide with original — defer.
+          let scenes = state.scenes;
+          let subtitles = state.subtitles;
+          let audioItems = state.audioItems;
+          const newSelection = new Set<string>();
+
+          for (const key of state.selection) {
+            const ref = parseSelectionKey(key);
+            if (!ref) continue;
+            if (ref.kind === "scene") {
+              const idx = scenes.findIndex((s) => s.id === ref.id);
+              if (idx === -1) continue;
+              const original = scenes[idx];
+              const range = getSceneTimeRange(scenes, idx);
+              const duration = original.durationInFrames;
+              const dup: EditorScene = { ...original, id: genId(), index: idx + 1 };
+              scenes = [...scenes];
+              scenes.splice(idx + 1, 0, dup);
+              const cloned = subsInRange(subtitles, range.start, range.end).map((s) => ({
+                ...s,
+                id: genId("sub"),
+                startFrame: s.startFrame + duration,
+                endFrame: s.endFrame + duration,
+              }));
+              const shifted = shiftSubtitles(subtitles, range.end, duration);
+              subtitles = [...shifted, ...cloned].sort((a, b) => a.startFrame - b.startFrame);
+              audioItems = shiftAudio(audioItems, range.end, duration);
+              newSelection.add(selectionKey("scene", dup.id));
+            } else if (ref.kind === "subtitle") {
+              const orig = subtitles.find((s) => s.id === ref.id);
+              if (!orig) continue;
+              const dup: EditorSubtitle = {
+                ...orig,
+                id: genId("sub"),
+                startFrame: orig.endFrame + 1,
+                endFrame: orig.endFrame + 1 + (orig.endFrame - orig.startFrame),
+              };
+              subtitles = [...subtitles, dup].sort((a, b) => a.startFrame - b.startFrame);
+              newSelection.add(selectionKey("subtitle", dup.id));
+            }
+          }
+
+          return {
+            scenes: reindexScenes(scenes),
+            subtitles,
+            audioItems,
+            selection: newSelection,
+          };
+        }),
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
       markSubtitlesClean: () => set({ subtitlesEdited: false }),
 

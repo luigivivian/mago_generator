@@ -73,3 +73,18 @@ export const DEFAULT_VOICE_CONFIG: EditorScene["voiceConfig"] = {
 };
 
 export const EDITOR_FPS = 30;
+
+// Multi-select model (999.12 D-01..D-03)
+export type SelectableKind = "scene" | "subtitle" | "audio";
+export interface SelectableRef {
+  kind: SelectableKind;
+  id: string;
+}
+export const selectionKey = (kind: SelectableKind, id: string): string => `${kind}:${id}`;
+export const parseSelectionKey = (key: string): SelectableRef | null => {
+  const idx = key.indexOf(":");
+  if (idx === -1) return null;
+  const kind = key.slice(0, idx) as SelectableKind;
+  if (kind !== "scene" && kind !== "subtitle" && kind !== "audio") return null;
+  return { kind, id: key.slice(idx + 1) };
+};
