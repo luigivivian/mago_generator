@@ -284,8 +284,14 @@ export function StepVideo({
             )}
           </>
         ) : (
-          <div className="rounded-lg border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">Nenhum video gerado ainda.</p>
+          <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">Video ainda nao renderizado. Use o editor para revisar e exportar.</p>
+            <Link href={`/reels/${jobId}/edit`}>
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Pencil className="mr-2 h-3 w-3" />
+                Abrir Editor
+              </Button>
+            </Link>
           </div>
         )}
 

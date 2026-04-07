@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   Play,
@@ -304,6 +305,7 @@ export function StepClips({
   stepState: StepState;
   mutate: () => void;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [initializing, setInitializing] = useState(false);
@@ -363,7 +365,11 @@ export function StepClips({
   async function handleApproveClips() {
     setLoading(true);
     try {
-      await approveStep(jobId, "clips");
+      const res = await approveStep(jobId, "clips");
+      if (res.redirect_to_editor) {
+        router.push(`/reels/${jobId}/edit`);
+        return;
+      }
       mutate();
     } finally {
       setLoading(false);
@@ -536,7 +542,7 @@ export function StepClips({
               disabled={loading}
             >
               {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Film className="mr-2 h-3 w-3" />}
-              Aprovar e Montar Video
+              Aprovar e Editar Video
             </Button>
           </div>
         )}

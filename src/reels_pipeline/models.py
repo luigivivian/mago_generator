@@ -88,6 +88,7 @@ class StepApproveResponse(BaseModel):
     step: str
     approved: bool
     current_step: int
+    redirect_to_editor: bool = False
 
 
 class StepEditRequest(BaseModel):
@@ -127,7 +128,7 @@ class ReelsConfigRequest(BaseModel):
     script_language: Optional[str] = "pt-BR"
     script_system_prompt: Optional[str] = None
     tts_provider: Optional[str] = "gemini"
-    tts_voice: Optional[str] = "Puck"
+    tts_voice: Optional[str] = "Charon"
     tts_speed: Optional[float] = 1.1
     transcription_provider: Optional[str] = "gemini"
     image_duration: Optional[float] = 4.0
@@ -158,7 +159,7 @@ class ReelsConfigResponse(BaseModel):
     script_language: str = "pt-BR"
     script_system_prompt: Optional[str] = None
     tts_provider: str = "gemini"
-    tts_voice: str = "Puck"
+    tts_voice: str = "Charon"
     tts_speed: float = 1.1
     transcription_provider: str = "gemini"
     image_duration: float = 4.0

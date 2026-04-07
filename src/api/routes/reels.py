@@ -168,10 +168,11 @@ async def _execute_step_task(
             if job.language:
                 config_override["script_language"] = job.language
 
-            # Flow bible_config from step_state into config_override for pipeline steps
+            # Flow job-level config from step_state into config_override for pipeline steps
             job_config = step_state.get("config", {})
-            if "bible_config" in job_config:
-                config_override["bible_config"] = job_config["bible_config"]
+            for key in ("bible_config", "video_model"):
+                if key in job_config and key not in config_override:
+                    config_override[key] = job_config[key]
 
             pipeline = ReelsPipeline(config_override=config_override)
             job_dir = step_state.get("prompt", {}).get("job_dir", "")
@@ -229,13 +230,15 @@ async def _execute_step_task(
             elif step_name == "srt":
                 audio_path = step_state.get("tts", {}).get("path", "")
                 script_json = step_state.get("script", {}).get("json", {})
-                srt_path, duration = await pipeline.run_step_srt(
+                srt_path, duration, scene_timings = await pipeline.run_step_srt(
                     audio_path=audio_path,
                     job_dir=job_dir,
                     script=script_json or None,
                 )
                 step_data["path"] = srt_path
                 step_data["duration"] = duration
+                if scene_timings:
+                    step_data["scene_timings"] = scene_timings
                 step_data["status"] = "complete"
                 job.srt_path = srt_path
 
@@ -273,6 +276,7 @@ async def _execute_step_task(
                     except RuntimeError:
                         pass
 
+                srt_scene_timings = step_state.get("srt", {}).get("scene_timings")
                 video_path = await pipeline.run_step_video_kie(
                     image_paths=image_paths,
                     audio_path=audio_path,
@@ -282,6 +286,7 @@ async def _execute_step_task(
                     on_scene_update=on_scene_update,
                     user_id=job.user_id,
                     character_id=job.character_id,
+                    scene_timings=srt_scene_timings,
                 )
                 step_data["path"] = video_path
                 step_data["status"] = "complete"
@@ -311,6 +316,7 @@ async def _execute_step_task(
                     audio_path = step_state.get("tts", {}).get("path", "")
                     srt_path = step_state.get("srt", {}).get("path", "")
                     script_json = step_state.get("script", {}).get("json", {})
+                    srt_scene_timings_v = step_state.get("srt", {}).get("scene_timings")
                     video_path = os.path.join(job_dir, "final.mp4")
 
                     concat_clips_with_audio(
@@ -321,6 +327,7 @@ async def _execute_step_task(
                         transition_duration=0.3,
                         script_json=script_json,
                         config_override=config_override,
+                        scene_timings=srt_scene_timings_v,
                     )
                     step_data["path"] = video_path
                     step_data["status"] = "complete"
@@ -975,9 +982,9 @@ async def execute_step(
                 "video_model": cfg.video_model,
             }
 
-    # Merge per-job overrides from step_state (e.g. image_count, bible_config set at creation)
+    # Merge per-job overrides from step_state (e.g. image_count, bible_config, video_model set at creation)
     job_config = step_state.get("config", {})
-    for key in ("image_count", "bible_config"):
+    for key in ("image_count", "bible_config", "video_model"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
@@ -1020,10 +1027,16 @@ async def approve_step(
 
     # Idempotent: if already approved, return without re-triggering next step
     if step_data.get("approved"):
+        # If clips was already approved, still signal redirect to editor
+        next_idx = step_idx + 1
+        should_redirect = (
+            next_idx < len(STEP_ORDER) and STEP_ORDER[next_idx] == "video"
+        )
         return StepApproveResponse(
             step=step_name,
             approved=True,
             current_step=step_state.get("current_step", 0),
+            redirect_to_editor=should_redirect,
         )
 
     step_data["approved"] = True
@@ -1036,6 +1049,18 @@ async def approve_step(
 
     job.step_state = step_state
     flag_modified(job, "step_state")
+
+    # If approving clips, skip auto-trigger for video step — redirect to editor instead
+    # The user validates/edits in the editor, then triggers render via export-remotion
+    if next_step < len(STEP_ORDER) and STEP_ORDER[next_step] == "video":
+        job.status = "complete"
+        await db.commit()
+        return StepApproveResponse(
+            step=step_name,
+            approved=True,
+            current_step=step_state["current_step"],
+            redirect_to_editor=True,
+        )
 
     # If all steps approved, mark job complete
     if next_step >= len(STEP_ORDER):
@@ -1061,10 +1086,11 @@ async def approve_step(
                     "tone": cfg.tone,
                     "niche": cfg.niche,
                     "cta_default": cfg.cta_default,
+                    "video_model": cfg.video_model,
                 }
         # Merge per-job overrides from step_state
         job_config = step_state.get("config", {})
-        for key in ("image_count", "bible_config"):
+        for key in ("image_count", "bible_config", "video_model"):
             if key in job_config and key not in config_override:
                 config_override[key] = job_config[key]
         from src.database.session import get_session_factory
@@ -1119,6 +1145,10 @@ async def regenerate_step(
     current_data["approved"] = False
     step_state[step_name] = current_data
 
+    # Clear editor cache when TTS or SRT changes — forces editor to reload from fresh step_state
+    if step_name in ("tts", "srt", "script"):
+        step_state.pop("editor", None)
+
     job.step_state = step_state
     flag_modified(job, "step_state")
     await db.commit()
@@ -1143,11 +1173,12 @@ async def regenerate_step(
                 "tts_voice": cfg.tts_voice,
                 "tts_speed": cfg.tts_speed,
                 "transcription_provider": cfg.transcription_provider,
+                "video_model": cfg.video_model,
             }
 
     # Merge per-job overrides from step_state
     job_config = step_state.get("config", {})
-    for key in ("image_count", "bible_config"):
+    for key in ("image_count", "bible_config", "video_model"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
@@ -1836,6 +1867,7 @@ async def _retry_scene_task(
                     audio_path = step_state.get("tts", {}).get("path", "")
                     srt_path = step_state.get("srt", {}).get("path", "")
                     script_json = step_state.get("script", {}).get("json", {})
+                    srt_scene_timings_rt = step_state.get("srt", {}).get("scene_timings")
                     video_path = os.path.join(job_dir, "final.mp4")
                     concat_clips_with_audio(
                         clip_paths=clip_paths,
@@ -1845,6 +1877,7 @@ async def _retry_scene_task(
                         transition_duration=0.3,
                         script_json=script_json,
                         config_override=config_override,
+                        scene_timings=srt_scene_timings_rt,
                     )
                     step_state.setdefault("video", {})["path"] = video_path
                     job.video_path = video_path
@@ -2018,6 +2051,7 @@ async def _reassemble_video_task(job_id: str, session_factory):
             if "bible_config" in job_config:
                 reassemble_cfg["bible_config"] = job_config["bible_config"]
 
+            srt_scene_timings_r = step_state.get("srt", {}).get("scene_timings")
             concat_clips_with_audio(
                 clip_paths=clip_paths,
                 audio_path=audio_path,
@@ -2026,6 +2060,7 @@ async def _reassemble_video_task(job_id: str, session_factory):
                 transition_duration=0.3,
                 script_json=script_json,
                 config_override=reassemble_cfg,
+                scene_timings=srt_scene_timings_r,
             )
 
             video_data["path"] = video_path
@@ -2269,7 +2304,7 @@ async def upsert_reels_config(
             script_language=req.script_language or "pt-BR",
             script_system_prompt=req.script_system_prompt,
             tts_provider=req.tts_provider or "gemini",
-            tts_voice=req.tts_voice or "Puck",
+            tts_voice=req.tts_voice or "Charon",
             tts_speed=req.tts_speed or 1.1,
             transcription_provider=req.transcription_provider or "gemini",
             image_duration=req.image_duration or 4.0,

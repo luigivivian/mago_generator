@@ -1742,6 +1742,8 @@ export interface InteractiveReelRequest {
     language?: string;
     manual_text?: string;
   };
+  reuse_clips?: boolean;
+  video_model?: string;
   series_id?: number;
   part_number?: number;
 }
@@ -1777,7 +1779,7 @@ export async function executeStep(jobId: string, step: string) {
 }
 
 export async function approveStep(jobId: string, step: string) {
-  return request<{ step: string; approved: boolean; current_step: number }>(
+  return request<{ step: string; approved: boolean; current_step: number; redirect_to_editor?: boolean }>(
     `/reels/${jobId}/approve/${step}`, { method: "POST" }
   );
 }
@@ -1989,6 +1991,27 @@ export async function topUpCredits(userId: number, amount: number, note: string 
       body: JSON.stringify({ user_id: userId, amount, note }),
     }
   );
+}
+
+// ── Bible ──────────────────────────────────────────────────────────────────
+
+export interface BibleStory {
+  key: string;
+  ref: string;
+  title_pt: string;
+  title_en: string;
+  title_es: string;
+  testament: "OT" | "NT";
+  book: string;
+  order: number;
+}
+
+export async function getBibleStories(): Promise<{ stories: BibleStory[] }> {
+  return request<{ stories: BibleStory[] }>("/reels/bible/stories");
+}
+
+export async function getBibleText(ref: string, version: string = "NVI"): Promise<{ ref: string; version: string; text: string }> {
+  return request<{ ref: string; version: string; text: string }>(`/reels/bible/text?ref=${encodeURIComponent(ref)}&version=${encodeURIComponent(version)}`);
 }
 
 // ===== Video Editor (Phase 999.10) =====

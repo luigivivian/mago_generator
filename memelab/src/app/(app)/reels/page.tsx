@@ -79,6 +79,7 @@ function formatCost(brl: number): string {
 
 function GenerationForm() {
   const router = useRouter();
+  const { data: reelsConfigs } = useReelsConfig();
   const [tema, setTema] = useState("");
   const [characterId, setCharacterId] = useState<string>("auto");
   const [tone, setTone] = useState("inspiracional");
@@ -88,7 +89,10 @@ function GenerationForm() {
   const [niche, setNiche] = useState("lifestyle");
   const [language, setLanguage] = useState("pt-BR");
   const [preset, setPreset] = useState("clean");
-  const [sceneCount, setSceneCount] = useState("5");
+  // Scene count: auto from duration unless config overrides
+  const configSceneCount = reelsConfigs?.[0]?.image_count;
+  const autoSceneCount = duration === "15" ? 3 : duration === "60" ? 7 : 5;
+  const sceneCount = String(configSceneCount && configSceneCount > 0 ? configSceneCount : autoSceneCount);
   const [showAjustes, setShowAjustes] = useState(false);
   const [platforms, setPlatforms] = useState<string[]>(["instagram"]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -391,6 +395,7 @@ function GenerationForm() {
               <BibleConfig
                 language={language}
                 onConfigChange={setBibleConfig}
+                onStorySelect={(title, ref) => setTema(`${title} — ${ref}`)}
               />
             )}
 
@@ -566,15 +571,13 @@ function GenerationForm() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Numero de Cenas</label>
-                  <Select value={sceneCount} onValueChange={setSceneCount}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[3, 4, 5, 6, 7, 8].map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n} cenas</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs text-muted-foreground">Cenas</label>
+                  <div className="h-9 px-3 flex items-center rounded-md border bg-secondary text-sm">
+                    {sceneCount} cenas
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {configSceneCount && configSceneCount > 0 ? "config" : "auto"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -702,17 +705,19 @@ function JobHistory() {
                   </a>
                 )}
 
-                {job.status === "complete" && job.video_url && (
+                {job.status === "complete" && (
                   <div className="flex items-center gap-3">
-                    <a
-                      href={job.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Ver video
-                    </a>
+                    {job.video_url && (
+                      <a
+                        href={job.video_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Ver video
+                      </a>
+                    )}
                     <a
                       href={`/reels/${job.job_id}/edit`}
                       className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
@@ -759,7 +764,7 @@ function ConfigPanel() {
 
   const [ttsVoice, setTtsVoice] = useState(config?.tts_voice ?? "nova");
   const [ttsSpeed, setTtsSpeed] = useState(String(config?.tts_speed ?? 1.1));
-  const [imageCount, setImageCount] = useState(String(config?.image_count ?? 5));
+  const [imageCount, setImageCount] = useState(String(config?.image_count ?? 0));
   const [transitionType, setTransitionType] = useState(config?.transition_type ?? "fade");
   const [transitionDuration, setTransitionDuration] = useState(String(config?.transition_duration ?? 0.3));
   const [subtitleFontSize, setSubtitleFontSize] = useState(String(config?.subtitle_font_size ?? 52));
@@ -836,16 +841,16 @@ function ConfigPanel() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Imagens ({imageCount})</label>
-              <input
-                type="range"
-                min="5"
-                max="10"
-                step="1"
-                value={imageCount}
-                onChange={(e) => setImageCount(e.target.value)}
-                className="w-full accent-purple-500"
-              />
+              <label className="text-xs text-muted-foreground">Cenas por padrao</label>
+              <Select value={imageCount} onValueChange={setImageCount}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Auto (por duracao)</SelectItem>
+                  {[3, 4, 5, 6, 7, 8, 10].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} cenas</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1">

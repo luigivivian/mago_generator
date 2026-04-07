@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useStepState } from "@/hooks/use-reels";
@@ -18,6 +18,7 @@ import { StepVideo } from "@/components/reels/step-video";
 export default function ReelJobPage() {
   const params = useParams<{ jobId: string }>();
   const jobId = params.jobId;
+  const router = useRouter();
   const { data: stepState, error, isLoading, mutate } = useStepState(jobId);
   const [viewStep, setViewStep] = useState<number | null>(null);
   const prevCurrentStep = useRef<number>(0);
@@ -61,7 +62,11 @@ export default function ReelJobPage() {
   // When viewing a past step, approve should return to the current step (no-op on backend)
   // When viewing the current step, approve advances normally
   async function handleApprove(step: string) {
-    await approveStep(jobId, step);
+    const res = await approveStep(jobId, step);
+    if (res.redirect_to_editor) {
+      router.push(`/reels/${jobId}/edit`);
+      return;
+    }
     // If we were viewing a past step, return to the backend's current step
     if (viewStep !== null) {
       setViewStep(null);
