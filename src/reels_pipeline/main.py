@@ -413,6 +413,17 @@ class ReelsPipeline:
             provider=self.config.get("transcription_provider"),
         )
 
+        # Preserve the raw Gemini SRT before alignment. Safety net for debugging
+        # alignment issues post-hoc — align_srt_with_script now returns the raw
+        # SRT verbatim, but we still want the file on disk in case a future
+        # change reintroduces in-place rewriting.
+        raw_srt_path = os.path.join(job_dir, "subtitles_raw.srt")
+        try:
+            import shutil
+            shutil.copyfile(srt_path, raw_srt_path)
+        except OSError as e:
+            logger.warning(f"Failed to save subtitles_raw.srt backup: {e}")
+
         # Post-process: replace transcription text with approved script narrations
         scene_timings = None
         if script and script.get("cenas"):
@@ -753,7 +764,16 @@ class ReelsPipeline:
                                 logger.warning(f"Video asset registration failed for scene {idx}: {reg_err}")
                         return clip_path
                     else:
-                        raise RuntimeError("No video URL in result")
+                        # Distinguish: poll timeout (result is None) vs explicit
+                        # failure (result with failure_reason). Surface the real
+                        # Kie.ai error so the user can see *why* it failed.
+                        if result is None:
+                            raise RuntimeError(
+                                f"Kie.ai poll timed out (task {task_id} never reached terminal state)"
+                            )
+                        reason = result.failure_reason or "no resultUrls returned"
+                        code = f" [{result.failure_code}]" if result.failure_code else ""
+                        raise RuntimeError(f"Kie.ai task failed{code}: {reason}")
 
                 except Exception as e:
                     error_msg = str(e)[:300]
@@ -868,7 +888,16 @@ class ReelsPipeline:
                     "task_id": task_id, "clip_path": clip_path,
                     "prompt": prompt, "error": None,
                 }
-            raise RuntimeError("No video URL in result")
+            # Distinguish: poll timeout (result is None) vs explicit failure
+            # (result with failure_reason). Surface the real Kie.ai error so
+            # the user can see *why* the clip failed.
+            if result is None:
+                raise RuntimeError(
+                    f"Kie.ai poll timed out (task {task_id} never reached terminal state)"
+                )
+            reason = result.failure_reason or "no resultUrls returned"
+            code = f" [{result.failure_code}]" if result.failure_code else ""
+            raise RuntimeError(f"Kie.ai task failed{code}: {reason}")
 
         except Exception as e:
             error_msg = str(e)[:300]

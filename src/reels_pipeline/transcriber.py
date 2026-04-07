@@ -1,6 +1,7 @@
 """Reels audio transcription — Gemini multimodal audio to SRT subtitles."""
 
 import asyncio
+import difflib
 import logging
 import os
 import re
@@ -15,6 +16,10 @@ logger = logging.getLogger("clip-flow.reels.transcriber")
 
 # Model for transcription (Gemini multimodal handles audio input)
 _TRANSCRIPTION_MODEL = "gemini-2.5-flash"
+
+# Minimum difflib similarity for a contiguous chunk span to be considered
+# a match for a cena.narracao during alignment.
+_REELS_ALIGN_SIMILARITY = 0.75
 
 
 async def transcribe_to_srt(
@@ -225,24 +230,27 @@ def _validate_srt_timestamps(srt_text: str) -> str:
 
 
 def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]:
-    """Replace SRT entry text with script narrations while keeping timestamps.
+    """Map each script cena to a contiguous span of Gemini SRT chunks.
 
-    Groups SRT entries into N equal time buckets (one per cena),
-    then replaces each bucket's text with the cena's narracao.
-    Long narrations are split into 2-line entries (~REELS_SUB_MAX_CHARS chars/line).
+    Returns Gemini's raw SRT unchanged plus a per-cena span mapping built by
+    text-matching each cena.narracao against contiguous SRT chunks via
+    difflib similarity. The chunks themselves remain the authoritative
+    subtitles (real word-level timestamps), so the returned SRT is byte-for-byte
+    equal to the input. Each scene_timings entry has shape:
+        {index: int, start: float, end: float, duration: float, narracao: str}
+    Spans are monotonic and the last cena claims any leftover trailing chunks.
     """
     cenas = script.get("cenas", [])
     if not cenas:
-        return srt_text
+        return (srt_text, [])
 
-    narracoes = [c.get("narracao", "") for c in cenas]
-    narracoes = [n for n in narracoes if n.strip()]
+    narracoes = [c.get("narracao", "") for c in cenas if c.get("narracao", "").strip()]
     if not narracoes:
-        return srt_text
+        return (srt_text, [])
 
-    # Parse SRT entries
+    # Parse SRT entries (do NOT mutate srt_text — parsing is read-only)
     blocks = srt_text.strip().split("\n\n")
-    entries = []
+    entries: list[dict] = []
     for block in blocks:
         lines = block.strip().split("\n")
         if len(lines) < 3:
@@ -260,72 +268,82 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
         })
 
     if not entries:
-        return srt_text
+        return (srt_text, [])
 
-    n_cenas = len(narracoes)
-    total_start = entries[0]["start"]
-    total_end = entries[-1]["end"]
-    total_duration = total_end - total_start
-    if total_duration <= 0:
-        return srt_text
+    def _normalize(s: str) -> str:
+        s = s.lower()
+        s = re.sub(r"[^\w\s]", " ", s)
+        return " ".join(s.split())
 
-    # Group entries into N buckets by equal time distribution
-    bucket_duration = total_duration / n_cenas
-    buckets: list[list[dict]] = [[] for _ in range(n_cenas)]
-    for entry in entries:
-        mid = (entry["start"] + entry["end"]) / 2
-        bucket_idx = int((mid - total_start) / bucket_duration)
-        bucket_idx = min(bucket_idx, n_cenas - 1)
-        buckets[bucket_idx].append(entry)
+    scene_timings: list[dict] = []
+    entry_idx = 0
+    n_narracoes = len(narracoes)
 
-    # Build new SRT from buckets + narrations
-    new_blocks = []
-    entry_num = 1
-    for bucket_idx, (bucket, narracao) in enumerate(zip(buckets, narracoes)):
-        if not bucket:
-            # No transcription entries in this bucket — use interpolated timestamps
-            bucket_start = total_start + bucket_idx * bucket_duration
-            bucket_end = total_start + (bucket_idx + 1) * bucket_duration
-        else:
-            bucket_start = bucket[0]["start"]
-            bucket_end = bucket[-1]["end"]
+    for i, cena_narracao in enumerate(narracoes):
+        if entry_idx >= len(entries):
+            # No chunks left to claim — skip silently; downstream consumers
+            # see len(scene_timings) < n_narracoes and can warn.
+            continue
 
-        subtitle_lines = _wrap_subtitle_text(narracao, max_chars=REELS_SUB_MAX_CHARS)
+        span_start_idx = entry_idx
+        is_last = (i == n_narracoes - 1)
+        claimed_text = ""
+        ratio = 0.0
+        target = _normalize(cena_narracao)
 
-        if len(subtitle_lines) == 1:
-            ts_start = _seconds_to_srt_ts(bucket_start)
-            ts_end = _seconds_to_srt_ts(bucket_end)
-            new_blocks.append(f"{entry_num}\n{ts_start} --> {ts_end}\n{subtitle_lines[0]}")
-            entry_num += 1
-        else:
-            # Distribute time equally across subtitle chunks
-            chunk_duration = (bucket_end - bucket_start) / len(subtitle_lines)
-            for i, line in enumerate(subtitle_lines):
-                cs = bucket_start + i * chunk_duration
-                ce = bucket_start + (i + 1) * chunk_duration
-                ts_start = _seconds_to_srt_ts(cs)
-                ts_end = _seconds_to_srt_ts(ce)
-                new_blocks.append(f"{entry_num}\n{ts_start} --> {ts_end}\n{line}")
-                entry_num += 1
+        while entry_idx < len(entries):
+            claimed_text = (claimed_text + " " + entries[entry_idx]["text"]).strip()
+            entry_idx += 1
+            ratio = difflib.SequenceMatcher(None, _normalize(claimed_text), target).ratio()
+            if is_last:
+                # Last cena claims all remaining entries.
+                continue
+            if ratio >= _REELS_ALIGN_SIMILARITY and entry_idx > span_start_idx:
+                break
 
-    # Compute per-scene timing from bucket boundaries
-    scene_timings = []
-    for bucket_idx, (bucket, narracao) in enumerate(zip(buckets, narracoes)):
-        if not bucket:
-            bucket_start = total_start + bucket_idx * bucket_duration
-            bucket_end = total_start + (bucket_idx + 1) * bucket_duration
-        else:
-            bucket_start = bucket[0]["start"]
-            bucket_end = bucket[-1]["end"]
+        # Sentence snap (only if not last and there are more entries to peek):
+        # if the claimed span doesn't end on .!? and extending one more chunk
+        # doesn't drop similarity below threshold - 0.05, take the next chunk.
+        if not is_last and entry_idx < len(entries):
+            last_claimed_text = entries[entry_idx - 1]["text"].rstrip()
+            if last_claimed_text and last_claimed_text[-1] not in ".!?":
+                trial_text = (claimed_text + " " + entries[entry_idx]["text"]).strip()
+                trial_ratio = difflib.SequenceMatcher(
+                    None, _normalize(trial_text), target
+                ).ratio()
+                if trial_ratio >= _REELS_ALIGN_SIMILARITY - 0.05:
+                    claimed_text = trial_text
+                    entry_idx += 1
+                    ratio = trial_ratio
+
+        if not is_last and ratio < _REELS_ALIGN_SIMILARITY:
+            logger.warning(
+                f"Cena {i} similarity {ratio:.2f} below threshold "
+                f"{_REELS_ALIGN_SIMILARITY}, alignment may be loose"
+            )
+
+        # Always claim at least one chunk (entry_idx > span_start_idx is guaranteed
+        # by the while loop body unless entries was already exhausted on entry —
+        # handled by the early continue above).
+        if entry_idx == span_start_idx:
+            continue
+
+        last_claimed = entry_idx - 1
         scene_timings.append({
-            "start": round(bucket_start, 3),
-            "end": round(bucket_end, 3),
-            "duration": round(bucket_end - bucket_start, 3),
+            "index": i,
+            "start": round(entries[span_start_idx]["start"], 3),
+            "end": round(entries[last_claimed]["end"], 3),
+            "duration": round(
+                entries[last_claimed]["end"] - entries[span_start_idx]["start"], 3
+            ),
+            "narracao": cena_narracao,
         })
 
-    result = "\n\n".join(new_blocks) + "\n"
-    logger.info(f"SRT aligned with script: {n_cenas} cenas, {entry_num - 1} subtitle entries")
-    return result, scene_timings
+    logger.info(
+        f"SRT aligned with script: {len(scene_timings)} cenas mapped, "
+        f"raw SRT preserved ({len(entries)} chunks)"
+    )
+    return (srt_text, scene_timings)
 
 
 def _wrap_subtitle_text(text: str, max_chars: int = REELS_SUB_MAX_CHARS) -> list[str]:

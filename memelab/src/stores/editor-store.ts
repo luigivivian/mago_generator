@@ -87,15 +87,18 @@ export const useEditorStore = create<EditorState>()(
       loadFromStepState: (stepState, jobId, fps = EDITOR_FPS) => {
         const sceneStatuses = stepState.clips?.scenes ?? stepState.video?.scenes ?? [];
         const imagePaths = stepState.images?.paths ?? [];
-        // TTS scene_timings are authoritative for duration (narration length > clip length)
-        const ttsTimings = (stepState.tts as Record<string, unknown>)?.scene_timings as
+        // SRT scene_timings from Gemini alignment are authoritative for duration
+        // (real narration length > clip length). Backend writes these under
+        // step_state.srt (not step_state.tts). Each entry: { index, start, end,
+        // duration, narracao } where duration is the real span length.
+        const sceneTimings = (stepState.srt as Record<string, unknown> | undefined)?.scene_timings as
           | Array<{ index: number; start: number; end: number; duration: number; narracao?: string }>
           | undefined;
 
         const scenes: EditorScene[] = sceneStatuses.map((ss, i) => {
-          const ttsTiming = ttsTimings?.find((t) => t.index === i);
-          // Use TTS duration (narration length) when available, otherwise clip duration
-          const durationSec = ttsTiming?.duration ?? ss.duration ?? 5;
+          const sceneTiming = sceneTimings?.find((t) => t.index === i);
+          // Use SRT span duration (narration length) when available, otherwise clip duration
+          const durationSec = sceneTiming?.duration ?? ss.duration ?? 5;
           return {
             id: genId(),
             index: i,
@@ -106,7 +109,7 @@ export const useEditorStore = create<EditorState>()(
                 ? reelFileUrl(jobId, imagePaths[i])
                 : undefined,
             durationInFrames: Math.round(durationSec * fps),
-            narration: ttsTiming?.narracao ?? ss.prompt ?? "",
+            narration: sceneTiming?.narracao ?? ss.prompt ?? "",
             voiceConfig: { ...DEFAULT_VOICE_CONFIG },
             transition: { type: "none" as const, durationFrames: 0 },
             status: "ready" as const,
