@@ -162,6 +162,7 @@ Plans:
 - Final video paced too slowly (scenes stay on screen longer than their narration warrants)
 - Subtitles don't land on the audio they correspond to after auto-assembly
 - Narration, scenes, and subtitles feel like they're on independent timelines instead of one coherent story
+- **Narration voice pace is too slow — feels boring/entediante**
 
 **Requirements:**
 - Introduce a shared temporal anchor model: every scene, narration segment, and subtitle entry references the same set of timestamps derived from a single source of truth (likely the word-level transcription output)
@@ -170,6 +171,7 @@ Plans:
 - Auto-assembly step must enforce: `sum(scene.duration) == sum(narration.duration) == last_subtitle.end` (no drift)
 - Preserve manual-edit overrides: once the user touches a scene/subtitle in the editor, auto-sync should not clobber it
 - Consider whether scene boundaries should SNAP to sentence boundaries in the transcription (so a scene never cuts mid-sentence)
+- **Bump TTS default speed for a more energetic/engaging delivery** — current speed feels lethargic for short-form content. Check `tts_speed` default in `ReelsConfig` / `step_state.config` (currently likely 1.0) and raise to ~1.15–1.25. Expose as a per-job override in the config panel so user can dial it in per niche (bible/creation narratives may want slower, memes/trends want faster)
 
 **Plans:** 0 plans
 
