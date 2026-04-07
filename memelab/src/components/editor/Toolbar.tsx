@@ -19,6 +19,7 @@ import {
   Trash2,
   Snowflake,
   HelpCircle,
+  Maximize2,
 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
@@ -202,6 +203,18 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
       <div className="h-5 w-px bg-border" />
 
       <ToolbarEditButtons playerRef={playerRef} />
+
+      <div className="h-5 w-px bg-border" />
+
+      {/* 999.12 D-13: zoom-to-fit */}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new CustomEvent("timeline:fit"))}
+        className="p-1.5 rounded hover:bg-accent text-foreground"
+        title="Ajustar timeline (Shift+Z)"
+      >
+        <Maximize2 className="h-4 w-4" />
+      </button>
 
       <div className="flex-1" />
 

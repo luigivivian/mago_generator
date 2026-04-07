@@ -42,5 +42,13 @@ export function useTimelineZoom() {
     [],
   );
 
-  return { pixelsPerFrame, scrollLeft, setScrollLeft, zoomIn, zoomOut, handleWheel };
+  // 999.12 D-13: fit total duration to viewport width
+  const fitToView = useCallback((totalFrames: number, viewportWidth: number) => {
+    if (totalFrames <= 0 || viewportWidth <= 0) return;
+    const ppf = viewportWidth / totalFrames;
+    setPixelsPerFrame(Math.max(MIN_PIXELS_PER_FRAME, Math.min(MAX_PIXELS_PER_FRAME, ppf)));
+    setScrollLeft(0);
+  }, []);
+
+  return { pixelsPerFrame, scrollLeft, setScrollLeft, zoomIn, zoomOut, handleWheel, fitToView };
 }

@@ -9,6 +9,7 @@ import type {
   EditorAudioItem,
   EditorPersistState,
   SelectableKind,
+  TrackKind,
 } from "./editor-types";
 import { DEFAULT_VOICE_CONFIG, EDITOR_FPS, selectionKey, parseSelectionKey } from "./editor-types";
 import {
@@ -36,6 +37,9 @@ interface EditorState {
   selectedAudioId: string | null;
   // 999.12 D-01: multi-select via "kind:id" key set
   selection: Set<string>;
+  // 999.12 D-19: per-track mute/solo (UI state, not in undo history)
+  mutedTracks: Set<TrackKind>;
+  soloedTracks: Set<TrackKind>;
   playheadFrame: number;
   subtitlesEdited: boolean;
 
@@ -74,6 +78,10 @@ interface EditorState {
   clearSelection: () => void;
   bulkDeleteSelected: () => void;
   bulkDuplicateSelected: () => void;
+  // 999.12 D-09, D-19: per-clip volume + per-track mute/solo
+  setAudioVolume: (audioId: string, volume: number) => void;
+  toggleTrackMute: (track: TrackKind) => void;
+  toggleTrackSolo: (track: TrackKind) => void;
   setPlayheadFrame: (frame: number) => void;
   markSubtitlesClean: () => void;
   loadSubtitlesFromSrt: (jobId: string, srtPath: string, fps?: number) => void;
@@ -92,6 +100,8 @@ export const useEditorStore = create<EditorState>()(
       selectedSubtitleId: null,
       selectedAudioId: null,
       selection: new Set<string>(),
+      mutedTracks: new Set<TrackKind>(),
+      soloedTracks: new Set<TrackKind>(),
       playheadFrame: 0,
       subtitlesEdited: false,
 
@@ -705,6 +715,41 @@ export const useEditorStore = create<EditorState>()(
             selection: newSelection,
           };
         }),
+
+      // 999.12 D-09: per-clip volume on EditorAudioItem
+      setAudioVolume: (audioId, volume) =>
+        set((state) => ({
+          audioItems: state.audioItems.map((a) =>
+            a.id === audioId
+              ? { ...a, volume: Math.max(0, Math.min(1, volume)) }
+              : a,
+          ),
+        })),
+
+      // 999.12 D-19: per-track mute (toggle membership)
+      toggleTrackMute: (track) =>
+        set((state) => {
+          const next = new Set(state.mutedTracks);
+          if (next.has(track)) next.delete(track);
+          else next.add(track);
+          return { mutedTracks: next };
+        }),
+
+      // 999.12 D-19: per-track solo (toggling solo also clears mute on that
+      // track, and DAW behavior says solo replaces other solos rather than
+      // adding to them — but we're keeping it as toggle-set for simplicity)
+      toggleTrackSolo: (track) =>
+        set((state) => {
+          const nextSolo = new Set(state.soloedTracks);
+          const nextMute = new Set(state.mutedTracks);
+          if (nextSolo.has(track)) nextSolo.delete(track);
+          else {
+            nextSolo.add(track);
+            nextMute.delete(track);
+          }
+          return { soloedTracks: nextSolo, mutedTracks: nextMute };
+        }),
+
       setPlayheadFrame: (frame) => set({ playheadFrame: frame }),
       markSubtitlesClean: () => set({ subtitlesEdited: false }),
 

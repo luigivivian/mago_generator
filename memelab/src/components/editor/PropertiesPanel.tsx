@@ -357,6 +357,32 @@ function SubtitlePanel() {
   );
 }
 
+// 999.12 D-09: per-clip volume control for selected audio item
+function AudioPanel() {
+  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
+  const audioItem = useEditorStore((s) =>
+    selectedAudioId ? s.audioItems.find((a) => a.id === selectedAudioId) : undefined,
+  );
+  const setAudioVolume = useEditorStore((s) => s.setAudioVolume);
+
+  if (!audioItem) return null;
+  const volumePct = Math.round((audioItem.volume ?? 1) * 100);
+
+  return (
+    <Section title="Volume">
+      <SliderField
+        label="Volume"
+        value={volumePct}
+        min={0}
+        max={100}
+        step={1}
+        unit="%"
+        onChange={(v) => setAudioVolume(audioItem.id, v / 100)}
+      />
+    </Section>
+  );
+}
+
 interface PropertiesPanelProps {
   jobId: string;
 }
@@ -411,6 +437,16 @@ export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
             Excluir todos (Delete)
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // 999.12 D-09: when only an audio item is selected, show AudioPanel
+  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
+  if (!scene && !subtitle && selectedAudioId) {
+    return (
+      <div className="p-4 space-y-4">
+        <AudioPanel />
       </div>
     );
   }

@@ -12,6 +12,7 @@ import type {
   EditorSubtitle,
 } from "../stores/editor-types";
 import { EDITOR_FPS } from "../stores/editor-types";
+import { useEditorStore } from "../stores/editor-store";
 import { Scene } from "./components/Scene";
 import { SubtitleOverlay } from "./components/SubtitleOverlay";
 
@@ -42,6 +43,16 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
   const scenes = (videoTrack?.items ?? []) as EditorScene[];
   const audioItems = (audioTrack?.items ?? []) as EditorAudioItem[];
   const subtitles = (subtitleTrack?.items ?? []) as EditorSubtitle[];
+
+  // 999.12 D-19: track audibility — solo overrides mute
+  const mutedTracks = useEditorStore((s) => s.mutedTracks);
+  const soloedTracks = useEditorStore((s) => s.soloedTracks);
+  const isAudibleTrack = (kind: "video" | "audio" | "subtitle"): boolean => {
+    if (soloedTracks.size > 0) return soloedTracks.has(kind);
+    return !mutedTracks.has(kind);
+  };
+  const audioAudible = isAudibleTrack("audio");
+  const subtitlesVisible = isAudibleTrack("subtitle");
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
@@ -80,20 +91,25 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
         </TransitionSeries>
       )}
 
-      {audioItems.map((item) => (
-        <Sequence
-          key={item.id}
-          from={item.from}
-          durationInFrames={item.durationInFrames}
-        >
-          <Audio
-            src={item.audioUrl}
-            trimBefore={(item.startFrom ?? 0) / EDITOR_FPS}
-          />
-        </Sequence>
-      ))}
+      {audioItems.map((item) => {
+        // 999.12 D-09 + D-19: per-clip volume × track audibility
+        const effectiveVolume = audioAudible ? (item.volume ?? 1) : 0;
+        return (
+          <Sequence
+            key={item.id}
+            from={item.from}
+            durationInFrames={item.durationInFrames}
+          >
+            <Audio
+              src={item.audioUrl}
+              trimBefore={(item.startFrom ?? 0) / EDITOR_FPS}
+              volume={effectiveVolume}
+            />
+          </Sequence>
+        );
+      })}
 
-      <SubtitleOverlay subtitles={subtitles} />
+      {subtitlesVisible && <SubtitleOverlay subtitles={subtitles} />}
     </AbsoluteFill>
   );
 };

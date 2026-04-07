@@ -45,7 +45,11 @@ export interface EditorAudioItem {
   from: number;
   durationInFrames: number;
   startFrom?: number; // frame offset within the source audio file
+  volume?: number; // 0..1, undefined = full volume (999.12 D-09)
 }
+
+// 999.12 D-19: per-track mute/solo
+export type TrackKind = "video" | "audio" | "subtitle";
 
 export interface EditorTrack {
   type: "video" | "audio" | "subtitle";
