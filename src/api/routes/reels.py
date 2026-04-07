@@ -1341,6 +1341,19 @@ async def _regenerate_single_image_task(
                 config_override=regen_config or None,
             )
 
+            if not new_paths:
+                # Generation returned no images — clear generating flag
+                images_data = step_state.get("images", {})
+                reuse_info = images_data.get("reuse_info", {})
+                reuse_info[str(scene_index)] = {"reused": False, "generating": False}
+                images_data["reuse_info"] = reuse_info
+                step_state["images"] = images_data
+                job.step_state = step_state
+                flag_modified(job, "step_state")
+                await session.commit()
+                logger.warning("Regenerate image %d returned no paths for job %s", scene_index, job_id)
+                return
+
             if new_paths:
                 import shutil
                 target_path = os.path.join(images_dir, f"cena_{scene_index:02d}.jpg")
