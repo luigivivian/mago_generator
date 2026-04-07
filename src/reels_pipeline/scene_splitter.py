@@ -34,6 +34,15 @@ logger = logging.getLogger("clip-flow.reels.scene_splitter")
 SCENE_TARGET_DURATION = 3.0  # seconds — sweet spot per short-form research
 SCENE_MAX_DURATION = 6.0  # seconds — hard cap; anything longer gets split
 SCENE_MIN_DURATION = 1.0  # seconds — never produce a sub-cena shorter than this
+SCENE_MIN_WORDS_PER_SUB = 3  # each sub-cena needs >= 3 words of narration
+# Speech rate below this threshold means the cena is "word-starved" — its
+# long duration comes from align_srt absorbing preamble/suffix text, not from
+# slow speech. Normal PT-BR speech is ~2.5 words/sec; short-form narration
+# can dip to 1.5. Below 0.5 w/s means ~1/5 normal rate → the time is NOT
+# the speaker, it's absorbed hook/CTA. Don't split these cenas.
+# reel 034 reproductions: cena 0 (7w / 19s = 0.37) and cena 11 (7w / 22s =
+# 0.32) both fall well below this and correctly skip split.
+SCENE_MIN_WORDS_PER_SECOND = 0.5
 
 
 def split_long_scenes_in_script(
@@ -83,8 +92,23 @@ def split_long_scenes_in_script(
             continue
 
         duration = timing["duration"]
-        if duration <= max_duration:
-            # Short enough — pass through, just renumber
+        narracao_text = (timing.get("narracao") or orig_cena.get("narracao", "")).strip()
+        word_count = len(narracao_text.split()) if narracao_text else 0
+        words_per_second = word_count / duration if duration > 0 else 0
+
+        # Word-starved gate: a cena with very few words spanning a long time
+        # is the hook/CTA case where align_srt absorbed the preamble or suffix
+        # chunks that don't belong to any cena. Splitting by time alone would
+        # produce 1-word sub-cenas like "Sobre", "o", "abismo", which is
+        # semantically broken. Detect by speech rate: normal short-form speech
+        # is >=1.5 w/s; below SCENE_MIN_WORDS_PER_SECOND it's word-starved.
+        word_starved = (
+            duration > max_duration
+            and words_per_second < SCENE_MIN_WORDS_PER_SECOND
+        )
+
+        if duration <= max_duration or word_starved:
+            # Short enough OR word-starved — pass through
             cena_copy = dict(orig_cena)
             cena_copy["imagem_index"] = new_idx
             cena_copy["duracao_segundos"] = round(duration, 2)
@@ -94,13 +118,39 @@ def split_long_scenes_in_script(
                 "start": timing["start"],
                 "end": timing["end"],
                 "duration": round(duration, 3),
-                "narracao": timing.get("narracao") or orig_cena.get("narracao", ""),
+                "narracao": narracao_text or orig_cena.get("narracao", ""),
+            })
+            new_idx += 1
+            if word_starved:
+                logger.info(
+                    f"Cena {orig_idx} is long ({duration:.1f}s) but word-starved "
+                    f"({word_count} words, {words_per_second:.2f} w/s) — skipping "
+                    f"split (likely hook/CTA with absorbed preamble/suffix)"
+                )
+            continue
+
+        # Cena is too long AND has enough words — split into N sub-cenas.
+        # Additional safety: n_splits can't exceed word_count / MIN_WORDS_PER_SUB.
+        ideal_splits = max(2, math.ceil(duration / target_duration))
+        max_splits_by_words = max(1, word_count // SCENE_MIN_WORDS_PER_SUB)
+        n_splits = min(ideal_splits, max_splits_by_words)
+        if n_splits < 2:
+            # Word budget too tight even though we passed the rate gate —
+            # pass through.
+            cena_copy = dict(orig_cena)
+            cena_copy["imagem_index"] = new_idx
+            cena_copy["duracao_segundos"] = round(duration, 2)
+            new_cenas.append(cena_copy)
+            new_timings.append({
+                "index": new_idx,
+                "start": timing["start"],
+                "end": timing["end"],
+                "duration": round(duration, 3),
+                "narracao": narracao_text or orig_cena.get("narracao", ""),
             })
             new_idx += 1
             continue
 
-        # Cena is too long — split into N sub-cenas
-        n_splits = max(2, math.ceil(duration / target_duration))
         sub_dur = duration / n_splits
         # Don't create sub-cenas shorter than min — clamp
         if sub_dur < SCENE_MIN_DURATION:
@@ -108,7 +158,6 @@ def split_long_scenes_in_script(
             sub_dur = duration / n_splits
 
         # Split the narration text proportionally by sentence/word boundaries
-        narracao_text = (timing.get("narracao") or orig_cena.get("narracao", "")).strip()
         narration_chunks = _split_narration(narracao_text, n_splits)
 
         logger.info(
