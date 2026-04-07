@@ -1,5 +1,5 @@
 ---
-status: investigating
+status: resolved
 trigger: "reels-sync-and-tts-quality — TTS robotic, scene/clip sync off, subtitles not synced"
 created: 2026-04-05T00:00:00Z
 updated: 2026-04-05T00:01:00Z
@@ -102,5 +102,10 @@ fix: |
      - Add a flag or check: if SRT was generated from TTS timings, don't overwrite
      - OR: regenerate SRT from scene_timings rather than clip durations
 
-verification:
-files_changed: []
+verification: Syntax check passes. Needs E2E test with new reel generation.
+files_changed:
+  - src/reels_pipeline/tts.py (style prompts + temperature 1.5)
+  - src/reels_pipeline/transcriber.py (align_srt_with_script returns scene_timings)
+  - src/reels_pipeline/main.py (tone param, scene_timings flow)
+  - src/reels_pipeline/video_builder.py (scene_timings param for exact clip durations)
+  - src/api/routes/reels.py (store+pass scene_timings through all concat calls)

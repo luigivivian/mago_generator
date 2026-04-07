@@ -24,6 +24,7 @@ export interface BibleConfigState {
 interface BibleConfigProps {
   language: string;
   onConfigChange: (config: BibleConfigState) => void;
+  onStorySelect?: (title: string, ref: string) => void;
 }
 
 const BIBLE_STORIES_LIST = [
@@ -57,7 +58,7 @@ const BIBLE_STORIES_LIST = [
 const OT_STORIES = BIBLE_STORIES_LIST.filter((s) => s.testament === "OT");
 const NT_STORIES = BIBLE_STORIES_LIST.filter((s) => s.testament === "NT");
 
-export function BibleConfig({ language, onConfigChange }: BibleConfigProps) {
+export function BibleConfig({ language, onConfigChange, onStorySelect }: BibleConfigProps) {
   const [scriptMode, setScriptMode] = useState<"ai" | "manual">("ai");
   const [storyKey, setStoryKey] = useState("");
   const [storyRef, setStoryRef] = useState("");
@@ -103,7 +104,14 @@ export function BibleConfig({ language, onConfigChange }: BibleConfigProps) {
         <div className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Historia Biblica</label>
-            <Select value={storyKey} onValueChange={setStoryKey}>
+            <Select value={storyKey} onValueChange={(key) => {
+              setStoryKey(key);
+              const story = BIBLE_STORIES_LIST.find((s) => s.key === key);
+              if (story) {
+                setStoryRef(story.ref);
+                onStorySelect?.(story.titlePt, story.ref);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar historia" />
               </SelectTrigger>
