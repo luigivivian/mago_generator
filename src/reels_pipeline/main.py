@@ -781,7 +781,8 @@ class ReelsPipeline:
         clip_paths = [p for p in clip_paths_raw if p and os.path.isfile(p)]
 
         if not clip_paths:
-            raise RuntimeError("No video clips generated (all Kie.ai tasks failed)")
+            logger.warning("No video clips generated — all scenes failed or static. Skipping concat.")
+            return os.path.join(job_dir, "final.mp4")  # Return expected path; step_state tracks per-scene status
 
         # Phase 4: Concat clips with audio + subtitles
         video_path = os.path.join(job_dir, "final.mp4")

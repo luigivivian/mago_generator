@@ -30,7 +30,14 @@ BIBLE_STYLE_DNA = (
     "Clean lines, warm earth tones, soft cel-shading. "
     "Historical biblical setting with accurate period clothing and architecture. "
     "Accessible and visually appealing, not photorealistic. "
-    "Vertical 9:16 composition (1080x1920)."
+    "Vertical 9:16 composition (1080x1920).\n\n"
+    "CONTENT SAFETY — MANDATORY:\n"
+    "- ALL characters MUST be FULLY CLOTHED in period-appropriate biblical robes and tunics.\n"
+    "- NEVER depict nudity, partial nudity, bare skin, or suggestive poses.\n"
+    "- Adam and Eve scenes: show them in garden robes or wrapped in leaves/fabric — NEVER naked.\n"
+    "- Creation scenes: focus on landscapes, light, sky, nature — NOT human bodies.\n"
+    "- Keep all imagery family-friendly, suitable for all ages.\n"
+    "- Prefer symbolic and abstract representations over literal depictions of sensitive scenes."
 )
 
 

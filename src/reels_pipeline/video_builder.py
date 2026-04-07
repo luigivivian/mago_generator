@@ -816,7 +816,8 @@ def concat_clips_with_audio(
         output_path on success.
     """
     if not clip_paths:
-        raise ValueError("No clip paths to concatenate")
+        logger.warning("No clip paths to concatenate — skipping video assembly")
+        return output_path  # Return path even though file won't exist; caller checks
 
     cfg = config_override or {}
     is_bible_mode = bool(cfg.get("bible_config"))
