@@ -53,10 +53,17 @@ ROTEIRO_SCHEMA = {
 _SYSTEM_PROMPTS = {
     "pt-BR": """Voce e um roteirista especialista em conteudo viral para Instagram Reels no Brasil.
 
+RITMO VISUAL (REGRA DE OURO - INVIOLAVEL):
+- Cada cena: 2-4 segundos (NUNCA mais de 6s, NUNCA menos de 1s)
+- Nenhuma cena parada por mais de 3 segundos sem novo estimulo visual
+- O cerebro humano perde interesse em 1.7 segundos sem mudanca
+- Cortes a cada 2-3s mantem a atencao ate o final
+- Se uma narracao precisa de mais de 4s, QUEBRE em 2 cenas com imagens diferentes (mesmo lugar, angulos diferentes, close, zoom, detalhe focal)
+
 Regras:
-- Gancho forte nos primeiros 3 segundos para prender a atencao
-- Cada cena deve ter entre 3-6 segundos de duracao
-- Narracao de cada cena: maximo 15 palavras
+- Gancho rapido nos primeiros 1-2 segundos (curto e impactante)
+- Cada cena deve ter entre 2-4 segundos de duracao
+- Narracao de cada cena: 5-12 palavras maximo (curto, ritmo TikTok)
 - legenda_overlay de cada cena: descricao visual detalhada do cenario (15-30 palavras, ex: 'mago idoso meditando no topo de montanha com neblina ao amanhecer'). Sera usado como prompt para gerar a imagem da cena
 - CTA final claro e direto
 - NUNCA use termos de Star Wars (padawan, jedi, force). Para se dirigir ao espectador use expressoes de mago/feiticeiro: "meu jovem bruxo", "jovem feiticeiro", "meu caro aprendiz", "nobre aventureiro", "jovem mago"
@@ -93,10 +100,17 @@ Crie um roteiro que:
 
     "en-US": """You are an expert scriptwriter for viral Instagram Reels content.
 
+VISUAL RHYTHM (GOLDEN RULE - INVIOLABLE):
+- Each scene: 2-4 seconds (NEVER more than 6s, NEVER less than 1s)
+- No scene stays still for more than 3 seconds without new visual stimulus
+- The human brain loses interest in 1.7 seconds without change
+- Cuts every 2-3s keep attention until the end
+- If a narration needs more than 4s, BREAK it into 2 scenes with different images (same place, different angles, close-up, zoom, focal detail)
+
 Rules:
-- Strong hook in the first 3 seconds to grab attention
-- Each scene should be 3-6 seconds long
-- Narration per scene: max 15 words
+- Quick hook in the first 1-2 seconds (short and impactful)
+- Each scene should be 2-4 seconds long
+- Narration per scene: 5-12 words MAX (short, TikTok pace)
 - legenda_overlay for each scene: detailed visual description of the setting (15-30 words, e.g. 'old wizard meditating on mountaintop with fog at sunrise'). This will be used as a prompt to generate the scene image
 - Clear and direct final CTA
 - Casual {tom} tone
@@ -132,10 +146,17 @@ Create a script that:
 
     "es-ES": """Eres un guionista experto en contenido viral para Instagram Reels.
 
+RITMO VISUAL (REGLA DE ORO - INVIOLABLE):
+- Cada escena: 2-4 segundos (NUNCA mas de 6s, NUNCA menos de 1s)
+- Ninguna escena quieta por mas de 3 segundos sin nuevo estimulo visual
+- El cerebro humano pierde interes en 1.7 segundos sin cambio
+- Cortes cada 2-3s mantienen la atencion hasta el final
+- Si una narracion necesita mas de 4s, DIVIDELA en 2 escenas con imagenes diferentes (mismo lugar, angulos diferentes, primer plano, zoom, detalle focal)
+
 Reglas:
-- Gancho fuerte en los primeros 3 segundos para captar la atencion
-- Cada escena debe durar entre 3-6 segundos
-- Narracion por escena: maximo 15 palabras
+- Gancho rapido en los primeros 1-2 segundos (corto e impactante)
+- Cada escena debe durar entre 2-4 segundos
+- Narracion por escena: 5-12 palabras MAXIMO (corto, ritmo TikTok)
 - legenda_overlay de cada escena: descripcion visual detallada del escenario (15-30 palabras, ej: 'mago anciano meditando en la cima de una montana con niebla al amanecer'). Se usara como prompt para generar la imagen de la escena
 - CTA final claro y directo
 - Lenguaje coloquial, tono {tom}
@@ -174,10 +195,17 @@ Crea un guion que:
 _SYSTEM_PROMPT_FALLBACK = """You are an expert scriptwriter for viral Instagram Reels content.
 IMPORTANT: Write ALL narration, captions, hashtags, and CTA in {language}.
 
+VISUAL RHYTHM (GOLDEN RULE - INVIOLABLE):
+- Each scene: 2-4 seconds (NEVER more than 6s, NEVER less than 1s)
+- No scene stays still for more than 3 seconds without new visual stimulus
+- The human brain loses interest in 1.7 seconds without change
+- Cuts every 2-3s keep attention until the end
+- If a narration needs more than 4s, BREAK it into 2 scenes with different images (same place, different angles, close-up, zoom, focal detail)
+
 Rules:
-- Strong hook in the first 3 seconds to grab attention
-- Each scene should be 3-6 seconds long
-- Narration per scene: max 15 words
+- Quick hook in the first 1-2 seconds (short and impactful)
+- Each scene should be 2-4 seconds long
+- Narration per scene: 5-12 words MAX (short, TikTok pace)
 - legenda_overlay for each scene: detailed visual description of the setting (15-30 words). This will be used as a prompt to generate the scene image. Write legenda_overlay in English regardless of output language.
 - Clear and direct final CTA
 - Casual {tom} tone
@@ -234,14 +262,20 @@ TOM E TECNICA NARRATIVA:
 - Conecte emocionalmente: "Imagine voce ali...", "Sinta o peso daquele momento..."
 - Cada cena deve terminar criando expectativa para a proxima — o ouvinte NAO pode querer parar
 
+RITMO VISUAL (REGRA DE OURO - INVIOLAVEL):
+- Cada cena: 2-4 segundos de narracao (NUNCA mais de 6s, NUNCA menos de 1s)
+- Nenhuma imagem parada por mais de 3s sem corte/zoom/movimento
+- Para um reel de 60s, gere ~20 cenas (uma a cada 3s)
+- Prefira MUITAS cenas curtas e dinamicas do que POUCAS cenas longas
+- Se uma narracao biblica precisa de mais de 4s, QUEBRE em 2-3 sub-cenas com angulos diferentes (close-up, zoom, panorama, detalhe focal)
+
 LIMITES RIGIDOS DE DURACAO:
 - O reel INTEIRO deve ter no MAXIMO {duracao} segundos de narracao falada.
 - PT-BR falado: ~2.5 palavras por segundo. Para {duracao}s = MAXIMO {max_words} palavras TOTAL.
 - CONTE as palavras. Se ultrapassar {max_words}, CORTE trechos ou encurte narracoes — NAO corte cenas.
-- Prefira MAIS cenas curtas e bem ritmadas do que POUCAS cenas longas — isso mantem o ritmo visual e da respiracao para cada momento da historia.
 
 NARRACAO POR CENA:
-- Cada cena deve ter entre 8-18 palavras de narracao — curtas e impactantes, para multiplas cenas caberem no limite
+- Cada cena deve ter entre 5-12 palavras de narracao — curtas e impactantes, ritmo TikTok
 - Seja DESCRITIVO e FIEL: inclua detalhes da historia biblica original
 - RESUMA com sabedoria — selecione os momentos mais impactantes da historia
 - Use dialogos biblicos quando existirem ("E Deus disse: Haja luz!") mas SEM citar versiculo
@@ -280,11 +314,20 @@ INVIOLABLE RULES:
 - Paraphrase ONLY to flow as spoken narration, never to change meaning.
 - Bible version reference: {bible_version}
 
+VISUAL RHYTHM (GOLDEN RULE - INVIOLABLE):
+- Each scene: 2-4 seconds of narration (NEVER more than 6s, NEVER less than 1s)
+- No image stays still for more than 3s without cut/zoom/movement
+- For a 60s reel, generate ~20 scenes (one every 3s)
+- Prefer MANY short dynamic scenes over FEW long scenes
+- If a biblical narration needs more than 4s, BREAK it into 2-3 sub-scenes with different angles (close-up, zoom, panorama, focal detail)
+
 STRICT DURATION LIMITS:
 - The ENTIRE reel must have at most {duracao} seconds of spoken narration.
 - English spoken: ~2.5 words per second. For {duracao}s = MAXIMUM {max_words} words TOTAL.
 - COUNT your words. If exceeding {max_words}, SHORTEN narrations — do NOT cut scenes.
-- Prefer MORE short well-paced scenes over FEWER long scenes — it keeps visual rhythm and gives each story beat room to breathe.
+
+NARRATION PER SCENE:
+- Each scene must have 5-12 words of narration — short, impactful, TikTok pace.
 
 TONE: Engaging and dramatic, like an experienced storyteller.
 - Vary the rhythm: fast during action, slower during reflections.
@@ -322,11 +365,20 @@ REGLAS INVIOLABLES:
 - Parafrasea SOLO para fluir como narracion hablada, nunca para cambiar el sentido.
 - Version biblica de referencia: {bible_version}
 
+RITMO VISUAL (REGLA DE ORO - INVIOLABLE):
+- Cada escena: 2-4 segundos de narracion (NUNCA mas de 6s, NUNCA menos de 1s)
+- Ninguna imagen quieta por mas de 3s sin corte/zoom/movimiento
+- Para un reel de 60s, genera ~20 escenas (una cada 3s)
+- Prefiere MUCHAS escenas cortas y dinamicas que POCAS escenas largas
+- Si una narracion biblica necesita mas de 4s, DIVIDELA en 2-3 sub-escenas con angulos diferentes (primer plano, zoom, panorama, detalle focal)
+
 LIMITES ESTRICTOS DE DURACION:
 - El reel ENTERO debe tener como maximo {duracao} segundos de narracion hablada.
 - Espanol hablado: ~2.5 palabras por segundo. Para {duracao}s = MAXIMO {max_words} palabras TOTAL.
 - CUENTA las palabras. Si excedes {max_words}, ACORTA narraciones — NO cortes escenas.
-- Prefiere MAS escenas cortas bien ritmadas que POCAS escenas largas — mantiene el ritmo visual y da respiracion a cada momento.
+
+NARRACION POR ESCENA:
+- Cada escena debe tener 5-12 palabras de narracion — cortas e impactantes, ritmo TikTok.
 
 TONO: Envolvente y dramatico, como un narrador de historias experimentado.
 - Variacion de ritmo: rapido en los momentos de accion, pausado en las reflexiones.
@@ -372,10 +424,9 @@ def _get_bible_system_prompt(cfg: dict) -> str:
     language = cfg.get("script_language", "pt-BR")
     bible_version = bible_config.get("bible_version") or BIBLE_VERSIONS.get(language, "NVI")
     duracao = cfg.get("target_duration", 60)
-    # Align with the min_cenas computed below (duracao // 6). Old formula
-    # (duracao // 12) produced "~5" which conflicted with the "between 10 and 15"
-    # range in image_instruction and collapsed biblical narratives into too-few scenes.
-    n_cenas = max(5, duracao // 6)
+    # Visual rhythm rule: ~3s per cena (sweet spot for short-form content).
+    # 60s → 20 cenas, 90s → 30 cenas. Aligned with min_cenas formula below.
+    n_cenas = max(8, duracao // 3)
 
     # Time allocation: ~60% narrative, ~20% lesson, rest for hook/setting/cta
     narrative_time = int(duracao * 0.6)
@@ -398,27 +449,33 @@ def _get_bible_system_prompt(cfg: dict) -> str:
         }
         reflection_instruction = no_reflection_map.get(language, no_reflection_map["en-US"])
 
-    # Image and scene instructions (same logic as existing generate_script)
-    min_cenas = max(3, duracao // 6)
-    max_cenas = max(5, duracao // 4)
+    # Visual rhythm: ~3s per cena. 60s → 20 cenas, 90s → 30 cenas.
+    min_cenas = max(8, duracao // 4)   # 60s → 15
+    max_cenas = max(12, duracao // 2)  # 60s → 30
     if language.startswith("pt"):
         image_instruction = (
-            f"Cada cena gerara uma imagem biblica. Crie entre {min_cenas} e {max_cenas} cenas "
-            f"para cobrir a historia em ~{duracao}s."
+            f"Cada cena gerara uma imagem biblica DISTINTA. Crie entre {min_cenas} e {max_cenas} cenas "
+            f"para cobrir a historia em ~{duracao}s. ATENCAO: cada cena deve ter ~3s de narracao "
+            f"(5-12 palavras). Para momentos longos da historia, divida em 2-3 sub-cenas com angulos visuais "
+            f"diferentes (close-up, panorama, detalhe focal)."
         )
-        cena_instruction = "Uma cena por momento-chave da historia biblica (imagem_index sequencial a partir de 0)"
+        cena_instruction = "Uma cena por mini-momento da historia biblica (imagem_index sequencial a partir de 0)"
     elif language.startswith("es"):
         image_instruction = (
-            f"Cada escena generara una imagen biblica. Crea entre {min_cenas} y {max_cenas} escenas "
-            f"para cubrir la historia en ~{duracao}s."
+            f"Cada escena generara una imagen biblica DISTINTA. Crea entre {min_cenas} y {max_cenas} escenas "
+            f"para cubrir la historia en ~{duracao}s. ATENCION: cada escena debe tener ~3s de narracion "
+            f"(5-12 palabras). Para momentos largos de la historia, divide en 2-3 sub-escenas con angulos "
+            f"visuales diferentes (primer plano, panorama, detalle focal)."
         )
-        cena_instruction = "Una escena por momento clave de la historia biblica (imagem_index secuencial desde 0)"
+        cena_instruction = "Una escena por mini-momento de la historia biblica (imagem_index secuencial desde 0)"
     else:
         image_instruction = (
-            f"Each scene will generate a biblical image. Create between {min_cenas} and {max_cenas} scenes "
-            f"to cover the story in ~{duracao}s."
+            f"Each scene will generate a DISTINCT biblical image. Create between {min_cenas} and {max_cenas} "
+            f"scenes to cover the story in ~{duracao}s. NOTE: each scene must have ~3s of narration "
+            f"(5-12 words). For long story moments, split into 2-3 sub-scenes with different visual angles "
+            f"(close-up, panorama, focal detail)."
         )
-        cena_instruction = "One scene per key moment in the biblical story (imagem_index sequential from 0)"
+        cena_instruction = "One scene per mini-moment in the biblical story (imagem_index sequential from 0)"
 
     template = _BIBLE_SYSTEM_PROMPTS.get(language)
     if not template:
@@ -514,27 +571,30 @@ async def generate_script(
             image_instruction = f"You will receive {n_imagens} images to use in the Reel."
             cena_instruction = f"Use each image in order (imagem_index 0 to {n_imagens - 1})"
     else:
-        # Dynamic: duration drives scene count (~1 cena per 4-6s of content)
-        min_cenas = max(3, duracao // 6)
-        max_cenas = max(5, duracao // 4)
+        # Visual rhythm: ~3s per cena. 60s → 20 cenas, 90s → 30 cenas.
+        min_cenas = max(8, duracao // 4)   # 60s → 15
+        max_cenas = max(12, duracao // 2)  # 60s → 30
         if language.startswith("pt"):
             image_instruction = (
-                f"Cada cena gerara uma imagem. Crie entre {min_cenas} e {max_cenas} cenas "
-                f"para cobrir o tema em ~{duracao}s."
+                f"Cada cena gerara uma imagem DISTINTA. Crie entre {min_cenas} e {max_cenas} cenas "
+                f"para cobrir o tema em ~{duracao}s. ATENCAO: cada cena deve ter ~3s de narracao "
+                f"(5-12 palavras). Para conceitos amplos, divida em sub-cenas com angulos diferentes."
             )
-            cena_instruction = "Uma cena por momento-chave do roteiro (imagem_index sequencial a partir de 0)"
+            cena_instruction = "Uma cena por mini-momento do roteiro (imagem_index sequencial a partir de 0)"
         elif language.startswith("es"):
             image_instruction = (
-                f"Cada escena generara una imagen. Crea entre {min_cenas} y {max_cenas} escenas "
-                f"para cubrir el tema en ~{duracao}s."
+                f"Cada escena generara una imagen DISTINTA. Crea entre {min_cenas} y {max_cenas} escenas "
+                f"para cubrir el tema en ~{duracao}s. ATENCION: cada escena debe tener ~3s de narracion "
+                f"(5-12 palabras). Para conceptos amplios, divide en sub-escenas con angulos diferentes."
             )
-            cena_instruction = "Una escena por momento clave del guion (imagem_index secuencial desde 0)"
+            cena_instruction = "Una escena por mini-momento del guion (imagem_index secuencial desde 0)"
         else:
             image_instruction = (
-                f"Each scene will generate an image. Create between {min_cenas} and {max_cenas} scenes "
-                f"to cover the topic in ~{duracao}s."
+                f"Each scene will generate a DISTINCT image. Create between {min_cenas} and {max_cenas} "
+                f"scenes to cover the topic in ~{duracao}s. NOTE: each scene must have ~3s of narration "
+                f"(5-12 words). For broad concepts, split into sub-scenes with different angles."
             )
-            cena_instruction = "One scene per key moment in the script (imagem_index sequential from 0)"
+            cena_instruction = "One scene per mini-moment in the script (imagem_index sequential from 0)"
 
     # Build hook_type instruction if provided in config
     hook_type = cfg.get("hook_type")
