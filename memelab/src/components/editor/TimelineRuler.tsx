@@ -25,16 +25,39 @@ export function TimelineRuler({
   scrollLeft,
 }: TimelineRulerProps) {
   const rulerRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left + scrollLeft;
-      const frame = Math.round(x / pixelsPerFrame);
-      onSeek(Math.max(0, Math.min(frame, totalFrames)));
+  const xToFrame = useCallback(
+    (clientX: number) => {
+      const rect = rulerRef.current?.getBoundingClientRect();
+      if (!rect) return 0;
+      const x = clientX - rect.left + scrollLeft;
+      return Math.max(0, Math.min(Math.round(x / pixelsPerFrame), totalFrames));
     },
-    [pixelsPerFrame, scrollLeft, totalFrames, onSeek],
+    [pixelsPerFrame, scrollLeft, totalFrames],
   );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      onSeek(xToFrame(e.clientX));
+    },
+    [xToFrame, onSeek],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!draggingRef.current) return;
+      onSeek(xToFrame(e.clientX));
+    },
+    [xToFrame, onSeek],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    draggingRef.current = false;
+  }, []);
 
   const totalWidth = totalFrames * pixelsPerFrame;
   const framesPerSecond = EDITOR_FPS;
@@ -61,7 +84,9 @@ export function TimelineRuler({
     <div
       ref={rulerRef}
       className="relative h-6 bg-zinc-900 border-b border-zinc-700 select-none cursor-pointer overflow-hidden"
-      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
       <div
         className="relative h-full"
@@ -83,9 +108,14 @@ export function TimelineRuler({
 
       {playheadX >= 0 && (
         <div
-          className="absolute top-0 w-0.5 h-full bg-red-500 pointer-events-none z-10"
+          className="absolute top-0 pointer-events-none z-10"
           style={{ left: playheadX }}
-        />
+        >
+          <div className="absolute -translate-x-1/2 w-0 h-0"
+            style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "6px solid #ef4444" }}
+          />
+          <div className="absolute top-0 w-0.5 h-6 bg-red-500 -translate-x-1/2" />
+        </div>
       )}
     </div>
   );

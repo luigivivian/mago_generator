@@ -18,6 +18,7 @@ import {
   Copy,
   Trash2,
   Snowflake,
+  HelpCircle,
 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
@@ -180,17 +181,17 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
 
       <button
         type="button"
-        onClick={undo}
+        onClick={() => undo()}
         disabled={!canUndo}
         className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
-        title="Desfazer"
+        title="Desfazer (Ctrl+Z)"
       >
         <Undo2 className="h-4 w-4" />
       </button>
 
       <button
         type="button"
-        onClick={redo}
+        onClick={() => redo()}
         disabled={!canRedo}
         className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
         title="Refazer (Ctrl+Shift+Z)"
@@ -231,6 +232,15 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
           </motion.span>
         )}
       </AnimatePresence>
+
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, code: "Slash" }))}
+        className="p-1.5 rounded hover:bg-accent text-muted-foreground"
+        title="Atalhos (?)"
+      >
+        <HelpCircle className="h-4 w-4" />
+      </button>
 
       <button
         type="button"

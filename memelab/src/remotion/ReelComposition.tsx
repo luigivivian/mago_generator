@@ -11,6 +11,7 @@ import type {
   EditorAudioItem,
   EditorSubtitle,
 } from "../stores/editor-types";
+import { EDITOR_FPS } from "../stores/editor-types";
 import { Scene } from "./components/Scene";
 import { SubtitleOverlay } from "./components/SubtitleOverlay";
 
@@ -87,7 +88,7 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
         >
           <Audio
             src={item.audioUrl}
-            trimBefore={item.startFrom ?? 0}
+            trimBefore={(item.startFrom ?? 0) / EDITOR_FPS}
           />
         </Sequence>
       ))}

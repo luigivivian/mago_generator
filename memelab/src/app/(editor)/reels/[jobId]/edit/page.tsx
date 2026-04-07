@@ -15,6 +15,7 @@ import { Timeline } from "@/components/editor/Timeline";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { SubtitleEditor } from "@/components/editor/SubtitleEditor";
 import { Toolbar } from "@/components/editor/Toolbar";
+import { ShortcutsModal } from "@/components/editor/ShortcutsModal";
 import { regenerateStep } from "@/lib/api";
 
 function AudioRegenBanner({ jobId }: { jobId: string }) {
@@ -106,6 +107,7 @@ export default function EditorPage() {
         transitions: savedEditor.transitions as never[],
         audioItems: savedEditor.audioItems as never[],
       });
+      // Always reload subtitles from SRT if editor has none (cleared by regenerate)
       if (
         (!savedEditor.subtitles || savedEditor.subtitles.length === 0) &&
         stepState.srt?.path
@@ -114,6 +116,11 @@ export default function EditorPage() {
       }
     } else {
       store.loadFromStepState(stepState, jobId);
+    }
+    // Always ensure subtitles are loaded from fresh SRT when available
+    // This catches cases where editor cache has stale subtitles from before TTS regeneration
+    if (stepState.srt?.path) {
+      store.loadSubtitlesFromSrt(jobId, stepState.srt.path);
     }
     loadedRef.current = true;
   }, [stepState, jobId]);
@@ -146,6 +153,8 @@ export default function EditorPage() {
   }
 
   return (
+    <>
+    <ShortcutsModal />
     <EditorLayout
       toolbar={
         <>
@@ -167,5 +176,6 @@ export default function EditorPage() {
       timeline={<Timeline playerRef={playerRef} />}
       panel={<PropertiesPanel jobId={jobId} />}
     />
+    </>
   );
 }

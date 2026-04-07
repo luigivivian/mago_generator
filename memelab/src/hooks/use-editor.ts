@@ -1,15 +1,13 @@
 "use client";
 
+import { useStore } from "zustand";
 import { useEditorStore } from "@/stores/editor-store";
 
 export function useUndoRedo() {
-  const { undo, redo, pastStates, futureStates } = useEditorStore.temporal.getState();
-  return {
-    undo,
-    redo,
-    canUndo: pastStates.length > 0,
-    canRedo: futureStates.length > 0,
-  };
+  const canUndo = useStore(useEditorStore.temporal, (s) => s.pastStates.length > 0);
+  const canRedo = useStore(useEditorStore.temporal, (s) => s.futureStates.length > 0);
+  const { undo, redo } = useEditorStore.temporal.getState();
+  return { undo, redo, canUndo, canRedo };
 }
 
 export function useTotalDuration() {

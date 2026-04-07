@@ -136,14 +136,19 @@ export function Timeline({ playerRef }: TimelineProps) {
 
   return (
     <div className="flex flex-col border-t border-zinc-700 bg-zinc-950 select-none" onContextMenu={handleCtx}>
-      {/* Ruler */}
-      <TimelineRuler
-        pixelsPerFrame={pixelsPerFrame}
-        totalFrames={totalFrames}
-        playheadFrame={playheadFrame}
-        onSeek={handleSeek}
-        scrollLeft={scrollLeft}
-      />
+      {/* Ruler row — same flex layout as tracks so label column aligns */}
+      <div className="flex">
+        <div className="w-20 shrink-0 border-r border-zinc-700 h-6 bg-zinc-900" />
+        <div className="flex-1 overflow-hidden">
+          <TimelineRuler
+            pixelsPerFrame={pixelsPerFrame}
+            totalFrames={totalFrames}
+            playheadFrame={playheadFrame}
+            onSeek={handleSeek}
+            scrollLeft={scrollLeft}
+          />
+        </div>
+      </div>
 
       {/* Tracks */}
       <ContextMenu target={ctxTarget} playheadFrame={playheadFrame}>

@@ -288,7 +288,7 @@ function AudioBlock({
       document.addEventListener("pointermove", handlePtrMove);
       document.addEventListener("pointerup", handleUp);
     },
-    [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onMove],
+    [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onTrimStart, onMove],
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);

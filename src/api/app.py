@@ -142,8 +142,8 @@ async def health():
     db_ok = False
     db_error = None
     try:
-        from src.database.session import async_session_factory
-        async with async_session_factory() as session:
+        from src.database.session import get_session_factory
+        async with get_session_factory()() as session:
             await session.execute(text("SELECT 1"))
             db_ok = True
     except Exception as e:
