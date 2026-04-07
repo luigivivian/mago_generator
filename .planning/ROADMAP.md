@@ -177,3 +177,47 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.14: Economic asset mode — Ken Burns + longer scenes to slash Kie costs (BACKLOG)
+
+**Goal:** Cut reel generation costs by 70-80% via the "Ken Burns" strategy: use fewer, longer scenes with motion applied in the editor (zoom, pan, fade) instead of many short scenes each requiring a paid Hailuo clip.
+
+**Cost problem observed (2026-04-07, job 8303e35e26e9411b):**
+- 25 scenes × 90 credits/clip (Hailuo Pro) = 2250 credits per reel
+- User had to deposit extra credits mid-session because the splitter was producing too many cenas
+- At Hailuo Pro pricing (~$0.63/call), a 30s reel costs ~$15.75 in video-gen alone
+
+**Economic formula target:**
+- 30s reel = 4-5 assets (not 15-20)
+- 15s reel = 2-3 assets
+- 45s short = 6-8 assets
+- With Ken Burns applied: 1 AI image + editor motion = 1 scene of 5-8s
+- With AI video: clips of 4-5s, 3-4 concatenated = ready reel
+
+**Visual techniques to keep attention on longer static scenes:**
+- Ken Burns: slow zoom in on image (ffmpeg `zoompan` filter)
+- Horizontal pan on wider images
+- Cross-fade between two versions of the same scene
+- Animated text overlay during the dwell
+- Blur transition between scenes
+- Split-screen with two AI images simultaneously
+
+**Requirements:**
+- New config mode `economic` (opposite of the current "max dynamism"): generates 4-6 cenas for 30s instead of 15-20
+- Script_gen prompt must accept this mode and adjust n_cenas/min_cenas/max_cenas formulas accordingly (e.g., `duracao // 6` for economic vs `duracao // 3` for dynamic)
+- scene_splitter must accept a `max_assets` parameter — when hit, stop subdividing long cenas even if duration exceeds max
+- Video assembly step must apply Ken Burns automatically when `config.economic_mode=True` AND the cena has `duracao_segundos > 4.0`: ffmpeg `zoompan` filter with slow zoom-in OR panned pan depending on the image composition
+- New UI toggle in reel config: "Dynamic (15-20 cenas)" vs "Economic (4-6 cenas + Ken Burns)"
+- Cost indicator in UI shows estimated credit cost BEFORE clicking Generate, so user can choose the mode based on budget
+
+**Implementation sketch:**
+- `script_gen.py`: add `economic_mode` branch in `_get_bible_system_prompt` and `generate_script` that uses wider `min_cenas`/`max_cenas`
+- `scene_splitter.py`: add `max_assets` kwarg to `split_long_scenes_in_script`
+- `video_builder.py`: add `_apply_ken_burns(clip_path, duration)` that uses ffmpeg zoompan on static images, only active when `config.economic_mode`
+- `models.py`: add `economic_mode: bool = False` to `ReelsConfig`
+- Frontend reel config page: toggle + live cost preview based on target_duration × cenas × model credit cost
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
