@@ -106,7 +106,9 @@ async def generate_narration(
     voice_name = voice or REELS_TTS_VOICE
     client = _get_client()
 
-    speaking_rate = speed or 1.0
+    # Default speaking rate bumped to 1.2 — reels feel boring at 1.0 for short-form
+    # content. Callers can still override explicitly (bible/creation may want slower).
+    speaking_rate = speed or 1.2
 
     # Build TTS prompt with emotional style direction
     style_prompt = _TONE_STYLE_PROMPTS.get(
