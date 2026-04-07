@@ -21,13 +21,13 @@
 - Tela simples para adicionar creditos ao usuario (admin)
 - Salvar todas chamadas no banco (sucesso e falha)
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 999.9-01-PLAN.md — Schema, migration, CREDIT_COSTS config, CreditService with tests
 - [x] 999.9-02-PLAN.md — Gate all Kie API call paths (video, reels, ads) with credit pre-check
 - [x] 999.9-03-PLAN.md — Credits API routes (balance, logs, admin top-up)
-- [ ] 999.9-04-PLAN.md — Frontend /credits page with balance card, logs table, admin top-up
+- [x] 999.9-04-PLAN.md — Frontend /credits page with balance card, logs table, admin top-up
 
 ### Phase 1000: Character-scoped navigation
 
@@ -51,7 +51,7 @@ Plans:
 Plans:
 - [x] 1000-01-PLAN.md — Backend: migration + character_slug on all listing endpoints
 - [x] 1000-02-PLAN.md — Frontend: API functions, SWR hooks, and page wiring
-- [ ] 1000-03-PLAN.md — "Todos os Personagens" option in sidebar selector
+- [x] 1000-03-PLAN.md — "Todos os Personagens" option in sidebar selector
 
 ### Phase 1001: Biblical reels category
 
@@ -76,7 +76,7 @@ Plans:
 - [x] 1001-01-PLAN.md — DB schema (bible_config, series) + stories data + request model
 - [x] 1001-02-PLAN.md — Biblical system prompts + image style bypass + API config flow
 - [x] 1001-03-PLAN.md — Frontend wizard: BibleConfig component + subThemes expansion
-- [ ] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring + verse overlay in video
+- [x] 1001-04-PLAN.md — Verse highlighting + series CRUD + pipeline image wiring + verse overlay in video
 - [x] 1001-05-PLAN.md — Unit tests + E2E CLI test for biblical reels pipeline
 
 ### Phase 999.10: Full in-browser video editor (BACKLOG)
@@ -95,16 +95,16 @@ Plans:
 - UI responsiva e intuitiva com atalhos de teclado
 - Undo/redo completo
 
-**Plans:** 8 plans
+**Plans:** 7/8 plans complete (08 = pending human verification)
 
 Plans:
-- [ ] 999.10-01-PLAN.md — Install Remotion + deps, type definitions, Zustand store with undo/redo
-- [ ] 999.10-02-PLAN.md — Backend PATCH editor-state + POST export-remotion endpoints, frontend API functions
-- [ ] 999.10-03-PLAN.md — Remotion compositions: ReelComposition, Scene, SubtitleOverlay, Root
-- [ ] 999.10-04-PLAN.md — Editor page layout, Remotion Player preview, Toolbar
-- [ ] 999.10-05-PLAN.md — Multi-track timeline with drag-and-drop, trim handles, zoom, ruler
-- [ ] 999.10-06-PLAN.md — Properties panel, subtitle inline editor, context menu
-- [ ] 999.10-07-PLAN.md — Autosave hook, full component wiring, "Editar Video" entry points
+- [x] 999.10-01-PLAN.md — Install Remotion + deps, type definitions, Zustand store with undo/redo
+- [x] 999.10-02-PLAN.md — Backend PATCH editor-state + POST export-remotion endpoints, frontend API functions
+- [x] 999.10-03-PLAN.md — Remotion compositions: ReelComposition, Scene, SubtitleOverlay, Root
+- [x] 999.10-04-PLAN.md — Editor page layout, Remotion Player preview, Toolbar
+- [x] 999.10-05-PLAN.md — Multi-track timeline with drag-and-drop, trim handles, zoom, ruler
+- [x] 999.10-06-PLAN.md — Properties panel, subtitle inline editor, context menu
+- [x] 999.10-07-PLAN.md — Autosave hook, full component wiring, "Editar Video" entry points
 - [ ] 999.10-08-PLAN.md — Human verification of complete editor
 
 ### Phase 999.11: Editor critical bugs — data integrity and stability fixes (BACKLOG)
