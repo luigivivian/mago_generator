@@ -8,6 +8,7 @@ import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/edit
 import { EDITOR_FPS } from "@/stores/editor-types";
 import { useEditorStore } from "@/stores/editor-store";
 import { useAudioWaveform } from "@/hooks/use-audio-waveform";
+import { snapFrame, type SnapTarget } from "@/lib/editor";
 
 interface TimelineBlockProps {
   item: EditorScene | EditorAudioItem | EditorSubtitle;
@@ -19,6 +20,8 @@ interface TimelineBlockProps {
   onTrimEnd?: (newEndFrame: number) => void;
   onMove?: (value: number) => void;
   trackType: "video" | "audio" | "subtitle";
+  // 999.12 D-04: snap targets for drag/trim
+  snapTargets?: SnapTarget[];
 }
 
 const TRACK_COLORS = {
@@ -48,6 +51,8 @@ function VideoBlock({
   onSelect,
   onTrim,
   onTrimStart,
+  snapTargets,
+  blockStartFrame,
 }: {
   item: EditorScene;
   pixelsPerFrame: number;
@@ -55,6 +60,8 @@ function VideoBlock({
   onSelect: (e: React.MouseEvent) => void;
   onTrim?: (newDurationFrames: number) => void;
   onTrimStart?: (newTrimFrom: number) => void;
+  snapTargets?: SnapTarget[];
+  blockStartFrame: number; // absolute frame where this scene starts (for snap math)
 }) {
   const {
     attributes,
@@ -83,7 +90,18 @@ function VideoBlock({
         const deltaX = ev.clientX - trimStartRef.current.startX;
         const deltaFrames = Math.round(deltaX / pixelsPerFrame);
         if (trimStartRef.current.side === "right" && onTrim) {
-          const newDuration = trimStartRef.current.startDuration + deltaFrames;
+          // 999.12 D-04: snap right edge to nearest target. The right edge
+          // absolute frame is blockStartFrame + new duration. Excluding own
+          // edges from targets to avoid self-snap.
+          const newDurationRaw = trimStartRef.current.startDuration + deltaFrames;
+          const candidateAbsoluteEnd = blockStartFrame + newDurationRaw;
+          const filtered = (snapTargets ?? []).filter(
+            (t) => t.frame !== blockStartFrame && t.frame !== blockStartFrame + trimStartRef.current!.startDuration,
+          );
+          const snap = ev.altKey
+            ? { frame: candidateAbsoluteEnd, snapped: false }
+            : snapFrame(candidateAbsoluteEnd, filtered, pixelsPerFrame, 6);
+          const newDuration = snap.frame - blockStartFrame;
           onTrim(Math.max(MIN_DURATION_FRAMES, newDuration));
         } else if (trimStartRef.current.side === "left" && onTrimStart) {
           const newTrimFrom = Math.max(0, trimStartRef.current.startTrimFrom + deltaFrames);
@@ -100,7 +118,7 @@ function VideoBlock({
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);
     },
-    [item.durationInFrames, item.trimFrom, pixelsPerFrame, onTrim, onTrimStart],
+    [item.durationInFrames, item.trimFrom, pixelsPerFrame, onTrim, onTrimStart, snapTargets, blockStartFrame],
   );
 
   const width = item.durationInFrames * pixelsPerFrame;
@@ -175,6 +193,7 @@ function SubtitleBlock({
   onTrimStart,
   onTrimEnd,
   onMove,
+  snapTargets,
 }: {
   item: EditorSubtitle;
   pixelsPerFrame: number;
@@ -183,6 +202,7 @@ function SubtitleBlock({
   onTrimStart?: (newStartFrame: number) => void;
   onTrimEnd?: (newEndFrame: number) => void;
   onMove?: (deltaFrames: number) => void;
+  snapTargets?: SnapTarget[];
 }) {
   const left = item.startFrame * pixelsPerFrame;
   const width = (item.endFrame - item.startFrame) * pixelsPerFrame;
@@ -198,12 +218,24 @@ function SubtitleBlock({
       const handleMove = (ev: PointerEvent) => {
         if (!dragRef.current) return;
         const delta = Math.round((ev.clientX - dragRef.current.startX) / pixelsPerFrame);
+        // 999.12 D-04, D-05: snap with Alt to disable
+        const applySnap = (candidate: number): number => {
+          if (ev.altKey) return candidate;
+          // Filter own edges out of targets
+          const filtered = (snapTargets ?? []).filter(
+            (t) => t.frame !== item.startFrame && t.frame !== item.endFrame,
+          );
+          return snapFrame(candidate, filtered, pixelsPerFrame, 6).frame;
+        };
         if (dragRef.current.type === "left" && onTrimStart) {
-          onTrimStart(Math.max(0, Math.min(item.endFrame - MIN_DURATION_FRAMES, dragRef.current.startVal + delta)));
+          const candidate = Math.max(0, Math.min(item.endFrame - MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
+          onTrimStart(applySnap(candidate));
         } else if (dragRef.current.type === "right" && onTrimEnd) {
-          onTrimEnd(Math.max(item.startFrame + MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
+          const candidate = Math.max(item.startFrame + MIN_DURATION_FRAMES, dragRef.current.startVal + delta);
+          onTrimEnd(applySnap(candidate));
         } else if (dragRef.current.type === "move" && onMove) {
-          onMove(Math.max(0, dragRef.current.startVal + delta)); // absolute new startFrame
+          const candidate = Math.max(0, dragRef.current.startVal + delta);
+          onMove(applySnap(candidate));
         }
       };
       const handleUp = () => {
@@ -214,7 +246,7 @@ function SubtitleBlock({
       document.addEventListener("pointermove", handleMove);
       document.addEventListener("pointerup", handleUp);
     },
-    [item.startFrame, item.endFrame, pixelsPerFrame, onTrimStart, onTrimEnd, onMove],
+    [item.startFrame, item.endFrame, pixelsPerFrame, onTrimStart, onTrimEnd, onMove, snapTargets],
   );
 
   return (
@@ -249,6 +281,7 @@ function AudioBlock({
   onTrim,
   onTrimStart,
   onMove,
+  snapTargets,
 }: {
   item: EditorAudioItem;
   pixelsPerFrame: number;
@@ -257,6 +290,7 @@ function AudioBlock({
   onTrim?: (newDuration: number) => void;
   onTrimStart?: (newFrom: number) => void;
   onMove?: (newFrom: number) => void;
+  snapTargets?: SnapTarget[];
 }) {
   const left = item.from * pixelsPerFrame;
   const width = item.durationInFrames * pixelsPerFrame;
@@ -272,12 +306,25 @@ function AudioBlock({
       const handlePtrMove = (ev: PointerEvent) => {
         if (!dragRef.current) return;
         const delta = Math.round((ev.clientX - dragRef.current.startX) / pixelsPerFrame);
+        // 999.12 D-04, D-05: snap with Alt to disable
+        const audioEnd = item.from + item.durationInFrames;
+        const filtered = (snapTargets ?? []).filter(
+          (t) => t.frame !== item.from && t.frame !== audioEnd,
+        );
+        const applySnap = (candidate: number): number =>
+          ev.altKey ? candidate : snapFrame(candidate, filtered, pixelsPerFrame, 6).frame;
+
         if (dragRef.current.type === "right" && onTrim) {
-          onTrim(Math.max(MIN_DURATION_FRAMES, dragRef.current.startVal + delta));
+          // Right edge means new absolute end frame; snap target is end frame
+          const candidateEnd = item.from + Math.max(MIN_DURATION_FRAMES, dragRef.current.startVal + delta);
+          const snapped = applySnap(candidateEnd);
+          onTrim(Math.max(MIN_DURATION_FRAMES, snapped - item.from));
         } else if (dragRef.current.type === "left" && onTrimStart) {
-          onTrimStart(Math.max(0, dragRef.current.startVal + delta));
+          const candidate = Math.max(0, dragRef.current.startVal + delta);
+          onTrimStart(applySnap(candidate));
         } else if (dragRef.current.type === "move" && onMove) {
-          onMove(Math.max(0, dragRef.current.startVal + delta));
+          const candidate = Math.max(0, dragRef.current.startVal + delta);
+          onMove(applySnap(candidate));
         }
       };
       const handleUp = () => {
@@ -288,7 +335,7 @@ function AudioBlock({
       document.addEventListener("pointermove", handlePtrMove);
       document.addEventListener("pointerup", handleUp);
     },
-    [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onTrimStart, onMove],
+    [item.from, item.durationInFrames, pixelsPerFrame, onTrim, onTrimStart, onMove, snapTargets],
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -387,7 +434,11 @@ function AudioBlock({
   );
 }
 
-export function TimelineBlock(props: TimelineBlockProps) {
+interface ExtendedTimelineBlockProps extends TimelineBlockProps {
+  blockStartFrame?: number;
+}
+
+export function TimelineBlock(props: ExtendedTimelineBlockProps) {
   const { item, trackType } = props;
 
   if (trackType === "video" && isScene(item)) {
@@ -399,6 +450,8 @@ export function TimelineBlock(props: TimelineBlockProps) {
         onSelect={props.onSelect}
         onTrim={props.onTrim}
         onTrimStart={props.onTrimStart}
+        snapTargets={props.snapTargets}
+        blockStartFrame={props.blockStartFrame ?? 0}
       />
     );
   }
@@ -413,6 +466,7 @@ export function TimelineBlock(props: TimelineBlockProps) {
         onTrimStart={props.onTrimStart}
         onTrimEnd={props.onTrimEnd}
         onMove={props.onMove}
+        snapTargets={props.snapTargets}
       />
     );
   }
@@ -427,6 +481,7 @@ export function TimelineBlock(props: TimelineBlockProps) {
         onTrim={props.onTrim}
         onTrimStart={props.onTrimStart}
         onMove={props.onMove}
+        snapTargets={props.snapTargets}
       />
     );
   }

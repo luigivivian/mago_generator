@@ -171,6 +171,7 @@ export default function EditorPage() {
             currentFrame={playheadFrame}
             compositionWidth={270}
             compositionHeight={480}
+            playerRef={playerRef}
           />
         </div>
       }

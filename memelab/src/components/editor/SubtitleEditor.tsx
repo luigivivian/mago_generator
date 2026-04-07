@@ -3,22 +3,27 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useEditorStore } from "@/stores/editor-store";
 import type { EditorSubtitle } from "@/stores/editor-types";
+import type { PlayerRef } from "@remotion/player";
 
 interface SubtitleEditorProps {
   subtitles: EditorSubtitle[];
   currentFrame: number;
   compositionWidth: number;
   compositionHeight: number;
+  // 999.12 D-08: pause player when user starts dragging a subtitle overlay
+  playerRef?: React.RefObject<PlayerRef | null>;
 }
 
 function SubtitleOverlay({
   subtitle,
   compositionWidth,
   compositionHeight,
+  playerRef,
 }: {
   subtitle: EditorSubtitle;
   compositionWidth: number;
   compositionHeight: number;
+  playerRef?: React.RefObject<PlayerRef | null>;
 }) {
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
   const setSelectedSubtitle = useEditorStore((s) => s.setSelectedSubtitle);
@@ -45,6 +50,9 @@ function SubtitleOverlay({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      // 999.12 D-08: auto-pause player if it's playing when drag starts
+      const player = playerRef?.current;
+      if (player && player.isPlaying()) player.pause();
       setSelectedSubtitle(subtitle.id);
       dragRef.current = {
         startX: e.clientX,
@@ -76,7 +84,7 @@ function SubtitleOverlay({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
-    [subtitle.id, subtitle.position.x, subtitle.position.y, updateSubtitle, setSelectedSubtitle],
+    [subtitle.id, subtitle.position.x, subtitle.position.y, updateSubtitle, setSelectedSubtitle, playerRef],
   );
 
   const handleBlur = useCallback(
@@ -141,6 +149,7 @@ export function SubtitleEditor({
   currentFrame,
   compositionWidth,
   compositionHeight,
+  playerRef,
 }: SubtitleEditorProps) {
   const visibleSubtitles = subtitles.filter(
     (s) => s.startFrame <= currentFrame && currentFrame < s.endFrame,
@@ -163,6 +172,7 @@ export function SubtitleEditor({
           subtitle={subtitle}
           compositionWidth={compositionWidth}
           compositionHeight={compositionHeight}
+          playerRef={playerRef}
         />
       ))}
     </div>

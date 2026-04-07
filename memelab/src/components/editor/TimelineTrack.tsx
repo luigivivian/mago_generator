@@ -2,6 +2,7 @@
 
 import { TimelineBlock } from "./TimelineBlock";
 import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/editor-types";
+import type { SnapTarget } from "@/lib/editor";
 
 interface TimelineTrackProps {
   type: "video" | "audio" | "subtitle";
@@ -17,6 +18,8 @@ interface TimelineTrackProps {
   onTrimStart?: (id: string, newStartFrame: number) => void;
   onTrimEnd?: (id: string, newEndFrame: number) => void;
   onMove?: (id: string, value: number) => void;
+  // 999.12 D-04: snap targets propagated to blocks
+  snapTargets?: SnapTarget[];
 }
 
 const TRACK_CONFIG = {
@@ -37,6 +40,7 @@ export function TimelineTrack({
   onTrimStart,
   onTrimEnd,
   onMove,
+  snapTargets,
 }: TimelineTrackProps) {
   const config = TRACK_CONFIG[type];
 
@@ -59,22 +63,29 @@ export function TimelineTrack({
           className="flex h-full items-center gap-px"
           onPointerDown={handleBackgroundPointerDown}
         >
-          {(items as EditorScene[]).map((item) => (
-            <TimelineBlock
-              key={item.id}
-              item={item}
-              pixelsPerFrame={pixelsPerFrame}
-              selected={isSelected(item.id)}
-              onSelect={(e) => onSelect(item.id, e)}
-              onTrim={
-                onTrim
-                  ? (dur) => onTrim(item.id, dur)
-                  : undefined
-              }
-              onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
-              trackType="video"
-            />
-          ))}
+          {(() => {
+            // Compute cumulative absolute start frame for each scene so video
+            // blocks can self-snap excluding their own edges (999.12 D-04).
+            let cursor = 0;
+            return (items as EditorScene[]).map((item) => {
+              const startFrame = cursor;
+              cursor += item.durationInFrames;
+              return (
+                <TimelineBlock
+                  key={item.id}
+                  item={item}
+                  pixelsPerFrame={pixelsPerFrame}
+                  selected={isSelected(item.id)}
+                  onSelect={(e) => onSelect(item.id, e)}
+                  onTrim={onTrim ? (dur) => onTrim(item.id, dur) : undefined}
+                  onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
+                  trackType="video"
+                  snapTargets={snapTargets}
+                  blockStartFrame={startFrame}
+                />
+              );
+            });
+          })()}
         </div>
       ) : (
         <div className="relative h-full" onPointerDown={handleBackgroundPointerDown}>
@@ -90,6 +101,7 @@ export function TimelineTrack({
               onTrimEnd={onTrimEnd ? (v) => onTrimEnd(item.id, v) : undefined}
               onMove={onMove ? (v) => onMove(item.id, v) : undefined}
               trackType={type}
+              snapTargets={snapTargets}
             />
           ))}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -20,6 +20,7 @@ import { TimelineRuler } from "./TimelineRuler";
 import { TimelineTrack } from "./TimelineTrack";
 import { ContextMenu, type ContextTarget } from "./ContextMenu";
 import type { PlayerRef } from "@remotion/player";
+import type { SnapTarget } from "@/lib/editor";
 
 interface TimelineProps {
   playerRef: React.RefObject<PlayerRef | null>;
@@ -155,7 +156,19 @@ export function Timeline({ playerRef }: TimelineProps) {
     return () => el.removeEventListener("scroll", handler);
   }, [setScrollLeft]);
 
-  // 999.12 D-02: keyboard shortcuts for bulk operations.
+  // 999.12 D-04: snap targets — playhead frame + every scene start/end
+  const snapTargets = useMemo<SnapTarget[]>(() => {
+    const targets: SnapTarget[] = [{ frame: playheadFrame, label: "playhead" }];
+    let off = 0;
+    for (const s of scenes) {
+      targets.push({ frame: off, label: `scene-${s.index}-start` });
+      off += s.durationInFrames;
+      targets.push({ frame: off, label: `scene-${s.index}-end` });
+    }
+    return targets;
+  }, [scenes, playheadFrame]);
+
+  // 999.12 D-02, D-06, D-07: keyboard shortcuts for bulk ops + nudge.
   // Skip when focus is in a text input/textarea/contenteditable so the
   // PropertiesPanel and inline subtitle editor still receive their keys.
   useEffect(() => {
@@ -169,9 +182,39 @@ export function Timeline({ playerRef }: TimelineProps) {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         bulkDeleteSelected();
-      } else if ((e.metaKey || e.ctrlKey) && (e.key === "d" || e.key === "D")) {
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
         bulkDuplicateSelected();
+        return;
+      }
+      // 999.12 D-06: arrow nudge — 1f / Shift=10f / Cmd|Ctrl=30f
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const sign = e.key === "ArrowLeft" ? -1 : 1;
+        const magnitude = (e.metaKey || e.ctrlKey) ? 30 : e.shiftKey ? 10 : 1;
+        const delta = sign * magnitude;
+        e.preventDefault();
+        // Apply as ONE undo entry by mutating the store directly inside
+        // a single setState. Scenes don't move freely (they're a sortable
+        // list) — only nudge subtitles and audio.
+        useEditorStore.setState((state) => {
+          const subtitles = state.subtitles.map((s) => {
+            if (selection.has(`subtitle:${s.id}`)) {
+              const dur = s.endFrame - s.startFrame;
+              const newStart = Math.max(0, s.startFrame + delta);
+              return { ...s, startFrame: newStart, endFrame: newStart + dur };
+            }
+            return s;
+          });
+          const audioItems = state.audioItems.map((a) => {
+            if (selection.has(`audio:${a.id}`)) {
+              return { ...a, from: Math.max(0, a.from + delta) };
+            }
+            return a;
+          });
+          return { subtitles, audioItems };
+        });
       }
     };
     window.addEventListener("keydown", handler);
@@ -299,6 +342,7 @@ export function Timeline({ playerRef }: TimelineProps) {
                   onEmptyClick={clearSelection}
                   onTrim={(id, dur) => trimScene(id, dur)}
                   onTrimStart={(id, newTrimFrom) => trimSceneLeft(id, newTrimFrom)}
+                  snapTargets={snapTargets}
                 />
               </SortableContext>
             </DndContext>
@@ -315,6 +359,7 @@ export function Timeline({ playerRef }: TimelineProps) {
               onTrim={(id, dur) => trimAudioItem(id, dur)}
               onTrimStart={(id, newFrom) => trimAudioLeft(id, newFrom)}
               onMove={(id, newFrom) => moveAudioItem(id, newFrom)}
+              snapTargets={snapTargets}
             />
 
             {/* Subtitle track */}
@@ -329,6 +374,7 @@ export function Timeline({ playerRef }: TimelineProps) {
               onTrimStart={(id, start) => updateSubtitle(id, { startFrame: start })}
               onTrimEnd={(id, end) => updateSubtitle(id, { endFrame: end })}
               onMove={(id, delta) => moveSubtitle(id, delta)}
+              snapTargets={snapTargets}
             />
           </div>
         </div>
