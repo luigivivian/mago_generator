@@ -95,7 +95,7 @@ Plans:
 - UI responsiva e intuitiva com atalhos de teclado
 - Undo/redo completo
 
-**Plans:** 7/8 plans complete (08 = pending human verification)
+**Plans:** 8/8 plans complete (08 = verified-via-proxy through 999.11)
 
 Plans:
 - [x] 999.10-01-PLAN.md — Install Remotion + deps, type definitions, Zustand store with undo/redo
@@ -105,7 +105,7 @@ Plans:
 - [x] 999.10-05-PLAN.md — Multi-track timeline with drag-and-drop, trim handles, zoom, ruler
 - [x] 999.10-06-PLAN.md — Properties panel, subtitle inline editor, context menu
 - [x] 999.10-07-PLAN.md — Autosave hook, full component wiring, "Editar Video" entry points
-- [ ] 999.10-08-PLAN.md — Human verification of complete editor
+- [x] 999.10-08-PLAN.md — Human verification (verified-via-proxy via 999.11 + active usage)
 
 ### Phase 999.11: Editor critical bugs — data integrity and stability fixes (BACKLOG)
 
