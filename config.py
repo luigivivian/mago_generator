@@ -372,10 +372,9 @@ VIDEO_MODELS = {
         "resolution": "720p",
         "tier": "cost",
         "durations": [6, 10],
-        "prices_brl": {6: 0.86, 10: 0.86},
-        "credits_per_call": 30,
+        "prices_brl": {6: 2.01, 10: 2.01},
         "speed": 3,
-        "notes": "Motion aprimorado, estilos. 30 cred/call",
+        "notes": "Motion aprimorado, estilos. 50 cred/call (Kie.ai real)",
         "input_format": "hailuo",
     },
     "hailuo/2-3-image-to-video-pro": {
@@ -383,10 +382,9 @@ VIDEO_MODELS = {
         "resolution": "1080p",
         "tier": "cost",
         "durations": [6, 10],
-        "prices_brl": {6: 0.86, 10: 0.86},
-        "credits_per_call": 30,
+        "prices_brl": {6: 3.62, 10: 3.62},
         "speed": 3,
-        "notes": "Fotorrealista, iluminacao avancada. 30 cred/call",
+        "notes": "Fotorrealista, iluminacao avancada. 90 cred/call (Kie.ai real)",
         "input_format": "hailuo",
     },
     "bytedance/v1-pro-fast-image-to-video": {
@@ -474,11 +472,23 @@ VIDEO_MODELS = {
 # Hard daily budget cap in USD (per D-09: $3.00 default = ~20 standard videos/day)
 VIDEO_DAILY_BUDGET_USD = float(os.getenv("VIDEO_DAILY_BUDGET_USD", "3.0"))
 
-# Per-model credit costs ($7 = 1000 credits, $0.007/credit)
-# Derived from VIDEO_MODELS BRL prices: credits = round(BRL / 5.75 / 0.007)
+# Per-model credit costs. Values ARE what Kie.ai debits per call —
+# verified against Kie.ai API call logs (not derived from BRL prices, which
+# were previously wrong by ~4x on Hailuo Pro). Update this dict whenever a
+# new Kie.ai log shows a different value.
+#
+# Verified:
+# - hailuo/2-3-image-to-video-standard: 50 credits per call (6s or 10s)
+# - hailuo/2-3-image-to-video-pro: 90 credits per call (6s or 10s)
+#
+# NEEDS VERIFICATION (values below are BRL-derived estimates from old config.py;
+# they may be off by 2-4x like Hailuo was. Confirm from Kie.ai logs before
+# trusting the budget check for these models).
 CREDIT_COSTS = {
-    "hailuo/2-3-image-to-video-standard": {6: 21, 10: 21},
-    "hailuo/2-3-image-to-video-pro": {6: 21, 10: 21},
+    # Verified from Kie.ai logs:
+    "hailuo/2-3-image-to-video-standard": {6: 50, 10: 50},
+    "hailuo/2-3-image-to-video-pro": {6: 90, 10: 90},
+    # NEEDS VERIFICATION:
     "bytedance/v1-pro-fast-image-to-video": {5: 52, 10: 104},
     "bytedance/v1-lite-image-to-video": {5: 26, 10: 52},
     "wan/2-6-flash-image-to-video": {5: 26, 10: 52, 15: 78},
