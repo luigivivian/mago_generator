@@ -40,11 +40,43 @@ def _wrap_pcm_as_wav(pcm_data: bytes, output_path: str) -> str:
     return output_path
 
 
+_TONE_STYLE_PROMPTS = {
+    "biblical": (
+        "Narrate with reverence, emotion, and dramatic pacing. "
+        "Speak slowly at key moments, pause between sentences, "
+        "convey the grandeur and solemnity of the scene. "
+        "Use a warm, deep tone as if telling an ancient sacred story."
+    ),
+    "inspirational": (
+        "Narrate with warmth, conviction, and emotional depth. "
+        "Build energy gradually, emphasize key phrases with passion, "
+        "and deliver the message as if speaking to someone's heart."
+    ),
+    "storytelling": (
+        "Narrate like a captivating storyteller. Vary your pace — "
+        "slow down for dramatic moments, speed up for action. "
+        "Use vocal dynamics to keep the listener hooked."
+    ),
+    "educational": (
+        "Narrate clearly and engagingly, like a great teacher. "
+        "Emphasize key concepts, use natural pauses for comprehension, "
+        "and maintain an approachable, confident delivery."
+    ),
+    "motivational": (
+        "Narrate with energy and conviction. Build momentum through the text, "
+        "emphasize action words, and deliver with the passion of a coach "
+        "inspiring their team."
+    ),
+}
+
+
 async def generate_narration(
     text: str,
     output_path: str,
     voice: str | None = None,
     provider: str | None = None,
+    speed: float | None = None,
+    tone: str | None = None,
 ) -> str:
     """Generate narration audio from text via TTS.
 
@@ -53,6 +85,8 @@ async def generate_narration(
         output_path: Path to save the WAV file.
         voice: Voice name (default from config).
         provider: TTS provider ("gemini" or "elevenlabs").
+        speed: Speaking rate multiplier (e.g. 1.0 = normal, 1.2 = 20% faster).
+        tone: Narration style/tone hint (biblical, inspirational, etc).
 
     Returns:
         Path to the saved WAV file.
@@ -72,13 +106,29 @@ async def generate_narration(
     voice_name = voice or REELS_TTS_VOICE
     client = _get_client()
 
-    logger.info(f"Generating TTS via {REELS_TTS_MODEL}, voice={voice_name}, text_len={len(text)}")
+    speaking_rate = speed or 1.0
+
+    # Build TTS prompt with emotional style direction
+    style_prompt = _TONE_STYLE_PROMPTS.get(
+        tone or "",
+        "Narrate with natural emotion and engaging delivery. "
+        "Vary your pace and emphasis to keep the listener engaged.",
+    )
+    speed_hint = f" Speak at {int(speaking_rate * 100)}% of normal speed." if speaking_rate != 1.0 else ""
+    tts_prompt = (
+        f"{style_prompt}{speed_hint} "
+        f"Read the following narration in Brazilian Portuguese.\n\n"
+        f"{text}"
+    )
+
+    logger.info(f"Generating TTS via {REELS_TTS_MODEL}, voice={voice_name}, speed={speaking_rate}, tone={tone}, text_len={len(text)}")
 
     response = await asyncio.to_thread(
         client.models.generate_content,
         model=REELS_TTS_MODEL,
-        contents=text,
+        contents=tts_prompt,
         config=types.GenerateContentConfig(
+            temperature=1.5,
             response_modalities=["AUDIO"],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(

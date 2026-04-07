@@ -794,6 +794,7 @@ def concat_clips_with_audio(
     transition_type: str = "fade",
     script_json: dict | None = None,
     config_override: dict | None = None,
+    scene_timings: list[dict] | None = None,
 ) -> str:
     """Concatenate Hailuo video clips, overlay audio and subtitles.
 
@@ -809,6 +810,7 @@ def concat_clips_with_audio(
         transition_type: FFmpeg xfade transition name (fade, dissolve, etc).
         script_json: Optional script dict for proportional scene duration and SRT alignment.
         config_override: Optional config dict — when bible_config present, uses amber subtitle style.
+        scene_timings: Optional per-scene timing data from SRT alignment ({start, end, duration}).
 
     Returns:
         output_path on success.
@@ -842,20 +844,23 @@ def concat_clips_with_audio(
         script_json["cenas"] = cenas
         logger.info(f"Loop phrase enabled: '{frase_loop}' — appended first clip as loop scene")
 
-    # Trim clips to match narration timing — proportional if script available
-    if script_json:
+    # Trim clips to match narration timing
+    n_clips = len(clip_paths)
+    if scene_timings and len(scene_timings) == n_clips:
+        # Use exact per-scene durations from SRT alignment (most accurate)
+        scene_durs = [
+            t["duration"] + transition_duration for t in scene_timings
+        ]
+        logger.info(f"Using exact SRT scene timings ({len(scene_durs)} scenes)")
+    elif script_json:
         total_dur = get_video_duration(audio_path) if os.path.exists(audio_path) else 30.0
         scene_durs = compute_scene_durations_from_script(
-            script_json, total_dur, len(clip_paths), transition_duration
+            script_json, total_dur, n_clips, transition_duration
         )
-        # Skip SRT alignment — original timestamps match the TTS audio exactly.
-        # Proportional clip durations + tpad extension ensure visuals align with
-        # narration naturally. Clamping SRT to scene windows only introduces
-        # desync since windows don't account for xfade overlap.
         logger.info(f"Using proportional durations from script ({len(scene_durs)} scenes)")
     else:
         scene_durs = _compute_scene_durations_from_srt(
-            srt_path, len(clip_paths), transition_duration,
+            srt_path, n_clips, transition_duration,
         )
     if scene_durs and len(scene_durs) == len(clip_paths):
         clip_paths = _trim_clips_to_durations(clip_paths, scene_durs)

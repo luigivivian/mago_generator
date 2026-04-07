@@ -367,18 +367,24 @@ class ReelsPipeline:
         from src.reels_pipeline.tts import estimate_tts_cost, generate_narration
 
         audio_path = os.path.join(job_dir, "audio.wav")
+        # Detect biblical tone from bible_config
+        tone = self.config.get("tone")
+        if self.config.get("bible_config"):
+            tone = "biblical"
         await generate_narration(
             text=narration_text,
             output_path=audio_path,
             voice=self.config.get("tts_voice"),
             provider=self.config.get("tts_provider"),
+            speed=self.config.get("tts_speed"),
+            tone=tone,
         )
         cost_usd = estimate_tts_cost(narration_text)
         return audio_path, cost_usd
 
     async def run_step_srt(
         self, audio_path: str, job_dir: str, script: dict | None = None
-    ) -> tuple[str, float]:
+    ) -> tuple[str, float, list[dict] | None]:
         """Step 5: Transcribe audio to SRT subtitles.
 
         Args:
@@ -389,7 +395,9 @@ class ReelsPipeline:
                     of raw transcription text.
 
         Returns:
-            Tuple of (srt_path, cost_usd).
+            Tuple of (srt_path, cost_usd, scene_timings).
+            scene_timings is a list of {start, end, duration} dicts per scene,
+            or None if no script alignment was done.
         """
         from src.reels_pipeline.transcriber import (
             align_srt_with_script,
@@ -406,10 +414,11 @@ class ReelsPipeline:
         )
 
         # Post-process: replace transcription text with approved script narrations
+        scene_timings = None
         if script and script.get("cenas"):
             with open(srt_path, "r", encoding="utf-8") as f:
                 srt_text = f.read()
-            aligned = align_srt_with_script(srt_text, script)
+            aligned, scene_timings = align_srt_with_script(srt_text, script)
             with open(srt_path, "w", encoding="utf-8") as f:
                 f.write(aligned)
             logger.info("SRT aligned with script narrations")
@@ -421,7 +430,7 @@ class ReelsPipeline:
         except OSError:
             est_duration_s = 30
         cost_usd = estimate_transcription_cost(est_duration_s)
-        return srt_path, cost_usd
+        return srt_path, cost_usd, scene_timings
 
     async def run_step_video(
         self,
@@ -516,6 +525,7 @@ class ReelsPipeline:
         on_scene_update: Callable[[list[dict]], None] | None = None,
         user_id: int | None = None,
         character_id: int | None = None,
+        scene_timings: list[dict] | None = None,
         force_regenerate_indices: set[int] | None = None,
     ) -> str:
         """Step 6 v2: Generate per-scene Kie.ai video clips with retry, concatenate with audio + subtitles.
@@ -784,6 +794,7 @@ class ReelsPipeline:
             transition_type=self.config.get("transition_type", "fade"),
             script_json=script,
             config_override=self.config,
+            scene_timings=scene_timings,
         )
 
         # Validate final video duration

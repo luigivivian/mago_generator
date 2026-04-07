@@ -224,7 +224,7 @@ def _validate_srt_timestamps(srt_text: str) -> str:
     return result
 
 
-def align_srt_with_script(srt_text: str, script: dict) -> str:
+def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]:
     """Replace SRT entry text with script narrations while keeping timestamps.
 
     Groups SRT entries into N equal time buckets (one per cena),
@@ -308,9 +308,24 @@ def align_srt_with_script(srt_text: str, script: dict) -> str:
                 new_blocks.append(f"{entry_num}\n{ts_start} --> {ts_end}\n{line}")
                 entry_num += 1
 
+    # Compute per-scene timing from bucket boundaries
+    scene_timings = []
+    for bucket_idx, (bucket, narracao) in enumerate(zip(buckets, narracoes)):
+        if not bucket:
+            bucket_start = total_start + bucket_idx * bucket_duration
+            bucket_end = total_start + (bucket_idx + 1) * bucket_duration
+        else:
+            bucket_start = bucket[0]["start"]
+            bucket_end = bucket[-1]["end"]
+        scene_timings.append({
+            "start": round(bucket_start, 3),
+            "end": round(bucket_end, 3),
+            "duration": round(bucket_end - bucket_start, 3),
+        })
+
     result = "\n\n".join(new_blocks) + "\n"
     logger.info(f"SRT aligned with script: {n_cenas} cenas, {entry_num - 1} subtitle entries")
-    return result
+    return result, scene_timings
 
 
 def _wrap_subtitle_text(text: str, max_chars: int = REELS_SUB_MAX_CHARS) -> list[str]:
