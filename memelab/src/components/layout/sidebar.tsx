@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronDown, Check, ChevronsLeft, ChevronsRight, LayoutGrid } from "lucide-react";
+import { Sparkles, ChevronDown, Check, ChevronsLeft, ChevronsRight, LayoutGrid, Palette } from "lucide-react";
+import { ThemeModal } from "./theme-modal";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useCharacterContext } from "@/contexts/character-context";
@@ -33,7 +34,7 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
           className={cn(
             "flex h-10 w-10 items-center justify-center rounded-xl mx-auto",
             isAllSelected
-              ? "bg-white/[0.06] text-muted-foreground"
+              ? "bg-[var(--color-secondary)] text-muted-foreground"
               : "bg-primary/10 text-primary",
             "text-sm font-bold transition-all duration-200 hover:bg-primary/15 cursor-pointer"
           )}
@@ -53,13 +54,13 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
         onClick={() => setOpen(!open)}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left",
-          "border border-white/[0.04] transition-all duration-200",
-          "hover:bg-white/[0.03] cursor-pointer",
-          open && "bg-white/[0.03] border-primary/20"
+          "border border-[var(--color-border)] transition-all duration-200",
+          "hover:bg-[var(--color-secondary)]/50 cursor-pointer",
+          open && "bg-[var(--color-secondary)]/50 border-primary/20"
         )}
       >
         {isAllSelected ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] text-muted-foreground">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-secondary)] text-muted-foreground">
             <LayoutGrid className="h-4 w-4" />
           </div>
         ) : (
@@ -88,7 +89,7 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-3 right-3 top-full z-50 mt-1 rounded-xl border border-white/[0.06] bg-[var(--color-surface-2)] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden"
+            className="absolute left-3 right-3 top-full z-50 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-[0_8px_32px_rgba(0,0,0,0.25)] overflow-hidden"
           >
             <div className="p-1 max-h-64 overflow-y-auto">
               {/* "Todos os Personagens" option */}
@@ -100,10 +101,10 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left",
                   "transition-colors duration-150 cursor-pointer",
-                  isAllSelected ? "bg-primary/8" : "hover:bg-white/[0.04]"
+                  isAllSelected ? "bg-primary/8" : "hover:bg-[var(--color-secondary)]"
                 )}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.06] text-muted-foreground">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-secondary)] text-muted-foreground">
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -113,7 +114,7 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
               </button>
 
               {/* Divider */}
-              <div className="border-t border-white/[0.04] my-1" />
+              <div className="border-t border-[var(--color-border)] my-1" />
 
               {/* Character entries */}
               {characters.map((char) => {
@@ -129,7 +130,7 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
                     className={cn(
                       "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left",
                       "transition-colors duration-150 cursor-pointer",
-                      isActive ? "bg-primary/8" : "hover:bg-white/[0.04]"
+                      isActive ? "bg-primary/8" : "hover:bg-[var(--color-secondary)]"
                     )}
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-bold">
@@ -151,11 +152,11 @@ function CharacterSelector({ collapsed }: { collapsed: boolean }) {
                 );
               })}
             </div>
-            <div className="border-t border-white/[0.04] p-1">
+            <div className="border-t border-[var(--color-border)] p-1">
               <Link
                 href="/characters"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/[0.04] hover:text-foreground transition-colors"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-[var(--color-secondary)] hover:text-foreground transition-colors"
               >
                 Gerenciar personagens
               </Link>
@@ -176,11 +177,12 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const [themeOpen, setThemeOpen] = useState(false);
 
   const sidebarContent = (
     <aside
       className={cn(
-        "flex h-screen flex-col border-r border-white/[0.04] bg-[var(--color-surface-1)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "flex h-screen flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-1)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
         collapsed ? "w-[72px]" : "w-64"
       )}
     >
@@ -189,7 +191,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         "flex items-center gap-3 py-5 transition-all duration-300",
         collapsed ? "justify-center px-3" : "px-6"
       )}>
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-[0_0_16px_rgba(139,92,246,0.25)]">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary shadow-[0_0_16px_var(--color-primary)]">
           <Sparkles className="h-5 w-5 text-white" />
         </div>
         {!collapsed && (
@@ -227,7 +229,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                   collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2.5",
                   active
                     ? "text-foreground"
-                    : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                    : "text-muted-foreground hover:bg-[var(--color-secondary)] hover:text-foreground"
                 )}
               >
                 {active && (
@@ -243,7 +245,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 {active && (
                   <motion.div
                     layoutId="sidebar-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary shadow-[0_0_8px_rgba(139,92,246,0.5)]"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary shadow-[0_0_8px_var(--color-primary)]"
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />
                 )}
@@ -258,16 +260,29 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         </nav>
       </LayoutGroup>
 
-      {/* Collapse toggle + Footer */}
+      {/* Collapse toggle + Theme + Footer */}
       <div className={cn(
-        "border-t border-white/[0.04] py-3",
+        "border-t border-[var(--color-border)] py-3",
         collapsed ? "px-2" : "px-3"
       )}>
+        <button
+          onClick={() => setThemeOpen(true)}
+          className={cn(
+            "flex items-center gap-2 rounded-xl px-3 py-2 text-sm",
+            "text-muted-foreground hover:bg-[var(--color-secondary)] hover:text-foreground",
+            "transition-all duration-200 cursor-pointer w-full",
+            collapsed && "justify-center"
+          )}
+          title={collapsed ? "Aparencia" : undefined}
+        >
+          <Palette className="h-4 w-4" />
+          {!collapsed && <span>Aparencia</span>}
+        </button>
         <button
           onClick={onToggle}
           className={cn(
             "flex items-center gap-2 rounded-xl px-3 py-2 text-sm",
-            "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+            "text-muted-foreground hover:bg-[var(--color-secondary)] hover:text-foreground",
             "transition-all duration-200 cursor-pointer w-full",
             collapsed && "justify-center"
           )}
@@ -315,10 +330,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed inset-y-0 left-0 z-50 md:hidden"
             >
-              <aside className="flex h-screen w-64 flex-col border-r border-white/[0.04] bg-[var(--color-surface-1)]">
+              <aside className="flex h-screen w-64 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-1)]">
                 {/* Logo */}
                 <div className="flex items-center gap-3 px-6 py-5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-[0_0_16px_rgba(139,92,246,0.25)]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-[0_0_16px_var(--color-primary)]">
                     <Sparkles className="h-5 w-5 text-white" />
                   </div>
                   <span className="text-xl font-bold tracking-tight">
@@ -342,7 +357,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                             "transition-all duration-200 ease-out",
                             active
                               ? "bg-primary/[0.08] text-foreground"
-                              : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                              : "text-muted-foreground hover:bg-[var(--color-secondary)] hover:text-foreground"
                           )}
                         >
                           <item.icon className={cn("h-5 w-5", active && "text-primary")} />
@@ -353,7 +368,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                   </nav>
                 </LayoutGroup>
 
-                <div className="border-t border-white/[0.04] px-6 py-4">
+                <div className="border-t border-[var(--color-border)] px-6 py-4">
                   <p className="text-[10px] text-muted-foreground/50 tracking-wider uppercase">clip-flow pipeline</p>
                 </div>
               </aside>
@@ -361,6 +376,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           </>
         )}
       </AnimatePresence>
+
+      {/* Theme modal (rendered at root level for proper z-index) */}
+      <ThemeModal open={themeOpen} onClose={() => setThemeOpen(false)} />
     </>
   );
 }

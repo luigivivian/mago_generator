@@ -146,23 +146,27 @@ async def generate_reel_images(
             logger.info(f"Using character '{char_ctx['name']}' with {len(char_ctx['ref_images'])} refs")
 
     # Build prompt based on mode
+    no_text = "CRITICAL: Do NOT render ANY text, words, letters, captions, or subtitles in the image. PURELY VISUAL.\n\n"
     if is_bible_mode:
         prompt_base = (
+            f"{no_text}"
             f"Instagram Reels vertical 9:16 scene. Theme: {tema}.\n\n"
             f"STYLE:\n{BIBLE_STYLE_DNA}\n\n"
             "High quality, cinematic lighting, reverent composition."
         )
     elif char_ctx and char_ctx.get("character_dna"):
         prompt_base = (
+            f"{no_text}"
             f"Instagram Reels vertical 9:16 scene. Theme: {tema}.\n\n"
             f"CHARACTER (replicate precisely from reference images):\n"
             f"{char_ctx['character_dna']}\n\n"
             f"COMPOSITION: Vertical 9:16 (1080x1920). {char_ctx.get('composition', '')}\n\n"
-            f"NEGATIVE: {char_ctx.get('negative_traits', '')}\n\n"
+            f"NEGATIVE: {char_ctx.get('negative_traits', '')} — and any text/words in the image.\n\n"
             "High quality, cinematic lighting, professional."
         )
     else:
         prompt_base = (
+            f"{no_text}"
             f"Instagram Reels vertical 9:16, {tema}. "
             "High quality, photographic, vibrant colors, professional. "
             "Full vertical composition 1080x1920 pixels."
@@ -240,11 +244,19 @@ async def generate_reel_images_per_cena(
                 "The viewer decides to stay or scroll in under 1 second based on this image.\n\n"
             )
 
+        # NO TEXT rule: Gemini renders text in images if narration is quoted directly
+        no_text_rule = (
+            "CRITICAL: Do NOT render ANY text, words, letters, captions, subtitles, "
+            "titles, watermarks, or written language in the image. "
+            "The image must be PURELY VISUAL — no text of any kind.\n\n"
+        )
+
         if is_bible_mode:
             prompt = (
                 f"{hook_prefix}"
-                f"BIBLICAL SCENE NARRATION:\n"
-                f'"{narracao}"\n\n'
+                f"{no_text_rule}"
+                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
+                f"{narracao}\n\n"
                 f"VISUAL DIRECTION:\n"
                 f"{overlay}\n\n"
                 f"STYLE:\n{BIBLE_STYLE_DNA}\n\n"
@@ -253,28 +265,29 @@ async def generate_reel_images_per_cena(
         elif char_ctx and char_ctx.get("character_dna"):
             prompt = (
                 f"{hook_prefix}"
-                f"WHAT THE CHARACTER IS SAYING (the image MUST illustrate this message):\n"
-                f'"{narracao}"\n\n'
-                f"VISUAL DIRECTION (how to depict the message above):\n"
+                f"{no_text_rule}"
+                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
+                f"{narracao}\n\n"
+                f"VISUAL DIRECTION (depict this visually WITHOUT any text):\n"
                 f"{overlay}\n\n"
-                f"CRITICAL: The image must clearly convey the narration's KEY CONCEPT. "
-                f"Show the specific action, objects, emotion, and environment that match what is being said. "
-                f"Do NOT just show the character standing — illustrate the MESSAGE.\n\n"
+                f"Illustrate the KEY CONCEPT through actions, objects, emotion, and environment. "
+                f"Do NOT just show the character standing — illustrate the MESSAGE visually.\n\n"
                 f"CHARACTER STYLE:\n"
                 f"{char_ctx['character_dna']}\n\n"
                 f"FORMAT: Instagram Reels vertical 9:16 (1080x1920). Scene {i+1} of {n}.\n"
                 f"{char_ctx.get('composition', '')}\n"
-                f"AVOID: {char_ctx.get('negative_traits', '')}\n"
+                f"AVOID: {char_ctx.get('negative_traits', '')} — and any text/words in the image.\n"
                 f"Cinematic lighting, high detail, professional illustration."
             )
         else:
             prompt = (
                 f"{hook_prefix}"
-                f"WHAT IS BEING SAID (the image MUST illustrate this message):\n"
-                f'"{narracao}"\n\n'
+                f"{no_text_rule}"
+                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
+                f"{narracao}\n\n"
                 f"VISUAL DIRECTION:\n"
                 f"{overlay}\n\n"
-                f"Show the specific action, objects, and environment that match the narration. "
+                f"Show the specific action, objects, and environment visually. "
                 f"Instagram Reels vertical 9:16 (1080x1920). Scene {i+1} of {n}.\n"
                 f"High quality, photographic, vibrant colors, cinematic lighting."
             )
@@ -317,6 +330,9 @@ async def _generate_single_image(
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio="9:16",
+                    ),
                 ),
             )
 

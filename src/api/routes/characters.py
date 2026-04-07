@@ -742,11 +742,18 @@ async def list_refs(slug: str, current_user=Depends(get_current_user), session: 
 
 
 @router.get("/{slug}/refs/image/{filename}", summary="Serve imagem de ref", tags=["Refs"])
-async def serve_ref_image(slug: str, filename: str, current_user=Depends(get_current_user), session: AsyncSession = Depends(db_session)):
+async def serve_ref_image(slug: str, filename: str, session: AsyncSession = Depends(db_session)):
+    """Serve ref image. No auth required — <img> tags can't send Authorization headers.
+    Security: slug + validate_filename prevents path traversal."""
+    from sqlalchemy import select
     from src.database.converters import orm_to_character_config
+    from src.database.models import Character
 
     validate_filename(filename)
-    char = await get_user_character(slug, current_user, session)
+    result = await session.execute(select(Character).where(Character.slug == slug))
+    char = result.scalar_one_or_none()
+    if not char:
+        raise HTTPException(status_code=404, detail="Personagem nao encontrado")
 
     config = orm_to_character_config(char)
     for folder in [config.approved_refs_dir, config.pending_refs_dir, config.rejected_refs_dir]:

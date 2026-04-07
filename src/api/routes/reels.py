@@ -170,7 +170,7 @@ async def _execute_step_task(
 
             # Flow job-level config from step_state into config_override for pipeline steps
             job_config = step_state.get("config", {})
-            for key in ("bible_config", "video_model"):
+            for key in ("bible_config", "video_model", "target_duration", "tone", "niche"):
                 if key in job_config and key not in config_override:
                     config_override[key] = job_config[key]
 
@@ -630,15 +630,19 @@ async def create_interactive_reel(
         )
         cfg = cfg_result.scalar_one_or_none()
         if cfg:
-            step_state["config"] = {"video_model": cfg.video_model}
+            step_state["config"] = {
+                "video_model": cfg.video_model,
+                "target_duration": cfg.target_duration,
+                "tone": cfg.tone,
+                "niche": cfg.niche,
+            }
 
-    # Per-reel image_count override (independent of saved config)
+    # Per-reel overrides from request (take priority over saved config)
+    step_state.setdefault("config", {})["target_duration"] = req.target_duration
     if req.image_count is not None:
-        step_state.setdefault("config", {})["image_count"] = req.image_count
-
-    # Persist bible_config to step_state for downstream steps
+        step_state["config"]["image_count"] = req.image_count
     if req.bible_config:
-        step_state.setdefault("config", {})["bible_config"] = req.bible_config
+        step_state["config"]["bible_config"] = req.bible_config
 
     # Create job_dir immediately so all subsequent steps can use it
     from src.reels_pipeline.main import ReelsPipeline
@@ -984,7 +988,7 @@ async def execute_step(
 
     # Merge per-job overrides from step_state (e.g. image_count, bible_config, video_model set at creation)
     job_config = step_state.get("config", {})
-    for key in ("image_count", "bible_config", "video_model"):
+    for key in ("image_count", "bible_config", "video_model", "target_duration", "tone", "niche"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
@@ -1090,7 +1094,7 @@ async def approve_step(
                 }
         # Merge per-job overrides from step_state
         job_config = step_state.get("config", {})
-        for key in ("image_count", "bible_config", "video_model"):
+        for key in ("image_count", "bible_config", "video_model", "target_duration", "tone", "niche"):
             if key in job_config and key not in config_override:
                 config_override[key] = job_config[key]
         from src.database.session import get_session_factory
@@ -1178,7 +1182,7 @@ async def regenerate_step(
 
     # Merge per-job overrides from step_state
     job_config = step_state.get("config", {})
-    for key in ("image_count", "bible_config", "video_model"):
+    for key in ("image_count", "bible_config", "video_model", "target_duration", "tone", "niche"):
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 

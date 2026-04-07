@@ -218,7 +218,7 @@ _BIBLE_SYSTEM_PROMPTS = {
 
 REGRAS INVIOLAVEIS:
 - Siga FIELMENTE o texto biblico. Use o texto real como base absoluta.
-- SEMPRE cite capitulo e versiculo (ex: "1 Samuel 17:40").
+- NAO inclua citacoes de capitulo e versiculo na narracao (ex: nada de "Genesis 1:9" no texto falado).
 - NAO invente fatos, personagens ou dialogos que nao existam na Biblia.
 - NAO adicione personagens que nao estejam na historia original.
 - NAO altere o desfecho ou a sequencia dos eventos.
@@ -234,11 +234,17 @@ TOM E TECNICA NARRATIVA:
 - Conecte emocionalmente: "Imagine voce ali...", "Sinta o peso daquele momento..."
 - Cada cena deve terminar criando expectativa para a proxima — o ouvinte NAO pode querer parar
 
+LIMITES RIGIDOS DE DURACAO:
+- O reel INTEIRO deve ter no MAXIMO {duracao} segundos de narracao falada.
+- PT-BR falado: ~2.5 palavras por segundo. Para {duracao}s = MAXIMO {max_words} palavras TOTAL.
+- CONTE as palavras. Se ultrapassar {max_words}, CORTE cenas ou encurte narracoes.
+- Prefira MENOS cenas bem contadas do que MUITAS cenas apressadas.
+
 NARRACAO POR CENA:
-- Cada cena deve ter entre 20-40 palavras de narracao — o suficiente para contar com riqueza
+- Cada cena deve ter entre 15-30 palavras de narracao — conciso mas impactante
 - Seja DESCRITIVO e FIEL: inclua detalhes da historia biblica original
-- Nao resuma demais — conte a historia com a profundidade que ela merece
-- Use dialogos biblicos quando existirem ("E Deus disse: Haja luz!")
+- RESUMA com sabedoria — selecione os momentos mais impactantes da historia
+- Use dialogos biblicos quando existirem ("E Deus disse: Haja luz!") mas SEM citar versiculo
 
 ESTRUTURA DO ROTEIRO:
 1. GANCHO (0-3s): Pergunta provocativa ou afirmacao impactante que conecta com uma luta humana universal
@@ -259,7 +265,7 @@ Crie um roteiro que:
 1. {cena_instruction}
 2. Distribua a narracao entre as cenas contando a historia com FIDELIDADE e RIQUEZA narrativa
 3. Cada cena tenha em legenda_overlay uma descricao visual detalhada e cinematografica do cenario biblico
-4. Inclua a referencia biblica em cada cena relevante
+4. NAO inclua referencias de versiculo na narracao — conte a historia naturalmente
 5. Gere hashtags relevantes e caption para Instagram
 6. Faca o ouvinte sentir que PRECISA ouvir ate o final""",
 
@@ -267,12 +273,18 @@ Crie um roteiro que:
 
 INVIOLABLE RULES:
 - Follow the biblical text FAITHFULLY. Use real Scripture as the base.
-- ALWAYS cite chapter and verse (e.g., "1 Samuel 17:40").
+- Do NOT include chapter and verse citations in the narration (e.g., no "Genesis 1:9" in spoken text).
 - Do NOT invent facts, characters, or dialogues not in the Bible.
 - Do NOT add characters not in the original story.
 - Do NOT alter the outcome or sequence of events.
 - Paraphrase ONLY to flow as spoken narration, never to change meaning.
 - Bible version reference: {bible_version}
+
+STRICT DURATION LIMITS:
+- The ENTIRE reel must have at most {duracao} seconds of spoken narration.
+- English spoken: ~2.5 words per second. For {duracao}s = MAXIMUM {max_words} words TOTAL.
+- COUNT your words. If exceeding {max_words}, CUT scenes or shorten narrations.
+- Prefer FEWER well-told scenes over MANY rushed scenes.
 
 TONE: Engaging and dramatic, like an experienced storyteller.
 - Vary the rhythm: fast during action, slower during reflections.
@@ -296,19 +308,25 @@ Create a script that:
 1. {cena_instruction}
 2. Distributes narration naturally and dramatically across scenes
 3. Each scene has a detailed visual description of the biblical setting in legenda_overlay
-4. Includes biblical references in each relevant scene
+4. Does NOT include verse references in narration — tell the story naturally
 5. Generates relevant hashtags and an Instagram caption""",
 
     "es-ES": """Eres un narrador biblico experto en contar historias de las Escrituras de forma envolvente para Instagram Reels.
 
 REGLAS INVIOLABLES:
 - Sigue FIELMENTE el texto biblico. Usa texto real como base.
-- SIEMPRE cita capitulo y versiculo (ej: "1 Samuel 17:40").
+- NO incluyas citas de capitulo y versiculo en la narracion (ej: nada de "Genesis 1:9" en el texto hablado).
 - NO inventes hechos, personajes o dialogos que no existan en la Biblia.
 - NO agregues personajes que no esten en la historia original.
 - NO alteres el desenlace o la secuencia de los eventos.
 - Parafrasea SOLO para fluir como narracion hablada, nunca para cambiar el sentido.
 - Version biblica de referencia: {bible_version}
+
+LIMITES ESTRICTOS DE DURACION:
+- El reel ENTERO debe tener como maximo {duracao} segundos de narracion hablada.
+- Espanol hablado: ~2.5 palabras por segundo. Para {duracao}s = MAXIMO {max_words} palabras TOTAL.
+- CUENTA las palabras. Si excedes {max_words}, CORTA escenas o acorta narraciones.
+- Prefiere MENOS escenas bien contadas que MUCHAS escenas apresuradas.
 
 TONO: Envolvente y dramatico, como un narrador de historias experimentado.
 - Variacion de ritmo: rapido en los momentos de accion, pausado en las reflexiones.
@@ -332,7 +350,7 @@ Crea un guion que:
 1. {cena_instruction}
 2. Distribuya la narracion entre las escenas de forma natural y dramatica
 3. Cada escena tenga en legenda_overlay una descripcion visual detallada del escenario biblico
-4. Incluya la referencia biblica en cada escena relevante
+4. NO incluya referencias de versiculo en la narracion — cuente la historia naturalmente
 5. Genere hashtags relevantes y caption para Instagram""",
 }
 
@@ -359,6 +377,7 @@ def _get_bible_system_prompt(cfg: dict) -> str:
     # Time allocation: ~60% narrative, ~20% lesson, rest for hook/setting/cta
     narrative_time = int(duracao * 0.6)
     lesson_time = int(duracao * 0.2)
+    max_words = int(duracao * 2.5)  # ~2.5 words/sec for PT-BR spoken
 
     # Reflection instruction varies by language
     if include_reflection:
@@ -406,6 +425,7 @@ def _get_bible_system_prompt(cfg: dict) -> str:
         bible_version=bible_version,
         narrative_time=narrative_time,
         lesson_time=lesson_time,
+        max_words=max_words,
         reflection_instruction=reflection_instruction,
         image_instruction=image_instruction,
         story_ref=story_ref,
