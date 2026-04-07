@@ -1329,10 +1329,16 @@ async def _regenerate_single_image_task(
             single_cena = dict(cenas[scene_index])
             if custom_prompt:
                 single_cena["legenda_overlay"] = custom_prompt
+            # Pass config with bible_config so bible mode uses BIBLE_STYLE_DNA instead of character DNA
+            job_config = step_state.get("config", {})
+            regen_config = {}
+            if "bible_config" in job_config:
+                regen_config["bible_config"] = job_config["bible_config"]
             new_paths = await generate_reel_images_per_cena(
                 cenas=[single_cena],
                 character_id=job.character_id,
                 output_dir=images_dir,
+                config_override=regen_config or None,
             )
 
             if new_paths:
