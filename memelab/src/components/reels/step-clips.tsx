@@ -42,10 +42,12 @@ function SceneCard({
   scene,
   jobId,
   mutate,
+  imageVersion,
 }: {
   scene: SceneStatus;
   jobId: string;
   mutate: () => void;
+  imageVersion?: number;
 }) {
   const [retrying, setRetrying] = useState(false);
   const [settingStatic, setSettingStatic] = useState(false);
@@ -62,7 +64,9 @@ function SceneCard({
   const isDone = scene.status === "success";
   const isFailed = scene.status === "failed";
   const canRegenerate = !isGenerating && !isPending;
-  const imgSrc = scene.img_path ? reelFileUrl(jobId, scene.img_path) : "";
+  const imgSrc = scene.img_path
+    ? reelFileUrl(jobId, scene.img_path) + (imageVersion ? `?v=${imageVersion}` : "")
+    : "";
 
   useEffect(() => {
     if (isPending) {
@@ -520,7 +524,13 @@ export function StepClips({
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {scenes.map((scene) => (
-                <SceneCard key={scene.index} scene={scene} jobId={jobId} mutate={mutate} />
+                <SceneCard
+                  key={scene.index}
+                  scene={scene}
+                  jobId={jobId}
+                  mutate={mutate}
+                  imageVersion={stepState.images?.reuse_info?.[String(scene.index)]?.version}
+                />
               ))}
             </div>
           </div>
