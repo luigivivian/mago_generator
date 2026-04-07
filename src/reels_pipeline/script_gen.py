@@ -237,11 +237,11 @@ TOM E TECNICA NARRATIVA:
 LIMITES RIGIDOS DE DURACAO:
 - O reel INTEIRO deve ter no MAXIMO {duracao} segundos de narracao falada.
 - PT-BR falado: ~2.5 palavras por segundo. Para {duracao}s = MAXIMO {max_words} palavras TOTAL.
-- CONTE as palavras. Se ultrapassar {max_words}, CORTE cenas ou encurte narracoes.
-- Prefira MENOS cenas bem contadas do que MUITAS cenas apressadas.
+- CONTE as palavras. Se ultrapassar {max_words}, CORTE trechos ou encurte narracoes — NAO corte cenas.
+- Prefira MAIS cenas curtas e bem ritmadas do que POUCAS cenas longas — isso mantem o ritmo visual e da respiracao para cada momento da historia.
 
 NARRACAO POR CENA:
-- Cada cena deve ter entre 15-30 palavras de narracao — conciso mas impactante
+- Cada cena deve ter entre 8-18 palavras de narracao — curtas e impactantes, para multiplas cenas caberem no limite
 - Seja DESCRITIVO e FIEL: inclua detalhes da historia biblica original
 - RESUMA com sabedoria — selecione os momentos mais impactantes da historia
 - Use dialogos biblicos quando existirem ("E Deus disse: Haja luz!") mas SEM citar versiculo
@@ -283,8 +283,8 @@ INVIOLABLE RULES:
 STRICT DURATION LIMITS:
 - The ENTIRE reel must have at most {duracao} seconds of spoken narration.
 - English spoken: ~2.5 words per second. For {duracao}s = MAXIMUM {max_words} words TOTAL.
-- COUNT your words. If exceeding {max_words}, CUT scenes or shorten narrations.
-- Prefer FEWER well-told scenes over MANY rushed scenes.
+- COUNT your words. If exceeding {max_words}, SHORTEN narrations — do NOT cut scenes.
+- Prefer MORE short well-paced scenes over FEWER long scenes — it keeps visual rhythm and gives each story beat room to breathe.
 
 TONE: Engaging and dramatic, like an experienced storyteller.
 - Vary the rhythm: fast during action, slower during reflections.
@@ -325,8 +325,8 @@ REGLAS INVIOLABLES:
 LIMITES ESTRICTOS DE DURACION:
 - El reel ENTERO debe tener como maximo {duracao} segundos de narracion hablada.
 - Espanol hablado: ~2.5 palabras por segundo. Para {duracao}s = MAXIMO {max_words} palabras TOTAL.
-- CUENTA las palabras. Si excedes {max_words}, CORTA escenas o acorta narraciones.
-- Prefiere MENOS escenas bien contadas que MUCHAS escenas apresuradas.
+- CUENTA las palabras. Si excedes {max_words}, ACORTA narraciones — NO cortes escenas.
+- Prefiere MAS escenas cortas bien ritmadas que POCAS escenas largas — mantiene el ritmo visual y da respiracion a cada momento.
 
 TONO: Envolvente y dramatico, como un narrador de historias experimentado.
 - Variacion de ritmo: rapido en los momentos de accion, pausado en las reflexiones.
@@ -372,7 +372,10 @@ def _get_bible_system_prompt(cfg: dict) -> str:
     language = cfg.get("script_language", "pt-BR")
     bible_version = bible_config.get("bible_version") or BIBLE_VERSIONS.get(language, "NVI")
     duracao = cfg.get("target_duration", 60)
-    n_cenas = max(3, duracao // 12)
+    # Align with the min_cenas computed below (duracao // 6). Old formula
+    # (duracao // 12) produced "~5" which conflicted with the "between 10 and 15"
+    # range in image_instruction and collapsed biblical narratives into too-few scenes.
+    n_cenas = max(5, duracao // 6)
 
     # Time allocation: ~60% narrative, ~20% lesson, rest for hook/setting/cta
     narrative_time = int(duracao * 0.6)
