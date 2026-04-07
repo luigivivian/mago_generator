@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { PanelRightClose, PanelRightOpen, Monitor } from "lucide-react";
 
@@ -11,9 +11,15 @@ interface EditorLayoutProps {
   panel?: React.ReactNode;
 }
 
+const TIMELINE_HEIGHT_KEY = "memelab.editor.timelineHeight";
+const MIN_TIMELINE_HEIGHT = 180;
+
 export function EditorLayout({ toolbar, preview, timeline, panel }: EditorLayoutProps) {
   const [isDesktop, setIsDesktop] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
+  // 999.12 D-18: persistent draggable timeline height
+  const [timelineHeight, setTimelineHeight] = useState<number>(220);
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -21,6 +27,58 @@ export function EditorLayout({ toolbar, preview, timeline, panel }: EditorLayout
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Restore persisted timeline height
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem(TIMELINE_HEIGHT_KEY) : null;
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (Number.isFinite(parsed) && parsed >= MIN_TIMELINE_HEIGHT) {
+        setTimelineHeight(Math.min(parsed, window.innerHeight * 0.6));
+      }
+    }
+  }, []);
+
+  const handleResizeStart = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      dragRef.current = { startY: e.clientY, startHeight: timelineHeight };
+
+      const onMove = (ev: PointerEvent) => {
+        if (!dragRef.current) return;
+        // drag up grows the timeline (delta > 0 when moving up)
+        const delta = dragRef.current.startY - ev.clientY;
+        const max = window.innerHeight * 0.6;
+        const next = Math.max(MIN_TIMELINE_HEIGHT, Math.min(max, dragRef.current.startHeight + delta));
+        setTimelineHeight(next);
+      };
+      const onUp = () => {
+        if (dragRef.current) {
+          try {
+            localStorage.setItem(TIMELINE_HEIGHT_KEY, String(Math.round(timelineHeight)));
+          } catch {
+            // ignore
+          }
+        }
+        dragRef.current = null;
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [timelineHeight],
+  );
+
+  // Persist on change after pointerup
+  useEffect(() => {
+    if (dragRef.current) return; // skip during active drag
+    try {
+      localStorage.setItem(TIMELINE_HEIGHT_KEY, String(Math.round(timelineHeight)));
+    } catch {
+      // ignore
+    }
+  }, [timelineHeight]);
 
   if (!isDesktop) {
     return (
@@ -54,7 +112,15 @@ export function EditorLayout({ toolbar, preview, timeline, panel }: EditorLayout
             </div>
           </div>
 
-          <div className="h-[220px] shrink-0 overflow-auto border-t border-border">
+          {/* 999.12 D-18: draggable resize handle */}
+          <div
+            onPointerDown={handleResizeStart}
+            className="h-1 cursor-row-resize bg-zinc-800 hover:bg-purple-500/40 shrink-0"
+          />
+          <div
+            className="shrink-0 overflow-auto border-t border-border"
+            style={{ height: timelineHeight }}
+          >
             {timeline ?? (
               <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Timeline aqui

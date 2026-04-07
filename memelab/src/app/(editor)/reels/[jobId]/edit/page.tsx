@@ -16,6 +16,7 @@ import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { SubtitleEditor } from "@/components/editor/SubtitleEditor";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { ShortcutsModal } from "@/components/editor/ShortcutsModal";
+import { SafeZoneOverlay, useSafePlatform } from "@/components/editor/SafeZoneOverlay";
 import { regenerateStep } from "@/lib/api";
 
 function AudioRegenBanner({ jobId }: { jobId: string }) {
@@ -74,6 +75,9 @@ export default function EditorPage() {
 
   const subtitles = useEditorStore((s) => s.subtitles);
   const playheadFrame = useEditorStore((s) => s.playheadFrame);
+
+  // 999.12 D-11: safe-zone overlay state (persisted in localStorage)
+  const [safePlatform, setSafePlatform] = useSafePlatform();
 
   useEditorShortcuts(playerRef);
 
@@ -159,7 +163,12 @@ export default function EditorPage() {
     <EditorLayout
       toolbar={
         <>
-          <Toolbar playerRef={playerRef} saveStatus={saveStatus} />
+          <Toolbar
+            playerRef={playerRef}
+            saveStatus={saveStatus}
+            safePlatform={safePlatform}
+            onSafePlatformChange={setSafePlatform}
+          />
           <AudioRegenBanner jobId={jobId} />
         </>
       }
@@ -173,6 +182,7 @@ export default function EditorPage() {
             compositionHeight={480}
             playerRef={playerRef}
           />
+          <SafeZoneOverlay platform={safePlatform} />
         </div>
       }
       timeline={<Timeline playerRef={playerRef} />}

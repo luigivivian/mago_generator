@@ -20,7 +20,9 @@ import {
   Snowflake,
   HelpCircle,
   Maximize2,
+  Smartphone,
 } from "lucide-react";
+import type { SafePlatform } from "./SafeZoneOverlay";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
 import { EDITOR_FPS } from "@/stores/editor-types";
@@ -29,6 +31,9 @@ import { exportRemotion } from "@/lib/api";
 interface ToolbarProps {
   playerRef: React.RefObject<PlayerRef | null>;
   saveStatus: "idle" | "saving" | "saved";
+  // 999.12 D-11: safe-zone overlay platform cycle
+  safePlatform?: SafePlatform;
+  onSafePlatformChange?: (platform: SafePlatform) => void;
 }
 
 function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRef | null> }) {
@@ -115,7 +120,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
   );
 }
 
-export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
+export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePlatformChange }: ToolbarProps) {
   const params = useParams<{ jobId: string }>();
   const jobId = params.jobId;
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
@@ -215,6 +220,33 @@ export function Toolbar({ playerRef, saveStatus }: ToolbarProps) {
       >
         <Maximize2 className="h-4 w-4" />
       </button>
+
+      {/* 999.12 D-11: safe-zone overlay cycle (off → tiktok → instagram) */}
+      {onSafePlatformChange && (
+        <button
+          type="button"
+          onClick={() => {
+            const next: SafePlatform =
+              safePlatform === "off" ? "tiktok" : safePlatform === "tiktok" ? "instagram" : "off";
+            onSafePlatformChange(next);
+          }}
+          className={`p-1.5 rounded hover:bg-accent flex items-center gap-1 ${safePlatform !== "off" ? "text-purple-400" : "text-foreground"}`}
+          title={
+            safePlatform === "off"
+              ? "Safe zone: desligado (clique para TikTok)"
+              : safePlatform === "tiktok"
+              ? "Safe zone: TikTok (clique para Instagram)"
+              : "Safe zone: Instagram (clique para desligar)"
+          }
+        >
+          <Smartphone className="h-4 w-4" />
+          {safePlatform !== "off" && (
+            <span className="text-[10px] font-bold uppercase">
+              {safePlatform === "tiktok" ? "T" : "I"}
+            </span>
+          )}
+        </button>
+      )}
 
       <div className="flex-1" />
 
