@@ -384,7 +384,7 @@ class ReelsPipeline:
 
     async def run_step_srt(
         self, audio_path: str, job_dir: str, script: dict | None = None
-    ) -> tuple[str, float, list[dict] | None]:
+    ) -> tuple[str, float, list[dict] | None, dict | None]:
         """Step 5: Transcribe audio to SRT subtitles.
 
         Args:
@@ -395,14 +395,23 @@ class ReelsPipeline:
                     of raw transcription text.
 
         Returns:
-            Tuple of (srt_path, cost_usd, scene_timings).
-            scene_timings is a list of {start, end, duration} dicts per scene,
-            or None if no script alignment was done.
+            Tuple of (srt_path, cost_usd, scene_timings, expanded_script).
+            - scene_timings: list of {index, start, end, duration, narracao}
+              dicts per scene, or None if no script alignment was done.
+            - expanded_script: the script with long cenas SPLIT into sub-cenas
+              (per visual rhythm rules), or None if no splitting was done.
+              When non-None, callers must persist it back to step_state.script
+              and regenerate images for the new cena count.
         """
         from src.reels_pipeline.transcriber import (
             align_srt_with_script,
             estimate_transcription_cost,
             transcribe_to_srt,
+        )
+        from src.reels_pipeline.scene_splitter import (
+            split_long_scenes_in_script,
+            regenerate_split_legenda_overlays,
+            SCENE_MAX_DURATION,
         )
 
         srt_path = os.path.join(job_dir, "subtitles.srt")
@@ -426,6 +435,7 @@ class ReelsPipeline:
 
         # Post-process: replace transcription text with approved script narrations
         scene_timings = None
+        expanded_script = None
         if script and script.get("cenas"):
             with open(srt_path, "r", encoding="utf-8") as f:
                 srt_text = f.read()
@@ -434,6 +444,26 @@ class ReelsPipeline:
                 f.write(aligned)
             logger.info("SRT aligned with script narrations")
 
+            # Visual rhythm splitter: any cena longer than SCENE_MAX_DURATION
+            # gets split into N sub-cenas of ~3s each. The expanded script has
+            # more cenas (and more imagem_index slots) — caller persists it.
+            has_long = any(
+                t.get("duration", 0) > SCENE_MAX_DURATION for t in (scene_timings or [])
+            )
+            if has_long:
+                language = self.config.get("script_language") or "pt-BR"
+                expanded_script, scene_timings = split_long_scenes_in_script(
+                    script, scene_timings,
+                )
+                # Generate distinct visual variations via LLM
+                expanded_script = await regenerate_split_legenda_overlays(
+                    expanded_script, language=language,
+                )
+                logger.info(
+                    f"Visual rhythm splitter: expanded {len(script['cenas'])} → "
+                    f"{len(expanded_script['cenas'])} cenas"
+                )
+
         # Estimate duration from audio file size (~48kB/s for 24kHz 16-bit mono)
         try:
             audio_size = os.path.getsize(audio_path)
@@ -441,7 +471,7 @@ class ReelsPipeline:
         except OSError:
             est_duration_s = 30
         cost_usd = estimate_transcription_cost(est_duration_s)
-        return srt_path, cost_usd, scene_timings
+        return srt_path, cost_usd, scene_timings, expanded_script
 
     async def run_step_video(
         self,
@@ -976,7 +1006,9 @@ class ReelsPipeline:
         _progress("tts", 60)
 
         # Step 5 - Transcription (60-75%)
-        srt_path, srt_cost = await self.run_step_srt(audio_path, job_dir, script=script)
+        srt_path, srt_cost, _scene_timings, _expanded_script = await self.run_step_srt(
+            audio_path, job_dir, script=script,
+        )
         cost_usd += srt_cost
         _progress("transcription", 75)
 

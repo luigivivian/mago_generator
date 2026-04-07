@@ -230,7 +230,7 @@ async def _execute_step_task(
             elif step_name == "srt":
                 audio_path = step_state.get("tts", {}).get("path", "")
                 script_json = step_state.get("script", {}).get("json", {})
-                srt_path, duration, scene_timings = await pipeline.run_step_srt(
+                srt_path, duration, scene_timings, expanded_script = await pipeline.run_step_srt(
                     audio_path=audio_path,
                     job_dir=job_dir,
                     script=script_json or None,
@@ -241,6 +241,27 @@ async def _execute_step_task(
                     step_data["scene_timings"] = scene_timings
                 step_data["status"] = "complete"
                 job.srt_path = srt_path
+
+                # If the visual rhythm splitter expanded any long cenas into
+                # sub-cenas, persist the expanded script back to step_state.
+                # Downstream steps (images/clips) will see more cenas and
+                # generate matching assets.
+                if expanded_script is not None:
+                    script_step = step_state.get("script", {})
+                    script_step["json"] = expanded_script
+                    # Also write to disk so the file matches step_state
+                    try:
+                        roteiro_path = os.path.join(job_dir, "roteiro.json")
+                        with open(roteiro_path, "w", encoding="utf-8") as f:
+                            json.dump(expanded_script, f, ensure_ascii=False, indent=2)
+                        script_step["path"] = roteiro_path
+                    except OSError as e:
+                        logger.warning(f"Failed to write expanded roteiro.json: {e}")
+                    step_state["script"] = script_step
+                    logger.info(
+                        f"Visual rhythm splitter expanded script: "
+                        f"{len(expanded_script.get('cenas', []))} cenas"
+                    )
 
             elif step_name == "clips":
                 image_paths = step_state.get("images", {}).get("paths", [])
@@ -1488,6 +1509,14 @@ async def regenerate_scene_video(
         if cfg:
             config_override = {"video_model": cfg.video_model}
 
+    # Merge per-job overrides from step_state (matches execute-step and
+    # retry-scene endpoints). Without this, jobs with config_id=NULL fall back
+    # to the REELS_VIDEO_MODEL env default, silently downgrading Pro → Standard.
+    job_config = step_state.get("config", {})
+    for key in ("video_model", "bible_config"):
+        if key in job_config and key not in config_override:
+            config_override[key] = job_config[key]
+
     session_factory = get_session_factory()
     background_tasks.add_task(
         _retry_scene_task, job_id, scene_index, prompt, config_override, session_factory
@@ -1761,10 +1790,13 @@ async def retry_scene(
         if cfg:
             config_override = {"video_model": cfg.video_model}
 
-    # Flow bible_config for subtitle styling in auto-reassembly
+    # Merge per-job overrides from step_state (matches execute-step endpoint
+    # at line 989). Without this, jobs with config_id=NULL fall back to the
+    # REELS_VIDEO_MODEL env default on retry, silently downgrading Pro → Standard.
     job_config = step_state.get("config", {})
-    if "bible_config" in job_config:
-        config_override["bible_config"] = job_config["bible_config"]
+    for key in ("video_model", "bible_config"):
+        if key in job_config and key not in config_override:
+            config_override[key] = job_config[key]
 
     session_factory = get_session_factory()
     background_tasks.add_task(

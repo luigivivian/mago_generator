@@ -1,0 +1,342 @@
+"""Scene splitter — break long cenas into sub-cenas with distinct visuals.
+
+When `align_srt_with_script` produces a scene_timings entry whose duration
+exceeds the visual rhythm cap (default 6s), this module splits that cena
+into N sub-cenas, each one ~3s long, and generates distinct visual
+variations of the parent's legenda_overlay via the LLM.
+
+This handles two cases:
+1. Existing reels where the original LLM produced too-long scenes (legacy
+   reels generated before the prompt rewrite)
+2. New reels where one cena ends up dominating because the LLM didn't
+   distribute narration evenly
+
+The output script has more cenas (and more imagem_index slots), so the
+downstream pipeline (images → clips → assembly) automatically generates
+more images and clips.
+"""
+
+import asyncio
+import json
+import logging
+import math
+import re
+from copy import deepcopy
+
+from google.genai import types
+
+from src.llm_client import _get_client
+from src.reels_pipeline.config import REELS_SCRIPT_MODEL
+
+logger = logging.getLogger("clip-flow.reels.scene_splitter")
+
+# Visual rhythm config (matches script_gen prompt language)
+SCENE_TARGET_DURATION = 3.0  # seconds — sweet spot per short-form research
+SCENE_MAX_DURATION = 6.0  # seconds — hard cap; anything longer gets split
+SCENE_MIN_DURATION = 1.0  # seconds — never produce a sub-cena shorter than this
+
+
+def split_long_scenes_in_script(
+    script: dict,
+    scene_timings: list[dict],
+    max_duration: float = SCENE_MAX_DURATION,
+    target_duration: float = SCENE_TARGET_DURATION,
+) -> tuple[dict, list[dict]]:
+    """Split any cena longer than max_duration into N sub-cenas.
+
+    Args:
+        script: The script dict with `cenas` list.
+        scene_timings: Per-cena timing list from align_srt_with_script.
+            Each entry: {index, start, end, duration, narracao}.
+        max_duration: Cenas longer than this get split (default 6.0s).
+        target_duration: Each sub-cena targets this duration (default 3.0s).
+
+    Returns:
+        Tuple of (new_script, new_scene_timings) where:
+        - new_script.cenas has additional sub-cenas inserted
+        - new_scene_timings has matching entries with monotonic time spans
+        - All imagem_index values are reindexed sequentially from 0
+        - Sub-cenas inherit legenda_overlay from parent (caller can replace
+          with distinct visuals via regenerate_split_legenda_overlays)
+    """
+    if not script.get("cenas") or not scene_timings:
+        return script, scene_timings
+
+    new_script = deepcopy(script)
+    original_cenas = new_script.get("cenas", [])
+    new_cenas: list[dict] = []
+    new_timings: list[dict] = []
+    new_idx = 0  # Running counter for reindexed cenas
+
+    for orig_idx, orig_cena in enumerate(original_cenas):
+        # Find matching timing entry by original index
+        timing = next(
+            (t for t in scene_timings if t.get("index") == orig_idx),
+            None,
+        )
+        if timing is None:
+            # No timing for this cena (rare edge case) — pass through
+            cena_copy = dict(orig_cena)
+            cena_copy["imagem_index"] = new_idx
+            new_cenas.append(cena_copy)
+            new_idx += 1
+            continue
+
+        duration = timing["duration"]
+        if duration <= max_duration:
+            # Short enough — pass through, just renumber
+            cena_copy = dict(orig_cena)
+            cena_copy["imagem_index"] = new_idx
+            cena_copy["duracao_segundos"] = round(duration, 2)
+            new_cenas.append(cena_copy)
+            new_timings.append({
+                "index": new_idx,
+                "start": timing["start"],
+                "end": timing["end"],
+                "duration": round(duration, 3),
+                "narracao": timing.get("narracao") or orig_cena.get("narracao", ""),
+            })
+            new_idx += 1
+            continue
+
+        # Cena is too long — split into N sub-cenas
+        n_splits = max(2, math.ceil(duration / target_duration))
+        sub_dur = duration / n_splits
+        # Don't create sub-cenas shorter than min — clamp
+        if sub_dur < SCENE_MIN_DURATION:
+            n_splits = max(1, int(duration / SCENE_MIN_DURATION))
+            sub_dur = duration / n_splits
+
+        # Split the narration text proportionally by sentence/word boundaries
+        narracao_text = (timing.get("narracao") or orig_cena.get("narracao", "")).strip()
+        narration_chunks = _split_narration(narracao_text, n_splits)
+
+        logger.info(
+            f"Splitting cena {orig_idx} ({duration:.1f}s) into {n_splits} "
+            f"sub-cenas of ~{sub_dur:.1f}s each"
+        )
+
+        for sub_i in range(n_splits):
+            sub_start = timing["start"] + sub_i * sub_dur
+            sub_end = timing["start"] + (sub_i + 1) * sub_dur
+            # Last sub-cena claims any rounding remainder
+            if sub_i == n_splits - 1:
+                sub_end = timing["end"]
+
+            sub_narracao = narration_chunks[sub_i] if sub_i < len(narration_chunks) else ""
+
+            sub_cena = dict(orig_cena)
+            sub_cena["imagem_index"] = new_idx
+            sub_cena["duracao_segundos"] = round(sub_end - sub_start, 2)
+            sub_cena["narracao"] = sub_narracao
+            # Mark the sub-cena lineage for LLM context when generating variations
+            sub_cena["_split_parent_idx"] = orig_idx
+            sub_cena["_split_sub_idx"] = sub_i
+            sub_cena["_split_total"] = n_splits
+            sub_cena["_parent_legenda_overlay"] = orig_cena.get("legenda_overlay", "")
+            new_cenas.append(sub_cena)
+
+            new_timings.append({
+                "index": new_idx,
+                "start": round(sub_start, 3),
+                "end": round(sub_end, 3),
+                "duration": round(sub_end - sub_start, 3),
+                "narracao": sub_narracao,
+            })
+            new_idx += 1
+
+    new_script["cenas"] = new_cenas
+    logger.info(
+        f"Scene splitter: {len(original_cenas)} cenas → {len(new_cenas)} cenas "
+        f"({len(new_cenas) - len(original_cenas)} sub-cenas added)"
+    )
+    return new_script, new_timings
+
+
+def _split_narration(text: str, n_parts: int) -> list[str]:
+    """Split a narration string into N roughly-equal parts.
+
+    Splits on sentence boundaries first, then word boundaries if a sentence
+    needs to span multiple parts. Each part gets approximately the same
+    word count.
+    """
+    text = text.strip()
+    if not text:
+        return [""] * n_parts
+    if n_parts <= 1:
+        return [text]
+
+    # Try sentence-based split first
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if len(sentences) >= n_parts:
+        # Distribute sentences across parts as evenly as possible
+        parts: list[list[str]] = [[] for _ in range(n_parts)]
+        per_part = len(sentences) / n_parts
+        for i, sent in enumerate(sentences):
+            slot = min(int(i / per_part), n_parts - 1)
+            parts[slot].append(sent)
+        return [" ".join(p) for p in parts]
+
+    # Fewer sentences than parts — fall back to word-based split
+    words = text.split()
+    if len(words) <= n_parts:
+        # Pathological case: pad with empty strings
+        out = words[:]
+        while len(out) < n_parts:
+            out.append("")
+        return out
+
+    per_part_words = len(words) / n_parts
+    parts_text: list[str] = []
+    for i in range(n_parts):
+        start = int(i * per_part_words)
+        end = int((i + 1) * per_part_words) if i < n_parts - 1 else len(words)
+        parts_text.append(" ".join(words[start:end]))
+    return parts_text
+
+
+async def regenerate_split_legenda_overlays(script: dict, language: str = "pt-BR") -> dict:
+    """Replace _parent_legenda_overlay markers with distinct LLM-generated variations.
+
+    For each group of sub-cenas sharing the same _split_parent_idx, calls
+    the LLM once to generate N distinct visual variations of the parent's
+    legenda_overlay (different angles, zooms, focal points). Updates each
+    sub-cena's `legenda_overlay` in place.
+
+    No-op if the script has no split sub-cenas (all _split_parent_idx absent).
+    """
+    cenas = script.get("cenas", [])
+    if not cenas:
+        return script
+
+    # Group sub-cenas by parent index
+    groups: dict[int, list[dict]] = {}
+    for cena in cenas:
+        parent = cena.get("_split_parent_idx")
+        if parent is None:
+            continue
+        groups.setdefault(parent, []).append(cena)
+
+    if not groups:
+        return script  # Nothing to do
+
+    client = _get_client()
+    new_script = deepcopy(script)
+    cena_lookup = {id(c): nc for c, nc in zip(cenas, new_script["cenas"])}
+
+    for parent_idx, sub_cenas in groups.items():
+        n_subs = len(sub_cenas)
+        parent_overlay = sub_cenas[0].get("_parent_legenda_overlay", "")
+        narracoes = [c.get("narracao", "") for c in sub_cenas]
+
+        if not parent_overlay:
+            continue
+
+        prompt = _build_variation_prompt(parent_overlay, narracoes, language)
+
+        logger.info(
+            f"Generating {n_subs} visual variations for split cena (parent={parent_idx})"
+        )
+
+        try:
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model=REELS_SCRIPT_MODEL,
+                contents=[prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema={
+                        "type": "OBJECT",
+                        "properties": {
+                            "variations": {
+                                "type": "ARRAY",
+                                "items": {"type": "STRING"},
+                            },
+                        },
+                        "required": ["variations"],
+                    },
+                ),
+            )
+            data = json.loads(response.text or "{}")
+            variations = data.get("variations", [])
+        except Exception as e:
+            logger.warning(
+                f"LLM variation generation failed for parent {parent_idx}: {e}"
+            )
+            variations = []
+
+        # Apply variations (or fall back to parent overlay)
+        for i, sub_cena in enumerate(sub_cenas):
+            variation = variations[i] if i < len(variations) else parent_overlay
+            new_cena = cena_lookup.get(id(sub_cena))
+            if new_cena is not None:
+                new_cena["legenda_overlay"] = variation
+
+    # Strip the internal markers — pipeline downstream doesn't need them
+    for c in new_script["cenas"]:
+        c.pop("_split_parent_idx", None)
+        c.pop("_split_sub_idx", None)
+        c.pop("_split_total", None)
+        c.pop("_parent_legenda_overlay", None)
+
+    return new_script
+
+
+def _build_variation_prompt(parent_overlay: str, narracoes: list[str], language: str) -> str:
+    """Build the LLM prompt that requests N distinct visual variations."""
+    n = len(narracoes)
+    narracao_block = "\n".join(f"  {i+1}. {n}" for i, n in enumerate(narracoes))
+
+    if language.startswith("pt"):
+        return (
+            f"Voce e um diretor de fotografia gerando descricoes visuais para "
+            f"um Reel do Instagram.\n\n"
+            f"Cenario base (cena original):\n{parent_overlay}\n\n"
+            f"Esta cena foi DIVIDIDA em {n} sub-cenas para manter o ritmo visual "
+            f"(2-4s por cena). Cada sub-cena tem sua propria narracao:\n{narracao_block}\n\n"
+            f"GERE {n} variacoes visuais DISTINTAS do cenario base, uma para cada sub-cena. "
+            f"Cada variacao deve:\n"
+            f"- Manter coerencia visual com o cenario base (mesmo lugar, atmosfera, paleta)\n"
+            f"- Variar angulo, enquadramento, foco ou detalhe (close-up, panorama, zoom em "
+            f"elemento especifico, profile, perspective)\n"
+            f"- Conectar com o conteudo da narracao da sub-cena correspondente\n"
+            f"- Ter 15-30 palavras\n"
+            f"- Ser auto-suficiente (descreve a cena visual completa)\n\n"
+            f"Retorne JSON com array \"variations\" de {n} strings, na mesma ordem das "
+            f"sub-cenas listadas acima."
+        )
+    elif language.startswith("es"):
+        return (
+            f"Eres un director de fotografia generando descripciones visuales para "
+            f"un Reel de Instagram.\n\n"
+            f"Escenario base (escena original):\n{parent_overlay}\n\n"
+            f"Esta escena fue DIVIDIDA en {n} sub-escenas para mantener el ritmo visual "
+            f"(2-4s por escena). Cada sub-escena tiene su propia narracion:\n{narracao_block}\n\n"
+            f"GENERA {n} variaciones visuales DISTINTAS del escenario base, una para cada "
+            f"sub-escena. Cada variacion debe:\n"
+            f"- Mantener coherencia visual con el escenario base\n"
+            f"- Variar angulo, encuadre, enfoque o detalle\n"
+            f"- Conectar con el contenido de la narracion de la sub-escena correspondiente\n"
+            f"- Tener 15-30 palabras\n\n"
+            f"Devuelve JSON con array \"variations\" de {n} strings."
+        )
+    else:
+        return (
+            f"You are a cinematographer generating visual descriptions for an "
+            f"Instagram Reel.\n\n"
+            f"Base scene:\n{parent_overlay}\n\n"
+            f"This scene was SPLIT into {n} sub-scenes to maintain visual rhythm "
+            f"(2-4s per scene). Each sub-scene has its own narration:\n{narracao_block}\n\n"
+            f"GENERATE {n} DISTINCT visual variations of the base scene, one per "
+            f"sub-scene. Each variation must:\n"
+            f"- Maintain visual coherence with the base scene (same location, atmosphere, palette)\n"
+            f"- Vary the angle, framing, focus or detail (close-up, panorama, zoom on "
+            f"specific element, profile, perspective)\n"
+            f"- Connect to the content of the corresponding sub-scene narration\n"
+            f"- Be 15-30 words\n"
+            f"- Be self-contained\n\n"
+            f"Return JSON with \"variations\" array of {n} strings, in the same order "
+            f"as sub-scenes listed above."
+        )
