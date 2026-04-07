@@ -4,3 +4,5 @@ export { shiftSubtitles, shiftAudio, getSceneTimeRange, subsInRange, subsOverlap
 export { reindexScenes } from "./time";
 export { snapFrame } from "./snap";
 export type { SnapTarget, SnapResult } from "./snap";
+export { validateEditorState, hasErrors } from "./validate";
+export type { ValidationIssue, ValidationSeverity } from "./validate";

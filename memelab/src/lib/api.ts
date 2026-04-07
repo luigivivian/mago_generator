@@ -1693,7 +1693,7 @@ export interface StepState {
   tts?: { path: string; approved: boolean; status?: string };
   srt?: { path: string; approved: boolean; status?: string };
   clips?: { status?: string; scenes?: SceneStatus[]; approved?: boolean };
-  video?: { path: string; approved: boolean; status?: string; scenes?: SceneStatus[] };
+  video?: { path: string; approved: boolean; status?: string; scenes?: SceneStatus[]; export_status?: "rendering" | "complete" | "failed"; export_error?: string };
   editor?: EditorPersistState;
   feedback_status?: "approved" | "posted" | null;
   posted_platforms?: string[];

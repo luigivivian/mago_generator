@@ -1,0 +1,207 @@
+"use client";
+
+// 999.12 D-14 .. D-17: pre-export validation + polling export progress.
+// Backend already writes step_state.video.export_status during the
+// _export_remotion_task background task — we just poll via the
+// existing useStepState SWR hook (2s refresh) and react to the field.
+
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, AlertTriangle, CheckCircle2, X, Download } from "lucide-react";
+import { useEditorStore } from "@/stores/editor-store";
+import { useStepState } from "@/hooks/use-reels";
+import { exportRemotion, reelFileUrl } from "@/lib/api";
+import { validateEditorState, hasErrors, type ValidationIssue } from "@/lib/editor";
+
+interface ExportModalProps {
+  open: boolean;
+  onClose: () => void;
+  jobId: string;
+}
+
+type Stage = "validating" | "ready" | "exporting" | "done" | "failed";
+
+export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
+  const scenes = useEditorStore((s) => s.scenes);
+  const subtitles = useEditorStore((s) => s.subtitles);
+  const audioItems = useEditorStore((s) => s.audioItems);
+  const { data: stepState } = useStepState(open ? jobId : null);
+
+  const issues = useMemo<ValidationIssue[]>(
+    () => (open ? validateEditorState(scenes, subtitles, audioItems) : []),
+    [open, scenes, subtitles, audioItems],
+  );
+  const hasErr = hasErrors(issues);
+
+  const [stage, setStage] = useState<Stage>("validating");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Reset stage when modal opens
+  useEffect(() => {
+    if (open) {
+      setStage("validating");
+      setErrorMsg(null);
+    }
+  }, [open]);
+
+  // After validation runs (issues memo settles), move to ready
+  useEffect(() => {
+    if (open && stage === "validating") {
+      setStage("ready");
+    }
+  }, [open, stage]);
+
+  // Watch for backend status changes once we've kicked off an export
+  useEffect(() => {
+    if (stage !== "exporting" || !stepState?.video) return;
+    const status = stepState.video.export_status;
+    if (status === "complete") {
+      setStage("done");
+    } else if (status === "failed") {
+      setErrorMsg(stepState.video.export_error ?? "Erro desconhecido durante render");
+      setStage("failed");
+    }
+  }, [stage, stepState]);
+
+  const handleExport = async () => {
+    setStage("exporting");
+    setErrorMsg(null);
+    try {
+      await exportRemotion(jobId);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setStage("failed");
+    }
+  };
+
+  if (!open) return null;
+
+  const errors = issues.filter((i) => i.severity === "error");
+  const warnings = issues.filter((i) => i.severity === "warning");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-card border border-border rounded-lg shadow-xl w-[480px] max-w-[95vw] max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="text-sm font-semibold">Exportar Video</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded hover:bg-accent text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {(stage === "validating" || stage === "ready") && (
+            <>
+              {issues.length === 0 ? (
+                <p className="text-sm text-green-400 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Tudo pronto para exportar.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {errors.map((issue, i) => (
+                    <li
+                      key={`e-${i}`}
+                      className="flex items-start gap-2 text-xs text-red-300"
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                  {warnings.map((issue, i) => (
+                    <li
+                      key={`w-${i}`}
+                      className="flex items-start gap-2 text-xs text-amber-300"
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 py-1.5 text-xs rounded border border-border hover:bg-accent"
+                >
+                  Cancelar
+                </button>
+                {!hasErr && (
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    className="px-3 py-1.5 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
+                  >
+                    {warnings.length > 0 ? "Exportar mesmo assim" : "Exportar"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {stage === "exporting" && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+              <p className="text-sm text-foreground">Renderizando video...</p>
+              <p className="text-xs text-muted-foreground">
+                Isso pode levar alguns minutos. Voce pode fechar e voltar mais tarde.
+              </p>
+            </div>
+          )}
+
+          {stage === "done" && (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <CheckCircle2 className="h-8 w-8 text-green-400" />
+              <p className="text-sm text-foreground">Pronto!</p>
+              {stepState?.video?.path && (
+                <a
+                  href={reelFileUrl(jobId, "editor-export.mp4")}
+                  download
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
+                >
+                  <Download className="h-3.5 w-3.5" /> Baixar video
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
+
+          {stage === "failed" && (
+            <div className="flex flex-col items-center gap-3 py-6">
+              <AlertTriangle className="h-8 w-8 text-red-400" />
+              <p className="text-sm text-red-300">Erro na exportacao</p>
+              {errorMsg && (
+                <p className="text-xs text-muted-foreground max-w-[400px] text-center break-words">
+                  {errorMsg}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 text-xs rounded border border-border hover:bg-accent"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

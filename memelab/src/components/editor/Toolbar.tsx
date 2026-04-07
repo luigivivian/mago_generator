@@ -26,7 +26,7 @@ import type { SafePlatform } from "./SafeZoneOverlay";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
 import { EDITOR_FPS } from "@/stores/editor-types";
-import { exportRemotion } from "@/lib/api";
+import { ExportModal } from "./ExportModal";
 
 interface ToolbarProps {
   playerRef: React.RefObject<PlayerRef | null>;
@@ -125,7 +125,8 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
   const jobId = params.jobId;
   const { undo, redo, canUndo, canRedo } = useUndoRedo();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  // 999.12 D-14: ExportModal handles validation + polling
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   // Use scenes count to re-run effect after Player mounts with data
   const scenesCount = useEditorStore((s) => s.scenes.length);
 
@@ -152,15 +153,9 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
     playerRef.current?.toggle();
   }, [playerRef]);
 
-  const handleExport = useCallback(async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      await exportRemotion(jobId);
-    } finally {
-      setExporting(false);
-    }
-  }, [jobId, exporting]);
+  const handleExport = useCallback(() => {
+    setExportModalOpen(true);
+  }, []);
 
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-2 bg-background shrink-0">
@@ -290,17 +285,18 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
       <button
         type="button"
         onClick={handleExport}
-        disabled={exporting}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm text-white font-medium"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-700 text-sm text-white font-medium"
         title="Exportar video"
       >
-        {exporting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Download className="h-4 w-4" />
-        )}
+        <Download className="h-4 w-4" />
         Exportar
       </button>
+
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        jobId={jobId}
+      />
     </div>
   );
 }
