@@ -233,20 +233,31 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
     """Map each script cena to a contiguous span of Gemini SRT chunks.
 
     Returns Gemini's raw SRT unchanged plus a per-cena span mapping built by
-    text-matching each cena.narracao against contiguous SRT chunks via
-    difflib similarity. The chunks themselves remain the authoritative
-    subtitles (real word-level timestamps), so the returned SRT is byte-for-byte
-    equal to the input. Each scene_timings entry has shape:
+    locating each cena.narracao inside script.narracao_completa via character
+    offset, then proportionally mapping the char range to audio time, and
+    finally snapping to the nearest SRT chunk boundaries so spans align to
+    real word-level timestamps. The chunks themselves remain authoritative
+    subtitles, so the returned SRT is byte-for-byte equal to the input.
+
+    Why character offset, not text matching against chunks: cena.narracao
+    only covers the narrative portion of the audio (~58%). The other 42%
+    is hook + cenário + lição + CTA — text that exists in narracao_completa
+    and the audio, but is NOT in any individual cena. A pure chunk-walking
+    matcher gets stuck on those preamble/suffix chunks because they don't
+    match any cena. Mapping from char offsets in narracao_completa avoids
+    that entirely: we know exactly where each cena lives in the audio text,
+    map that position to time proportionally, then snap to chunks.
+
+    Each scene_timings entry has shape:
         {index: int, start: float, end: float, duration: float, narracao: str}
-    Spans are monotonic and the last cena claims any leftover trailing chunks.
+    Spans are monotonic. Cenas not found in narracao_completa fall back to
+    proportional uniform distribution over the leftover time.
     """
     cenas = script.get("cenas", [])
     if not cenas:
         return (srt_text, [])
 
-    narracoes = [c.get("narracao", "") for c in cenas if c.get("narracao", "").strip()]
-    if not narracoes:
-        return (srt_text, [])
+    narracao_completa = (script.get("narracao_completa") or "").strip()
 
     # Parse SRT entries (do NOT mutate srt_text — parsing is read-only)
     blocks = srt_text.strip().split("\n\n")
@@ -270,78 +281,119 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
     if not entries:
         return (srt_text, [])
 
-    def _normalize(s: str) -> str:
-        s = s.lower()
-        s = re.sub(r"[^\w\s]", " ", s)
-        return " ".join(s.split())
+    audio_start = entries[0]["start"]
+    audio_end = entries[-1]["end"]
+    audio_duration = max(audio_end - audio_start, 0.1)
+
+    def _snap_to_chunk_start(target_time: float) -> float:
+        """Snap a target time to the nearest SRT chunk's start timestamp."""
+        best = entries[0]["start"]
+        best_dist = abs(best - target_time)
+        for e in entries:
+            d = abs(e["start"] - target_time)
+            if d < best_dist:
+                best = e["start"]
+                best_dist = d
+        return best
+
+    def _snap_to_chunk_end(target_time: float) -> float:
+        """Snap a target time to the nearest SRT chunk's end timestamp."""
+        best = entries[-1]["end"]
+        best_dist = abs(best - target_time)
+        for e in entries:
+            d = abs(e["end"] - target_time)
+            if d < best_dist:
+                best = e["end"]
+                best_dist = d
+        return best
 
     scene_timings: list[dict] = []
-    entry_idx = 0
-    n_narracoes = len(narracoes)
 
-    for i, cena_narracao in enumerate(narracoes):
-        if entry_idx >= len(entries):
-            # No chunks left to claim — skip silently; downstream consumers
-            # see len(scene_timings) < n_narracoes and can warn.
-            continue
-
-        span_start_idx = entry_idx
-        is_last = (i == n_narracoes - 1)
-        claimed_text = ""
-        ratio = 0.0
-        target = _normalize(cena_narracao)
-
-        while entry_idx < len(entries):
-            claimed_text = (claimed_text + " " + entries[entry_idx]["text"]).strip()
-            entry_idx += 1
-            ratio = difflib.SequenceMatcher(None, _normalize(claimed_text), target).ratio()
-            if is_last:
-                # Last cena claims all remaining entries.
+    if narracao_completa:
+        # ── Character-offset path: precise mapping via narracao_completa ──
+        total_chars = len(narracao_completa)
+        char_spans: list[tuple[int, int, str]] = []  # (start, end, narracao)
+        cursor = 0
+        for cena in cenas:
+            n = (cena.get("narracao") or "").strip()
+            if not n:
                 continue
-            if ratio >= _REELS_ALIGN_SIMILARITY and entry_idx > span_start_idx:
-                break
+            pos = narracao_completa.find(n, cursor)
+            if pos < 0:
+                # Try fuzzy fallback: find via first 20 chars (handles minor TTS
+                # paraphrasing). If still missing, skip — will be filled by gap
+                # interpolation below.
+                hint = n[:20]
+                pos = narracao_completa.find(hint, cursor) if hint else -1
+            if pos < 0:
+                char_spans.append((-1, -1, n))
+                continue
+            end_pos = pos + len(n)
+            char_spans.append((pos, end_pos, n))
+            cursor = end_pos
 
-        # Sentence snap (only if not last and there are more entries to peek):
-        # if the claimed span doesn't end on .!? and extending one more chunk
-        # doesn't drop similarity below threshold - 0.05, take the next chunk.
-        if not is_last and entry_idx < len(entries):
-            last_claimed_text = entries[entry_idx - 1]["text"].rstrip()
-            if last_claimed_text and last_claimed_text[-1] not in ".!?":
-                trial_text = (claimed_text + " " + entries[entry_idx]["text"]).strip()
-                trial_ratio = difflib.SequenceMatcher(
-                    None, _normalize(trial_text), target
-                ).ratio()
-                if trial_ratio >= _REELS_ALIGN_SIMILARITY - 0.05:
-                    claimed_text = trial_text
-                    entry_idx += 1
-                    ratio = trial_ratio
+        # Fill missing spans by interpolating between known neighbours so the
+        # final timeline still has 12 entries (one per cena).
+        for i, (s, e, n) in enumerate(char_spans):
+            if s >= 0:
+                continue
+            # Find nearest known neighbours
+            prev_end = 0
+            next_start = total_chars
+            for j in range(i - 1, -1, -1):
+                if char_spans[j][1] >= 0:
+                    prev_end = char_spans[j][1]
+                    break
+            for j in range(i + 1, len(char_spans)):
+                if char_spans[j][0] >= 0:
+                    next_start = char_spans[j][0]
+                    break
+            slot = max(1, (next_start - prev_end) // max(1, sum(
+                1 for k in range(i, len(char_spans))
+                if k == i or char_spans[k][0] < 0
+            )))
+            char_spans[i] = (prev_end, prev_end + slot, n)
 
-        if not is_last and ratio < _REELS_ALIGN_SIMILARITY:
-            logger.warning(
-                f"Cena {i} similarity {ratio:.2f} below threshold "
-                f"{_REELS_ALIGN_SIMILARITY}, alignment may be loose"
-            )
-
-        # Always claim at least one chunk (entry_idx > span_start_idx is guaranteed
-        # by the while loop body unless entries was already exhausted on entry —
-        # handled by the early continue above).
-        if entry_idx == span_start_idx:
-            continue
-
-        last_claimed = entry_idx - 1
-        scene_timings.append({
-            "index": i,
-            "start": round(entries[span_start_idx]["start"], 3),
-            "end": round(entries[last_claimed]["end"], 3),
-            "duration": round(
-                entries[last_claimed]["end"] - entries[span_start_idx]["start"], 3
-            ),
-            "narracao": cena_narracao,
-        })
+        for i, (cs, ce, n) in enumerate(char_spans):
+            time_start = audio_start + (cs / total_chars) * audio_duration
+            time_end = audio_start + (ce / total_chars) * audio_duration
+            snapped_start = _snap_to_chunk_start(time_start)
+            snapped_end = _snap_to_chunk_end(time_end)
+            # Enforce monotonic and minimum 0.5s
+            if scene_timings and snapped_start < scene_timings[-1]["end"]:
+                snapped_start = scene_timings[-1]["end"]
+            if snapped_end < snapped_start + 0.5:
+                snapped_end = snapped_start + 0.5
+            scene_timings.append({
+                "index": i,
+                "start": round(snapped_start, 3),
+                "end": round(snapped_end, 3),
+                "duration": round(snapped_end - snapped_start, 3),
+                "narracao": n,
+            })
+    else:
+        # ── Fallback: uniform distribution when narracao_completa is missing ──
+        narracoes = [
+            (c.get("narracao") or "").strip() for c in cenas if (c.get("narracao") or "").strip()
+        ]
+        if not narracoes:
+            return (srt_text, [])
+        slot = audio_duration / len(narracoes)
+        for i, n in enumerate(narracoes):
+            t_start = audio_start + i * slot
+            t_end = audio_start + (i + 1) * slot
+            scene_timings.append({
+                "index": i,
+                "start": round(_snap_to_chunk_start(t_start), 3),
+                "end": round(_snap_to_chunk_end(t_end), 3),
+                "duration": round(slot, 3),
+                "narracao": n,
+            })
 
     logger.info(
-        f"SRT aligned with script: {len(scene_timings)} cenas mapped, "
-        f"raw SRT preserved ({len(entries)} chunks)"
+        f"SRT aligned with script: {len(scene_timings)} cenas mapped via "
+        f"{'char-offset' if narracao_completa else 'uniform fallback'}, "
+        f"raw SRT preserved ({len(entries)} chunks, audio={audio_duration:.1f}s)"
     )
     return (srt_text, scene_timings)
 
