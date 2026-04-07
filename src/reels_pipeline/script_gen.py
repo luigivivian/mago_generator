@@ -528,31 +528,32 @@ async def generate_script(
     else:
         hook_type_instruction = ""
 
-    # Select language-appropriate system prompt template
-    prompt_template = _SYSTEM_PROMPTS.get(language)
-    if prompt_template:
-        system_prompt = prompt_template.format(
-            tom=tom,
-            duracao=duracao,
-            nicho=nicho,
-            keywords=keywords or ("nenhuma" if language.startswith("pt") else "none"),
-            cta=cta,
-            image_instruction=image_instruction,
-            cena_instruction=cena_instruction,
-            hook_type_instruction=hook_type_instruction,
-        )
-    else:
-        system_prompt = _SYSTEM_PROMPT_FALLBACK.format(
-            language=language,
-            tom=tom,
-            duracao=duracao,
-            nicho=nicho,
-            keywords=keywords or "none",
-            cta=cta,
-            image_instruction=image_instruction,
-            cena_instruction=cena_instruction,
-            hook_type_instruction=hook_type_instruction,
-        )
+    # Select language-appropriate system prompt template (skip if bible mode already set it)
+    if not bible_config:
+        prompt_template = _SYSTEM_PROMPTS.get(language)
+        if prompt_template:
+            system_prompt = prompt_template.format(
+                tom=tom,
+                duracao=duracao,
+                nicho=nicho,
+                keywords=keywords or ("nenhuma" if language.startswith("pt") else "none"),
+                cta=cta,
+                image_instruction=image_instruction,
+                cena_instruction=cena_instruction,
+                hook_type_instruction=hook_type_instruction,
+            )
+        else:
+            system_prompt = _SYSTEM_PROMPT_FALLBACK.format(
+                language=language,
+                tom=tom,
+                duracao=duracao,
+                nicho=nicho,
+                keywords=keywords or "none",
+                cta=cta,
+                image_instruction=image_instruction,
+                cena_instruction=cena_instruction,
+                hook_type_instruction=hook_type_instruction,
+            )
     system_prompt += character_section
 
     # Build content parts
@@ -574,7 +575,7 @@ async def generate_script(
             f"Idioma: {language}\n"
             f"Crie o roteiro completo para este Reel.\n"
             f"IMPORTANTE: Em cada cena, o campo 'legenda_overlay' deve descrever detalhadamente "
-            f"o cenario visual, objetos, acoes e ambiente da cena (ex: 'mago meditando em montanha ao amanhecer', "
+            f"o cenario visual, objetos, acoes e ambiente da cena (ex: 'personagem meditando em montanha ao amanhecer', "
             f"'pessoa servindo cafe em cozinha moderna', 'close no rosto com expressao de surpresa'). "
             f"Esse campo sera usado diretamente como prompt para gerar a imagem da cena. "
             f"Quanto mais descritivo e visual, melhor a imagem gerada."
