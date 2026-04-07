@@ -285,28 +285,6 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
     audio_end = entries[-1]["end"]
     audio_duration = max(audio_end - audio_start, 0.1)
 
-    def _snap_to_chunk_start(target_time: float) -> float:
-        """Snap a target time to the nearest SRT chunk's start timestamp."""
-        best = entries[0]["start"]
-        best_dist = abs(best - target_time)
-        for e in entries:
-            d = abs(e["start"] - target_time)
-            if d < best_dist:
-                best = e["start"]
-                best_dist = d
-        return best
-
-    def _snap_to_chunk_end(target_time: float) -> float:
-        """Snap a target time to the nearest SRT chunk's end timestamp."""
-        best = entries[-1]["end"]
-        best_dist = abs(best - target_time)
-        for e in entries:
-            d = abs(e["end"] - target_time)
-            if d < best_dist:
-                best = e["end"]
-                best_dist = d
-        return best
-
     scene_timings: list[dict] = []
 
     if narracao_completa:
@@ -354,21 +332,60 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
             )))
             char_spans[i] = (prev_end, prev_end + slot, n)
 
-        for i, (cs, ce, n) in enumerate(char_spans):
-            time_start = audio_start + (cs / total_chars) * audio_duration
-            time_end = audio_start + (ce / total_chars) * audio_duration
-            snapped_start = _snap_to_chunk_start(time_start)
-            snapped_end = _snap_to_chunk_end(time_end)
-            # Enforce monotonic and minimum 0.5s
-            if scene_timings and snapped_start < scene_timings[-1]["end"]:
-                snapped_start = scene_timings[-1]["end"]
-            if snapped_end < snapped_start + 0.5:
-                snapped_end = snapped_start + 0.5
+        # Compute spans that cover the ENTIRE audio with no gaps. Strategy:
+        # use natural char-anchored centers for each cena (where its narracao
+        # text actually begins in narracao_completa), then set boundaries to
+        # the MIDPOINT between adjacent centers. First cena starts at 0,
+        # last cena ends at audio_end. This distributes preamble/suffix
+        # proportionally — preamble splits between cena 0 and cena 1 based
+        # on where they sit in the audio, not all dumped on cena 0.
+        n_cenas = len(char_spans)
+        anchored_centers: list[float] = []
+        for i, (cs, ce, _n) in enumerate(char_spans):
+            # Use the MIDPOINT of each cena's char span as the anchor center.
+            char_mid = (cs + ce) / 2
+            time_center = audio_start + (char_mid / total_chars) * audio_duration
+            anchored_centers.append(time_center)
+
+        for i, (_cs, _ce, n) in enumerate(char_spans):
+            # Boundary on the LEFT = midpoint between this cena's center and
+            # the previous one. For cena 0, boundary is audio_start.
+            if i == 0:
+                t_start = audio_start
+            else:
+                t_start = (anchored_centers[i - 1] + anchored_centers[i]) / 2
+            # Boundary on the RIGHT = midpoint between this cena's center
+            # and the next one. For the last cena, boundary is audio_end.
+            if i == n_cenas - 1:
+                t_end = audio_end
+            else:
+                t_end = (anchored_centers[i] + anchored_centers[i + 1]) / 2
+
+            # Force first/last cena to true audio bounds.
+            if i == 0:
+                t_start = audio_start
+            if i == n_cenas - 1:
+                t_end = audio_end
+            # Round to 3 decimals up front so comparisons against stored
+            # (already-rounded) previous values are consistent.
+            t_start = round(t_start, 3)
+            t_end = round(t_end, 3)
+            # Enforce monotonic and minimum 0.5s.
+            if scene_timings and t_start < scene_timings[-1]["end"]:
+                t_start = scene_timings[-1]["end"]
+            if t_end < t_start + 0.5:
+                t_end = round(t_start + 0.5, 3)
+            # Patch the previous cena's end to match this cena's start (no gaps).
+            if scene_timings and scene_timings[-1]["end"] != t_start:
+                scene_timings[-1]["end"] = t_start
+                scene_timings[-1]["duration"] = round(
+                    scene_timings[-1]["end"] - scene_timings[-1]["start"], 3
+                )
             scene_timings.append({
                 "index": i,
-                "start": round(snapped_start, 3),
-                "end": round(snapped_end, 3),
-                "duration": round(snapped_end - snapped_start, 3),
+                "start": t_start,
+                "end": t_end,
+                "duration": round(t_end - t_start, 3),
                 "narracao": n,
             })
     else:
@@ -384,8 +401,8 @@ def align_srt_with_script(srt_text: str, script: dict) -> tuple[str, list[dict]]
             t_end = audio_start + (i + 1) * slot
             scene_timings.append({
                 "index": i,
-                "start": round(_snap_to_chunk_start(t_start), 3),
-                "end": round(_snap_to_chunk_end(t_end), 3),
+                "start": round(t_start, 3),
+                "end": round(t_end, 3),
                 "duration": round(slot, 3),
                 "narracao": n,
             })

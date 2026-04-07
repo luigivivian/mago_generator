@@ -187,23 +187,46 @@ def test_realistic_three_cenas_get_three_entries():
     )
 
 
-def test_realistic_cenas_dont_claim_preamble():
-    """First cena should start AFTER the preamble (hook + setting), not at 0s.
-    Cena 0's text appears at chunk 4 (~6.0s), so its span should start near
-    that — definitely not at 0.0s."""
+def test_realistic_first_cena_absorbs_preamble():
+    """First cena MUST start at audio_start (0.0), absorbing the hook+setting
+    chunks. Without this the editor timeline has a gap at the beginning where
+    audio plays but no clip is shown — desyncs the entire reel."""
     _, scene_timings = align_srt_with_script(FIXTURE_REAL_SRT, FIXTURE_REAL_SCRIPT)
-    assert scene_timings[0]["start"] >= 4.0, (
-        f"first cena should start after preamble (>= 4.0s), got {scene_timings[0]['start']}"
+    assert scene_timings[0]["start"] == 0.0, (
+        f"first cena must absorb preamble and start at 0.0, got {scene_timings[0]['start']}"
     )
 
 
-def test_realistic_cenas_dont_claim_suffix():
-    """Last cena's narracao is 'Deus separou as aguas.' which appears at
-    chunk 6 (~10-12s). Suffix chunks 7 and 8 (lesson + CTA) should NOT be
-    inside any cena span."""
+def test_realistic_last_cena_absorbs_suffix():
+    """Last cena MUST end at audio_end, absorbing the lesson/CTA chunks.
+    Without this the audio keeps playing after the last clip ends and the
+    editor freezes the last frame for several seconds."""
     _, scene_timings = align_srt_with_script(FIXTURE_REAL_SRT, FIXTURE_REAL_SCRIPT)
-    assert scene_timings[-1]["end"] <= 14.0, (
-        f"last cena should not claim lesson/CTA chunks, end={scene_timings[-1]['end']}"
+    assert scene_timings[-1]["end"] == 16.0, (
+        f"last cena must absorb suffix and end at 16.0 (audio_end), "
+        f"got {scene_timings[-1]['end']}"
+    )
+
+
+def test_realistic_no_gaps_between_cenas():
+    """Spans must be contiguous: cena[i+1].start == cena[i].end. Any gap
+    between cenas creates a moment where the editor has no clip to display."""
+    _, scene_timings = align_srt_with_script(FIXTURE_REAL_SRT, FIXTURE_REAL_SCRIPT)
+    for i in range(len(scene_timings) - 1):
+        assert scene_timings[i + 1]["start"] == scene_timings[i]["end"], (
+            f"gap between cena {i} (ends {scene_timings[i]['end']}) and "
+            f"cena {i+1} (starts {scene_timings[i+1]['start']})"
+        )
+
+
+def test_realistic_total_duration_equals_audio_duration():
+    """Sum of cena durations must equal the audio duration (no gaps, no
+    overlaps). This is the contract the editor depends on for sync."""
+    _, scene_timings = align_srt_with_script(FIXTURE_REAL_SRT, FIXTURE_REAL_SCRIPT)
+    total = sum(st["duration"] for st in scene_timings)
+    audio_duration = 16.0  # Fixture B audio: 0.0 → 16.0
+    assert abs(total - audio_duration) < 0.01, (
+        f"sum of cena durations ({total}s) does not equal audio duration ({audio_duration}s)"
     )
 
 
