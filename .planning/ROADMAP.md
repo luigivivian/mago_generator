@@ -153,3 +153,25 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
+
+### Phase 999.13: Editor audio × subtitle × scene sync via temporal anchors (BACKLOG)
+
+**Goal:** Optimize automatic audio/subtitle/scene synchronization in the editor so the final video is tightly aligned and doesn't feel slow. Currently the final video drags and subtitles drift off their audio during auto-assembly — the user has to edit manually to fix.
+
+**Symptoms observed (2026-04-07, job 8303e35e26e9411b):**
+- Final video paced too slowly (scenes stay on screen longer than their narration warrants)
+- Subtitles don't land on the audio they correspond to after auto-assembly
+- Narration, scenes, and subtitles feel like they're on independent timelines instead of one coherent story
+
+**Requirements:**
+- Introduce a shared temporal anchor model: every scene, narration segment, and subtitle entry references the same set of timestamps derived from a single source of truth (likely the word-level transcription output)
+- Scene durations should derive from narration anchors, not from the script's `duracao_segundos` hint (which is a pre-TTS estimate, not reality)
+- Subtitles align to actual TTS word timings (from Whisper/transcription step) instead of the pre-TTS script
+- Auto-assembly step must enforce: `sum(scene.duration) == sum(narration.duration) == last_subtitle.end` (no drift)
+- Preserve manual-edit overrides: once the user touches a scene/subtitle in the editor, auto-sync should not clobber it
+- Consider whether scene boundaries should SNAP to sentence boundaries in the transcription (so a scene never cuts mid-sentence)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
