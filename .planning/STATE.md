@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
 status: Ready to execute
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-04-08T23:13:37.133Z"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-04-08T23:19:57.801Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 22 (Per-Cena TTS Anchoring) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 
 ## Progress
 
@@ -70,6 +70,7 @@ Plan: 2 of 5
 - Trend: v3.0 shipped 2026-04-07
 
 | Phase 22 P01 | 3min | 2 tasks | 2 files |
+| Phase 22 P02 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ Plan: 2 of 5
 
 - [Phase 22-01]: Wave 0 xfail stubs -- all 11 tests created as xfail, later waves flip to active as features land
 - [Phase 22-01]: Monkeypatch target: src.llm_client._get_client (source module) per plan spec -- may need adjustment in Wave 1 for from-import binding
+- [Phase 22-02]: Biblical clamp at lowest layer (generate_narration entry) before speed default computation -- all callers auto-inherit
+- [Phase 22-02]: classify_tts_error dispatches 400/403 as fail (non-retryable), 429/5xx/unknown as retry -- Plan 03 imports this
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -128,6 +131,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-08
-Last session: 2026-04-08T23:13:37.130Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-04-08T23:19:57.793Z
+Stopped at: Completed 22-02-PLAN.md
 Resume file: None

@@ -15,8 +15,8 @@
 - [ ] **TTS-02**: Cada arquivo per-cena tem sua duração medida via `ffprobe` imediatamente após a geração
 - [ ] **TTS-03**: Durações per-cena são persistidas em `step_state.tts.cenas[i].duration` (float segundos) junto com o path do arquivo
 - [ ] **TTS-04**: `narracao_completa` continua gerada (para compat com editor que mostra waveform único), mas é concatenada das cenas per-cena via ffmpeg, não gerada isoladamente
-- [ ] **TTS-05**: Quando `tone == "biblical"`, `speaking_rate` é forçado a `1.0` (remove a contradição entre style prompt "fale devagar" e default `1.35x`)
-- [ ] **TTS-06**: Falha de geração de uma cena específica não derruba a pipeline inteira — cena falhada é retentada com backoff, e se persistir é reportada com `cena_failed` no step_state para regen seletiva
+- [x] **TTS-05**: Quando `tone == "biblical"`, `speaking_rate` é forçado a `1.0` (remove a contradição entre style prompt "fale devagar" e default `1.35x`)
+- [x] **TTS-06**: Falha de geração de uma cena específica não derruba a pipeline inteira — cena falhada é retentada com backoff, e se persistir é reportada com `cena_failed` no step_state para regen seletiva
 
 ### Audio-Anchored Timing (clip trimming e SRT usando durações per-cena)
 
@@ -82,8 +82,8 @@
 | TTS-02 | Phase 22 | Pending |
 | TTS-03 | Phase 22 | Pending |
 | TTS-04 | Phase 22 | Pending |
-| TTS-05 | Phase 22 | Pending |
-| TTS-06 | Phase 22 | Pending |
+| TTS-05 | Phase 22 | Complete |
+| TTS-06 | Phase 22 | Complete |
 | TIMING-01 | Phase 23 | Pending |
 | TIMING-02 | Phase 23 | Pending |
 | TIMING-03 | Phase 23 | Pending |
