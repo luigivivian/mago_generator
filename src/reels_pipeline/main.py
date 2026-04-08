@@ -353,34 +353,216 @@ class ReelsPipeline:
         return script
 
     async def run_step_tts(
-        self, narration_text: str, job_dir: str
-    ) -> tuple[str, float]:
-        """Step 4: Generate TTS narration audio.
+        self,
+        script: dict,
+        job_dir: str,
+        *,
+        cena_indices: list[int] | None = None,
+        on_cena_update=None,
+    ) -> tuple[str, float, float, list[dict]]:
+        """Step 4: Per-cena TTS narration with bounded-parallel Gemini calls.
+
+        Phase 22 refactor. Replaces the single-call narracao_completa TTS
+        with one Gemini call per script.cenas[i]. Each per-cena WAV is
+        measured via ffprobe and persisted in cenas_meta. Per-cena files
+        are then bit-exact concatenated into audio.wav (editor compat,
+        D-07). Mirrors the structural pattern of run_step_video_kie.
 
         Args:
-            narration_text: Full narration text to synthesize.
-            job_dir: Job working directory (audio saved here).
+            script: Roteiro dict with cenas: [{narracao: str, ...}, ...].
+            job_dir: Job working directory.
+            cena_indices: Optional list of cena indices to (re)generate.
+                          None or empty = regenerate all cenas.
+                          Provided = selective retry; other cenas left
+                          intact if they have a file on disk already.
+            on_cena_update: Optional sync callback fired with the full
+                            cenas_meta list after each per-cena status
+                            transition.
 
         Returns:
-            Tuple of (audio_path, cost_usd).
-        """
-        from src.reels_pipeline.tts import estimate_tts_cost, generate_narration
+            (audio_path, total_duration_s, cost_usd, cenas_meta) where
+            cenas_meta is a list of dicts sorted by index ascending,
+            each with keys: index, narracao, path, duration, status,
+            failed (optional; set when failed=True), error (on failure).
 
+        Raises:
+            RuntimeError: when zero cenas succeed or the concat itself fails.
+        """
+        import asyncio
+
+        from src.reels_pipeline.tts import (
+            _concat_cena_wavs,
+            classify_tts_error,
+            estimate_tts_cost,
+            generate_narration,
+        )
+        from src.reels_pipeline.video_builder import get_video_duration
+
+        cenas = script.get("cenas") or []
+        if not cenas:
+            raise RuntimeError("run_step_tts: script has no cenas")
+
+        # D-08: per-cena files in audio/ subdir; concat at job_dir/audio.wav
+        per_cena_dir = os.path.join(job_dir, "audio")
+        os.makedirs(per_cena_dir, exist_ok=True)
         audio_path = os.path.join(job_dir, "audio.wav")
-        # Detect biblical tone from bible_config
+
+        # Detect biblical tone (also clamped inside generate_narration as
+        # belt-and-braces -- see tts.py D-11 clamp)
         tone = self.config.get("tone")
         if self.config.get("bible_config"):
             tone = "biblical"
-        await generate_narration(
-            text=narration_text,
-            output_path=audio_path,
-            voice=self.config.get("tts_voice"),
-            provider=self.config.get("tts_provider"),
-            speed=self.config.get("tts_speed"),
-            tone=tone,
+
+        # Initialize cenas_meta. For selective retry, preserve existing
+        # successful entries on disk; only the requested indices are reset
+        # to pending. (D-06)
+        target_indices = (
+            list(range(len(cenas)))
+            if not cena_indices
+            else sorted(set(cena_indices))
         )
-        cost_usd = estimate_tts_cost(narration_text)
-        return audio_path, cost_usd
+
+        cenas_meta: list[dict] = []
+        for i, cena in enumerate(cenas):
+            cena_path = os.path.join(per_cena_dir, f"cena_{i:03d}.wav")
+            if i in target_indices:
+                cenas_meta.append({
+                    "index": i,
+                    "narracao": cena.get("narracao", ""),
+                    "path": None,
+                    "duration": None,
+                    "status": "pending",
+                })
+            elif os.path.isfile(cena_path):
+                # Selective retry: preserve existing successful cena
+                try:
+                    existing_dur = get_video_duration(cena_path)
+                except Exception:
+                    existing_dur = None
+                cenas_meta.append({
+                    "index": i,
+                    "narracao": cena.get("narracao", ""),
+                    "path": cena_path,
+                    "duration": existing_dur,
+                    "status": "complete" if existing_dur else "pending",
+                })
+            else:
+                cenas_meta.append({
+                    "index": i,
+                    "narracao": cena.get("narracao", ""),
+                    "path": None,
+                    "duration": None,
+                    "status": "pending",
+                })
+
+        def _emit_update():
+            if on_cena_update is not None:
+                try:
+                    on_cena_update(list(cenas_meta))
+                except Exception as e:
+                    logger.warning("on_cena_update callback raised: %s", e)
+
+        def _update_cena(i: int, patch: dict):
+            cenas_meta[i].update(patch)
+            _emit_update()
+
+        # D-01: bounded-parallel via Semaphore(3)
+        semaphore = asyncio.Semaphore(3)
+
+        async def process_cena(i: int):
+            async with semaphore:
+                cena = cenas[i]
+                cena_narracao = cena.get("narracao", "")
+                cena_path = os.path.join(
+                    per_cena_dir, f"cena_{i:03d}.wav"
+                )
+                last_err: BaseException | None = None
+
+                # D-02: 3 attempts with exponential backoff (1s, 2s, 4s)
+                for attempt in range(3):
+                    _update_cena(i, {"status": "generating"})
+                    try:
+                        await generate_narration(
+                            text=cena_narracao,
+                            output_path=cena_path,
+                            voice=self.config.get("tts_voice"),
+                            provider=self.config.get("tts_provider"),
+                            speed=self.config.get("tts_speed"),
+                            tone=tone,
+                        )
+                        duration = get_video_duration(cena_path)
+                        _update_cena(i, {
+                            "status": "complete",
+                            "path": cena_path,
+                            "duration": duration,
+                        })
+                        return
+                    except Exception as e:
+                        last_err = e
+                        decision = classify_tts_error(e)
+                        if decision == "fail":
+                            logger.warning(
+                                "Cena %d: non-retryable error %s -- marking failed",
+                                i,
+                                type(e).__name__,
+                            )
+                            break
+                        if attempt < 2:
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+
+                err_msg = (
+                    f"{type(last_err).__name__}: {str(last_err)[:280]}"
+                    if last_err
+                    else "unknown failure"
+                )
+                _update_cena(i, {
+                    "status": "failed",
+                    "failed": True,
+                    "error": err_msg,
+                })
+
+        # Fan-out: only the target indices
+        await asyncio.gather(*[process_cena(i) for i in target_indices])
+
+        # D-09: bit-exact concat (only successful cenas)
+        successful = [
+            c for c in sorted(cenas_meta, key=lambda c: c["index"])
+            if c["status"] == "complete" and c.get("path") and c.get("duration")
+        ]
+
+        if not successful:
+            raise RuntimeError(
+                f"run_step_tts: all {len(target_indices)} target cenas failed"
+            )
+
+        try:
+            _concat_cena_wavs([c["path"] for c in successful], audio_path)
+        except Exception as concat_err:
+            logger.error("ffmpeg concat failed: %s", concat_err)
+            raise
+
+        # D-07: tts.duration is the ffprobe-measured concat (NOT the sum) so
+        # Phase 23 has two independent measurements to compare
+        total_duration = get_video_duration(audio_path)
+
+        # Cost: only successful cenas
+        cost_usd = sum(
+            estimate_tts_cost(c["narracao"]) for c in successful
+        )
+
+        n_failed = sum(1 for c in cenas_meta if c.get("failed"))
+        logger.info(
+            "TTS step complete: %d/%d cenas succeeded, %d failed, "
+            "concat=%s, total_duration=%.3fs",
+            len(successful),
+            len(cenas),
+            n_failed,
+            audio_path,
+            total_duration,
+        )
+
+        return audio_path, total_duration, cost_usd, cenas_meta
 
     async def run_step_srt(
         self, audio_path: str, job_dir: str, script: dict | None = None
@@ -1080,8 +1262,10 @@ class ReelsPipeline:
         _progress("script", 40)
 
         # Step 4 - TTS (40-60%)
-        narration_text = script.get("narracao_completa", "")
-        audio_path, tts_cost = await self.run_step_tts(narration_text, job_dir)
+        # Phase 22: per-cena TTS -- pass the full script, not narracao_completa
+        audio_path, _tts_dur, tts_cost, _cenas_meta = await self.run_step_tts(
+            script, job_dir
+        )
         cost_usd += tts_cost
         _progress("tts", 60)
 
