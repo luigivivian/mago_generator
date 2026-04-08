@@ -149,10 +149,15 @@ Plans:
 - Per-track mute/solo toggle
 - Subtitle style presets (save/apply)
 
-**Plans:** 0 plans
+**Plans:** 6/6 plans complete
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [x] 999.12-01-PLAN.md — Multi-select model + bulk ops + click-deselect
+- [x] 999.12-02-PLAN.md — Snap, nudge, auto-pause subtitle drag
+- [x] 999.12-03-PLAN.md — Per-clip volume + per-track mute/solo + zoom-to-fit
+- [x] 999.12-04-PLAN.md — Safe-zone overlay + resizable timeline panel
+- [x] 999.12-05-PLAN.md — Pre-export validation + export progress modal
+- [x] 999.12-06-PLAN.md — Subtitle style presets
 
 ### Phase 999.13: Editor audio × subtitle × scene sync via temporal anchors (BACKLOG)
 

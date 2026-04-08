@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2, ChevronDown, ChevronRight, RefreshCw, X } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { useSelectedScene, useSelectedSubtitle } from "@/hooks/use-editor";
 import { regenerateStep } from "@/lib/api";
 import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
+import { loadPresets, savePresets, addPreset, renamePreset, deletePreset, type SubtitlePreset } from "@/lib/editor";
 
 const VOICE_OPTIONS = [
   "Puck", "Aoede", "Charon", "Fenrir", "Kore", "Leda", "Orus", "Zephyr",
@@ -353,7 +354,115 @@ function SubtitlePanel() {
           onChange={(v) => updateSubtitle(subtitle.id, { position: { ...subtitle.position, y: v } })}
         />
       </Section>
+
+      <SubtitlePresetsSection
+        currentStyle={subtitle.style}
+        onApply={(style) => updateSubtitle(subtitle.id, { style })}
+      />
     </div>
+  );
+}
+
+// 999.12 D-21, D-22: subtitle style presets stored in localStorage
+function SubtitlePresetsSection({
+  currentStyle,
+  onApply,
+}: {
+  currentStyle: SubtitlePreset["style"];
+  onApply: (style: SubtitlePreset["style"]) => void;
+}) {
+  const [presets, setPresets] = useState<SubtitlePreset[]>([]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  useEffect(() => {
+    setPresets(loadPresets());
+  }, []);
+
+  const persist = (next: SubtitlePreset[]) => {
+    setPresets(next);
+    savePresets(next);
+  };
+
+  const handleSave = () => {
+    const next = addPreset(presets, currentStyle);
+    persist(next);
+  };
+
+  const handleDelete = (id: string) => {
+    persist(deletePreset(presets, id));
+  };
+
+  const handleRename = (id: string) => {
+    const trimmed = renameValue.trim();
+    if (trimmed) persist(renamePreset(presets, id, trimmed));
+    setRenamingId(null);
+    setRenameValue("");
+  };
+
+  return (
+    <Section title="Presets de estilo">
+      <button
+        type="button"
+        onClick={handleSave}
+        className="w-full text-xs px-2 py-1.5 rounded border border-border hover:bg-accent"
+      >
+        Salvar estilo atual como preset
+      </button>
+      {presets.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">
+          Nenhum preset salvo. Salve o estilo atual para reutilizar em outras legendas.
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {presets.map((p) => (
+            <li
+              key={p.id}
+              className="flex items-center gap-1 text-xs rounded border border-border bg-card px-2 py-1"
+            >
+              {renamingId === p.id ? (
+                <input
+                  type="text"
+                  value={renameValue}
+                  autoFocus
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={() => handleRename(p.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename(p.id);
+                    if (e.key === "Escape") {
+                      setRenamingId(null);
+                      setRenameValue("");
+                    }
+                  }}
+                  className="flex-1 bg-transparent outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onApply(p.style)}
+                  onDoubleClick={() => {
+                    setRenamingId(p.id);
+                    setRenameValue(p.name);
+                  }}
+                  className="flex-1 text-left truncate hover:text-purple-300"
+                  title="Clique para aplicar, duplo clique para renomear"
+                >
+                  {p.name}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDelete(p.id)}
+                className="text-muted-foreground hover:text-red-400 p-0.5"
+                title="Excluir preset"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   );
 }
 

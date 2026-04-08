@@ -6,3 +6,5 @@ export { snapFrame } from "./snap";
 export type { SnapTarget, SnapResult } from "./snap";
 export { validateEditorState, hasErrors } from "./validate";
 export type { ValidationIssue, ValidationSeverity } from "./validate";
+export { loadPresets, savePresets, addPreset, renamePreset, deletePreset } from "./presets";
+export type { SubtitlePreset } from "./presets";
