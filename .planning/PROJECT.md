@@ -8,12 +8,15 @@ Plataforma de geração e publicação automatizada de memes para Instagram. Pip
 
 - **v1.0** Auth, Rate Limiting & Gemini Image Fix — shipped 2026-03-24
 - **v2.0** Pipeline Simplification, Auto-Publicacao & Multi-Tenant — shipped 2026-04-01
+- **v3.0** Editor Polish & Cost Optimization — shipped 2026-04-07
 
 See `.planning/milestones/` for archived details.
 
-## Current State (updated 2026-04-01)
+## Current State (updated 2026-04-07)
 
-**v2.0 shipped.** 17 phases, 27 plans, 599 commits in 24 days. Full platform with meme pipeline, reels generation, product video ads, and business dashboard.
+**v3.0 shipped.** 8 phases, 25 plans. Production-grade in-browser video editor (Remotion + multi-track timeline + bug fixes + UX polish), economic Ken Burns mode that cuts reel costs ~70%, character-scoped navigation, biblical reels category, and a full Kie API credit system.
+
+**v2.0 baseline:** 17 phases, 27 plans, 599 commits. Full platform with meme pipeline, reels generation, product video ads, and business dashboard.
 
 **What's working:**
 - 9 trend agents feeding ~227+ events per run

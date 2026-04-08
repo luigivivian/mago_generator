@@ -1,5 +1,26 @@
 # Milestones
 
+## v3.0 Editor Polish & Cost Optimization (Shipped: 2026-04-07)
+
+**Phases completed:** 8 phases, 25 plans, 0 critical gaps
+
+**Key accomplishments:**
+
+- Phase 999.9: Full Kie API credit system — per-model pricing, balance management, logs page, admin top-up. Gates all Kie pipelines (video, reels, ads) with credit pre-check; deduct on success, refund on failure.
+- Phase 1000: Character-scoped navigation — sidebar selector that filters all 6 content surfaces (gallery, videos, reels, ads, themes, publishing) by character_slug. Persisted in localStorage. Includes "Todos os Personagens" override.
+- Phase 1001: Biblical reels category — new bible_config schema, biblical system prompts, frontend wizard with story selector + manual script mode, verse highlighting, full E2E test.
+- Phase 999.10: Production-grade in-browser video editor — Remotion-based with multi-track timeline (video/audio/legendas), drag-and-drop reorder, trim handles, properties panel, autosave, undo/redo, "Editar Video" entry from reels list. 8 plans landing the editor end-to-end.
+- Phase 999.11: 10 critical editor bugs — SRT fetch race, AudioContext leak on zoom, freezeFrame cascade shift, contentEditable text loss, duplicate subtitle IDs, trimScene clamp, autosave timer leak after unmount, context menu stale offset, duplicate playhead sync, video left-trim semantics. Pure functions extracted to lib/editor/ with vitest coverage.
+- Phase 999.12: Editor UX enhancements — multi-select with bulk ops, snap-to-edge/playhead with Alt-disable, arrow-key nudging, per-clip volume, per-track mute/solo, safe-zone overlay (TikTok/Instagram), zoom-to-fit, resizable timeline panel, export progress modal with polling, pre-export validation, subtitle style presets in localStorage.
+- Phase 999.13: Drift assertion in loadFromStepState (smoke alarm for upstream alignment regressions) + TTS config UI cleanup (default 1.35, range 0.8-1.6, real Gemini voice list). Root causes for the original "audio drift / slow TTS" complaint were already addressed in earlier commits 21a1831, 8957444, 392c0db, quick task 260407-2cj.
+- Phase 999.14: Economic asset mode — migration 030 with economic_mode column, ReelsConfig field, pipeline short-circuit that bypasses Kie API entirely and produces static clips, scene splitter bypass via effective_max=30s, frontend toggle with cost preview comparing dynamic vs economic, and Ken Burns motion in the Remotion Scene component (4 deterministic patterns indexed by scene.index, zoom 1.0..1.15 + ±5% pan). Cuts reel generation costs by ~70%.
+
+**Tech debt accepted:** Migration 030 must be applied via `alembic upgrade head`. No fresh UAT for 999.10-08 — verified-via-proxy through 999.11. Audio bulk-duplicate deferred. Some pure functions in lib/editor/ have no dedicated unit tests yet. Drift assertion is dev-only console.warn. Cost preview is approximate.
+
+**Audit:** [v3.0-MILESTONE-AUDIT.md](v3.0-MILESTONE-AUDIT.md)
+
+---
+
 ## v2.0 Pipeline Simplification, Auto-Publicacao & Multi-Tenant (Shipped: 2026-04-01)
 
 **Phases completed:** 8 phases, 27 plans, 53 tasks
