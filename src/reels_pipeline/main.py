@@ -411,6 +411,7 @@ class ReelsPipeline:
         from src.reels_pipeline.scene_splitter import (
             split_long_scenes_in_script,
             regenerate_split_legenda_overlays,
+            repair_shattered_script,
             SCENE_MAX_DURATION,
         )
 
@@ -446,6 +447,19 @@ class ReelsPipeline:
         scene_timings = None
         expanded_script = None
         if script and script.get("cenas"):
+            # Recovery: some legacy jobs persisted "shattered" scripts where
+            # consecutive cenas hold single words ("Sobre", "o", "abismo,"...)
+            # — output of an older splitter bug in _split_narration. Repair
+            # in place BEFORE alignment so the rest of the pipeline sees
+            # sensible multi-word cenas.
+            repaired = repair_shattered_script(script)
+            if repaired is not script:
+                logger.warning(
+                    f"run_step_srt: repaired shattered script — "
+                    f"{len(script['cenas'])} → {len(repaired['cenas'])} cenas"
+                )
+                script = repaired
+                expanded_script = repaired  # caller will persist
             with open(srt_path, "r", encoding="utf-8") as f:
                 srt_text = f.read()
             aligned, scene_timings = align_srt_with_script(srt_text, script)

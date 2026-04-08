@@ -157,8 +157,48 @@ def split_long_scenes_in_script(
             n_splits = max(1, int(duration / SCENE_MIN_DURATION))
             sub_dur = duration / n_splits
 
-        # Split the narration text proportionally by sentence/word boundaries
+        # Re-apply the word-budget cap AFTER SCENE_MIN_DURATION clamp —
+        # the clamp can push n_splits above the word budget, which would
+        # pathologically shatter the narration into 1-word sub-cenas.
+        n_splits = min(n_splits, max(1, word_count // SCENE_MIN_WORDS_PER_SUB))
+        if n_splits < 2:
+            # Word budget pushed us below 2 — pass through.
+            cena_copy = dict(orig_cena)
+            cena_copy["imagem_index"] = new_idx
+            cena_copy["duracao_segundos"] = round(duration, 2)
+            new_cenas.append(cena_copy)
+            new_timings.append({
+                "index": new_idx,
+                "start": timing["start"],
+                "end": timing["end"],
+                "duration": round(duration, 3),
+                "narracao": narracao_text or orig_cena.get("narracao", ""),
+            })
+            new_idx += 1
+            continue
+        sub_dur = duration / n_splits
+
+        # Split the narration text proportionally by sentence/word boundaries.
+        # _split_narration may cap n_splits further if the word budget is
+        # tight — respect whatever it returns.
         narration_chunks = _split_narration(narracao_text, n_splits)
+        if len(narration_chunks) != n_splits:
+            n_splits = len(narration_chunks)
+            sub_dur = duration / max(1, n_splits)
+        if n_splits < 2:
+            cena_copy = dict(orig_cena)
+            cena_copy["imagem_index"] = new_idx
+            cena_copy["duracao_segundos"] = round(duration, 2)
+            new_cenas.append(cena_copy)
+            new_timings.append({
+                "index": new_idx,
+                "start": timing["start"],
+                "end": timing["end"],
+                "duration": round(duration, 3),
+                "narracao": narracao_text or orig_cena.get("narracao", ""),
+            })
+            new_idx += 1
+            continue
 
         logger.info(
             f"Splitting cena {orig_idx} ({duration:.1f}s) into {n_splits} "
@@ -202,16 +242,115 @@ def split_long_scenes_in_script(
     return new_script, new_timings
 
 
+def repair_shattered_script(script: dict) -> dict:
+    """Detect and repair legacy "shattered" scripts where consecutive cenas
+    hold a single word each ("Sobre", "o", "abismo,"...).
+
+    This is the fingerprint of an older _split_narration bug that pathologically
+    split N-word sentences into N single-word sub-cenas. The current splitter
+    can't produce this shape anymore, but step_state JSON from legacy runs
+    still holds it — and every downstream align/split/image-gen step trips on
+    those one-word cenas.
+
+    Algorithm:
+    1. Scan for runs of ≥3 consecutive cenas where each has ≤1 word.
+    2. Merge each run into a single cena with the joined narration and the
+       summed duration, inheriting the first cena's imagem_index/legenda_overlay.
+    3. If no shattered runs are found, return the input script unchanged
+       (identity preserved, so callers can detect "no repair needed" via `is`).
+
+    Returns the repaired script dict (new object) or the original script (same
+    object) if no repair was needed.
+    """
+    cenas = script.get("cenas", [])
+    if not cenas:
+        return script
+
+    # First pass: locate runs of 1-word cenas
+    def wc(c: dict) -> int:
+        return len((c.get("narracao") or "").strip().split())
+
+    runs: list[tuple[int, int]] = []  # (start, end_exclusive)
+    i = 0
+    while i < len(cenas):
+        if wc(cenas[i]) <= 1:
+            j = i
+            while j < len(cenas) and wc(cenas[j]) <= 1:
+                j += 1
+            if j - i >= 3:
+                runs.append((i, j))
+            i = j
+        else:
+            i += 1
+
+    if not runs:
+        return script
+
+    new_script = deepcopy(script)
+    new_cenas: list[dict] = []
+    original = new_script["cenas"]
+    cursor = 0
+    for run_start, run_end in runs:
+        # Keep cenas before the run as-is
+        new_cenas.extend(original[cursor:run_start])
+        # Merge the shattered run into a single cena
+        merged_text = " ".join(
+            (c.get("narracao") or "").strip() for c in original[run_start:run_end]
+        ).strip()
+        merged_dur = sum(
+            float(c.get("duracao_segundos") or 0) for c in original[run_start:run_end]
+        )
+        template = dict(original[run_start])
+        template["narracao"] = merged_text
+        template["duracao_segundos"] = round(merged_dur, 2)
+        # Clean split lineage markers if present
+        for k in ("_split_parent_idx", "_split_sub_idx", "_split_total", "_parent_legenda_overlay"):
+            template.pop(k, None)
+        new_cenas.append(template)
+        cursor = run_end
+    # Tail after last run
+    new_cenas.extend(original[cursor:])
+
+    # Drop any completely empty cenas (0 words) as a belt-and-suspenders
+    new_cenas = [c for c in new_cenas if (c.get("narracao") or "").strip()]
+
+    # Reindex imagem_index sequentially
+    for k, c in enumerate(new_cenas):
+        c["imagem_index"] = k
+
+    new_script["cenas"] = new_cenas
+    logger.warning(
+        f"repair_shattered_script: {len(runs)} shattered run(s) merged — "
+        f"{len(cenas)} → {len(new_cenas)} cenas"
+    )
+    return new_script
+
+
 def _split_narration(text: str, n_parts: int) -> list[str]:
     """Split a narration string into N roughly-equal parts.
 
     Splits on sentence boundaries first, then word boundaries if a sentence
     needs to span multiple parts. Each part gets approximately the same
     word count.
+
+    Hard floor: each part must have at least SCENE_MIN_WORDS_PER_SUB words.
+    If `n_parts` is larger than `word_count // SCENE_MIN_WORDS_PER_SUB`, it
+    is capped so no sub-cena ends up with fewer than that many words.
+    This prevents the "one word per sub-cena" bug where asking for 7 sub-
+    cenas on a 7-word sentence used to return 7 single-word strings.
     """
     text = text.strip()
     if not text:
-        return [""] * n_parts
+        return [text]
+    if n_parts <= 1:
+        return [text]
+
+    word_count = len(text.split())
+    # Hard cap: never produce sub-cenas with < SCENE_MIN_WORDS_PER_SUB words.
+    # If the caller asked for more parts than the word budget allows, we
+    # return FEWER parts. The caller must handle len(result) < n_parts.
+    capped = max(1, word_count // SCENE_MIN_WORDS_PER_SUB)
+    n_parts = min(n_parts, capped)
     if n_parts <= 1:
         return [text]
 
@@ -228,15 +367,11 @@ def _split_narration(text: str, n_parts: int) -> list[str]:
             parts[slot].append(sent)
         return [" ".join(p) for p in parts]
 
-    # Fewer sentences than parts — fall back to word-based split
+    # Fewer sentences than parts — fall back to word-based split.
+    # word_count >= n_parts * SCENE_MIN_WORDS_PER_SUB is guaranteed by the
+    # cap above, so the pathological "pad with empty strings" case can't
+    # happen anymore.
     words = text.split()
-    if len(words) <= n_parts:
-        # Pathological case: pad with empty strings
-        out = words[:]
-        while len(out) < n_parts:
-            out.append("")
-        return out
-
     per_part_words = len(words) / n_parts
     parts_text: list[str] = []
     for i in range(n_parts):
