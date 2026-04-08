@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
 status: Ready to execute
-stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-04-08T23:19:57.801Z"
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-04-08T23:33:10.868Z"
 last_activity: 2026-04-08
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 22 (Per-Cena TTS Anchoring) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 
 ## Progress
 
@@ -71,6 +71,7 @@ Plan: 3 of 5
 
 | Phase 22 P01 | 3min | 2 tasks | 2 files |
 | Phase 22 P02 | 4min | 2 tasks | 2 files |
+| Phase 22 P03 | 9min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ Plan: 3 of 5
 - [Phase 22-01]: Monkeypatch target: src.llm_client._get_client (source module) per plan spec -- may need adjustment in Wave 1 for from-import binding
 - [Phase 22-02]: Biblical clamp at lowest layer (generate_narration entry) before speed default computation -- all callers auto-inherit
 - [Phase 22-02]: classify_tts_error dispatches 400/403 as fail (non-retryable), 429/5xx/unknown as retry -- Plan 03 imports this
+- [Phase 22-03]: Monkeypatch must also target tts module local binding (src.reels_pipeline.tts._get_client) because from-import creates local name that survives source-module patching
+- [Phase 22-03]: Route handler at reels.py:221 left on old run_step_tts signature -- Plan 04 owns that update, interactive TTS step broken until then
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -131,6 +134,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-08
-Last session: 2026-04-08T23:19:57.793Z
-Stopped at: Completed 22-02-PLAN.md
+Last session: 2026-04-08T23:33:10.862Z
+Stopped at: Completed 22-03-PLAN.md
 Resume file: None

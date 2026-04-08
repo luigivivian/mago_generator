@@ -11,10 +11,10 @@
 
 ### TTS Anchoring (per-cena audio generation)
 
-- [ ] **TTS-01**: `run_step_tts` gera um arquivo de áudio Gemini TTS por cena do roteiro (em vez de um único arquivo para `narracao_completa`)
-- [ ] **TTS-02**: Cada arquivo per-cena tem sua duração medida via `ffprobe` imediatamente após a geração
-- [ ] **TTS-03**: Durações per-cena são persistidas em `step_state.tts.cenas[i].duration` (float segundos) junto com o path do arquivo
-- [ ] **TTS-04**: `narracao_completa` continua gerada (para compat com editor que mostra waveform único), mas é concatenada das cenas per-cena via ffmpeg, não gerada isoladamente
+- [x] **TTS-01**: `run_step_tts` gera um arquivo de áudio Gemini TTS por cena do roteiro (em vez de um único arquivo para `narracao_completa`)
+- [x] **TTS-02**: Cada arquivo per-cena tem sua duração medida via `ffprobe` imediatamente após a geração
+- [x] **TTS-03**: Durações per-cena são persistidas em `step_state.tts.cenas[i].duration` (float segundos) junto com o path do arquivo
+- [x] **TTS-04**: `narracao_completa` continua gerada (para compat com editor que mostra waveform único), mas é concatenada das cenas per-cena via ffmpeg, não gerada isoladamente
 - [x] **TTS-05**: Quando `tone == "biblical"`, `speaking_rate` é forçado a `1.0` (remove a contradição entre style prompt "fale devagar" e default `1.35x`)
 - [x] **TTS-06**: Falha de geração de uma cena específica não derruba a pipeline inteira — cena falhada é retentada com backoff, e se persistir é reportada com `cena_failed` no step_state para regen seletiva
 
@@ -78,10 +78,10 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| TTS-01 | Phase 22 | Pending |
-| TTS-02 | Phase 22 | Pending |
-| TTS-03 | Phase 22 | Pending |
-| TTS-04 | Phase 22 | Pending |
+| TTS-01 | Phase 22 | Complete |
+| TTS-02 | Phase 22 | Complete |
+| TTS-03 | Phase 22 | Complete |
+| TTS-04 | Phase 22 | Complete |
 | TTS-05 | Phase 22 | Complete |
 | TTS-06 | Phase 22 | Complete |
 | TIMING-01 | Phase 23 | Pending |
