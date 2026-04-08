@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v4.0
-milestone_name: Pipeline Fidelity Refactor
-status: Roadmap defined
-stopped_at: Roadmap created for v4.0 — 5 phases (22-26), 26/26 requirements mapped
-last_updated: "2026-04-08T00:00:00.000Z"
-last_activity: 2026-04-08
+milestone_name: — Pipeline Fidelity Refactor
+status: planning
+stopped_at: Phase 22 context gathered
+last_updated: "2026-04-08T20:40:58.262Z"
+last_activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
-  current_phase: 22
 ---
 
 # Project State
@@ -69,6 +68,7 @@ Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
   | Phase 999.11 P03 | 6min | 2 tasks | 8 files |
   | Phase 999.11 P02 | 12min | 2 tasks | 7 files |
   | Phase quick-260407-2cj P01 | 5min | 3 tasks | 5 files |
+
 - Trend: v3.0 shipped 2026-04-07
 
 ## Accumulated Context
@@ -76,6 +76,7 @@ Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
 ### Roadmap Evolution
 
 **v4.0 (2026-04-08):**
+
 - Phase 22 (Per-Cena TTS Anchoring) is the architectural foundation — everything else consumes `tts.cenas[i].duration` as ground truth
 - Phase 23 directly consumes Phase 22 output (clip trimming, SRT, editor audio items)
 - Phase 24 (Script Schema v2) is independent of Phase 22/23 but blocks Phase 25 (needs image_prompt) and Phase 26 (needs mood field)
@@ -84,6 +85,7 @@ Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
 - Fine granularity (5 phases for 26 reqs) mirrors category boundaries without artificial splitting
 
 **v3.0 carry-over:**
+
 - Phase 999.9 added: Kie API credit system with per-model pricing, logs, and balance management
 - Phase 1000 added: Character-scoped navigation — sidebar selector scoping all content by selected character
 - Phase 1001 added: Biblical reels category — Gemini-generated faithful biblical narratives with AI/manual script options
@@ -123,6 +125,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-08
-Last session: 2026-04-08T00:00:00.000Z
-Stopped at: Roadmap v4.0 created — awaiting `/gsd:plan-phase 22`
-Resume file: None
+Last session: 2026-04-08T20:40:58.254Z
+Stopped at: Phase 22 context gathered
+Resume file: .planning/phases/22-per-cena-tts-anchoring/22-CONTEXT.md
