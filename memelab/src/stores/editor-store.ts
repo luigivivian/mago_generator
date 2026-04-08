@@ -183,6 +183,27 @@ export const useEditorStore = create<EditorState>()(
           selectedAudioId: null,
           playheadFrame: 0,
         });
+
+        // 999.13 D-04: drift smoke-alarm. Subtitles load asynchronously
+        // via the SRT fetch above (~few hundred ms), so we wait 1.5s
+        // before sampling. If sum(scene durations) and last subtitle end
+        // disagree by >0.5s, log a warning so future regressions surface.
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            const state = get();
+            if (state.scenes.length === 0 || state.subtitles.length === 0) return;
+            const totalSceneSec =
+              state.scenes.reduce((sum, s) => sum + s.durationInFrames, 0) / fps;
+            const lastSubEnd =
+              state.subtitles[state.subtitles.length - 1].endFrame / fps;
+            const drift = Math.abs(totalSceneSec - lastSubEnd);
+            if (drift > 0.5) {
+              console.warn(
+                `[editor:drift] sum(scene)=${totalSceneSec.toFixed(2)}s vs last_sub_end=${lastSubEnd.toFixed(2)}s (drift=${drift.toFixed(2)}s) — upstream alignment may be inconsistent`,
+              );
+            }
+          }, 1500);
+        }
       },
 
       loadFromEditorState: (editorState) => {

@@ -762,8 +762,10 @@ function ConfigPanel() {
   const { data: modelsData } = useReelsModels();
   const config = configs?.[0];
 
-  const [ttsVoice, setTtsVoice] = useState(config?.tts_voice ?? "nova");
-  const [ttsSpeed, setTtsSpeed] = useState(String(config?.tts_speed ?? 1.1));
+  // 999.13 D-08, D-09: align defaults with backend (Charon/1.35) and
+  // use Gemini voice list rather than the stale OpenAI options.
+  const [ttsVoice, setTtsVoice] = useState(config?.tts_voice ?? "Charon");
+  const [ttsSpeed, setTtsSpeed] = useState(String(config?.tts_speed ?? 1.35));
   const [imageCount, setImageCount] = useState(String(config?.image_count ?? 0));
   const [transitionType, setTransitionType] = useState(config?.transition_type ?? "fade");
   const [transitionDuration, setTransitionDuration] = useState(String(config?.transition_duration ?? 0.3));
@@ -813,16 +815,19 @@ function ConfigPanel() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Voz TTS</label>
+              <label className="text-xs text-muted-foreground">Voz TTS (Gemini)</label>
               <Select value={ttsVoice} onValueChange={setTtsVoice}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nova">Nova</SelectItem>
-                  <SelectItem value="shimmer">Shimmer</SelectItem>
-                  <SelectItem value="alloy">Alloy</SelectItem>
-                  <SelectItem value="echo">Echo</SelectItem>
-                  <SelectItem value="fable">Fable</SelectItem>
-                  <SelectItem value="onyx">Onyx</SelectItem>
+                  {/* Gemini voices used by the backend tts pipeline */}
+                  <SelectItem value="Charon">Charon</SelectItem>
+                  <SelectItem value="Puck">Puck</SelectItem>
+                  <SelectItem value="Kore">Kore</SelectItem>
+                  <SelectItem value="Fenrir">Fenrir</SelectItem>
+                  <SelectItem value="Aoede">Aoede</SelectItem>
+                  <SelectItem value="Leda">Leda</SelectItem>
+                  <SelectItem value="Orus">Orus</SelectItem>
+                  <SelectItem value="Zephyr">Zephyr</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -832,8 +837,8 @@ function ConfigPanel() {
               <input
                 type="range"
                 min="0.8"
-                max="1.5"
-                step="0.1"
+                max="1.6"
+                step="0.05"
                 value={ttsSpeed}
                 onChange={(e) => setTtsSpeed(e.target.value)}
                 className="w-full accent-purple-500"

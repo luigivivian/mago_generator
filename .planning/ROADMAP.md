@@ -178,10 +178,10 @@ Plans:
 - Consider whether scene boundaries should SNAP to sentence boundaries in the transcription (so a scene never cuts mid-sentence)
 - **Bump TTS default speed for a more energetic/engaging delivery** — current speed feels lethargic for short-form content. Check `tts_speed` default in `ReelsConfig` / `step_state.config` (currently likely 1.0) and raise to ~1.15–1.25. Expose as a per-job override in the config panel so user can dial it in per niche (bible/creation narratives may want slower, memes/trends want faster)
 
-**Plans:** 0 plans
+**Plans:** 1/1 plan complete
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [x] 999.13-01-PLAN.md — Drift assertion + TTS config UI cleanup (root causes addressed in earlier commits 21a1831, 8957444, 392c0db, 260407-2cj)
 
 ### Phase 999.14: Economic asset mode — Ken Burns + longer scenes to slash Kie costs (BACKLOG)
 
