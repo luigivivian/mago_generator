@@ -707,6 +707,11 @@ class ReelsConfig(TimestampMixin, Base):
     bg_music_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     bg_music_volume: Mapped[float] = mapped_column(Float, default=0.15, server_default="0.15")
 
+    # Phase 999.14: Economic asset mode (Ken Burns) — when true, the
+    # pipeline skips Kie API entirely and produces static clips, and
+    # the editor applies zoom/pan motion via Remotion interpolate.
+    economic_mode: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+
     # Subtitles
     subtitle_position: Mapped[str] = mapped_column(String(20), default="bottom", server_default="bottom")
     subtitle_font_size: Mapped[int] = mapped_column(Integer, default=12, server_default="12")

@@ -447,13 +447,20 @@ class ReelsPipeline:
             # Visual rhythm splitter: any cena longer than SCENE_MAX_DURATION
             # gets split into N sub-cenas of ~3s each. The expanded script has
             # more cenas (and more imagem_index slots) — caller persists it.
+            #
+            # Phase 999.14: in economic mode we WANT fewer, longer scenes
+            # so we raise the threshold to 30s, which effectively disables
+            # the splitter. The editor compensates with Ken Burns motion.
+            economic_mode = bool(self.config.get("economic_mode"))
+            effective_max = 30.0 if economic_mode else SCENE_MAX_DURATION
             has_long = any(
-                t.get("duration", 0) > SCENE_MAX_DURATION for t in (scene_timings or [])
+                t.get("duration", 0) > effective_max for t in (scene_timings or [])
             )
             if has_long:
                 language = self.config.get("script_language") or "pt-BR"
                 expanded_script, scene_timings = split_long_scenes_in_script(
                     script, scene_timings,
+                    max_duration=effective_max,
                 )
                 # Generate distinct visual variations via LLM
                 expanded_script = await regenerate_split_legenda_overlays(
@@ -604,8 +611,14 @@ class ReelsPipeline:
         target_duration = self.config.get("target_duration", 30)
         n = len(image_paths)
 
+        # Phase 999.14: economic mode — bypass Kie API entirely. Each scene
+        # becomes a static image clip; the editor applies Ken Burns motion
+        # at preview/render time. No Kie credits consumed.
+        economic_mode = bool(self.config.get("economic_mode"))
+
         # Credit total pre-check before starting any scene (Phase 999.9)
-        if user_id:
+        # Skipped in economic mode — no Kie API will be called.
+        if user_id and not economic_mode:
             from src.services.credit_service import CreditService, InsufficientCreditsError
             from src.database.session import get_session_factory as _get_sf
             cenas_for_cost = (script or {}).get("cenas", [])
@@ -643,6 +656,50 @@ class ReelsPipeline:
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
                 clip_path,
             ], capture_output=True, timeout=60)
+
+        # Phase 999.14: economic mode short-circuit. Produce static clips
+        # for every scene and skip the entire upload+create+poll loop. The
+        # editor will apply Ken Burns motion at preview/render time, so the
+        # static clips are intentional — they're just a stable base.
+        if economic_mode:
+            logger.info(
+                f"Economic mode: skipping Kie API for {n} scenes — generating static clips"
+            )
+            clip_paths: list[str] = []
+            for i, img_path in enumerate(image_paths):
+                cena = cenas[i] if i < len(cenas) else {}
+                clip_dur = _pick_scene_duration(cena, target_duration)
+                clip_path = os.path.join(clips_dir, f"clip_{i:02d}.mp4")
+                _make_static(img_path, clip_path, clip_dur)
+                _update_scene(i, {
+                    "status": "success",
+                    "clip_path": clip_path,
+                    "duration": clip_dur,
+                    "img_path": img_path,
+                    "static": True,
+                })
+                clip_paths.append(clip_path)
+
+            # Concat into the final video the same way as the dynamic path
+            video_path = os.path.join(job_dir, "final.mp4")
+            concat_clips_with_audio(
+                clip_paths=clip_paths,
+                audio_path=audio_path,
+                srt_path=srt_path,
+                output_path=video_path,
+                transition_duration=self.config.get("transition_duration", 0.3),
+                transition_type=self.config.get("transition_type", "fade"),
+                script_json=script,
+                config_override=self.config,
+                scene_timings=scene_timings,
+            )
+            expected_dur = sum(c.get("duracao_segundos", 5) for c in cenas) if cenas else 30
+            validation = _validate_video_duration(video_path, expected_dur)
+            logger.info(
+                f"Economic mode reel assembled: {video_path} from {len(clip_paths)} static clips "
+                f"(drift={validation.get('drift', '?')}s)"
+            )
+            return video_path
 
         # Phase 1: Upload images to GCS and build scene-aware motion prompts
         # Use unique GCS keys with timestamp to bust CDN cache when images are regenerated

@@ -136,6 +136,8 @@ class ReelsConfigRequest(BaseModel):
     transition_duration: Optional[float] = 0.5
     bg_music_enabled: Optional[bool] = False
     bg_music_volume: Optional[float] = 0.15
+    # Phase 999.14: economic mode (Ken Burns + skip Kie clips)
+    economic_mode: Optional[bool] = False
     subtitle_position: Optional[str] = "bottom"
     subtitle_font_size: Optional[int] = 52
     subtitle_color: Optional[str] = "#FFFFFF"
@@ -167,6 +169,8 @@ class ReelsConfigResponse(BaseModel):
     transition_duration: float = 0.5
     bg_music_enabled: bool = False
     bg_music_volume: float = 0.15
+    # Phase 999.14: economic mode (Ken Burns + skip Kie clips)
+    economic_mode: bool = False
     subtitle_position: str = "bottom"
     subtitle_font_size: int = 52
     subtitle_color: str = "#FFFFFF"
