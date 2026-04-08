@@ -8,4 +8,23 @@
 
 ## Backlog
 
-_Empty — promote items via /gsd:add-backlog or start the next milestone with /gsd:new-milestone._
+### Phase 999.15: Editor reels — per-scene config write-back to backend (BACKLOG)
+
+**Goal:** [Captured for future planning] Make `step_state.editor` authoritative so per-scene voice/speed sliders and trim/freeze/duration edits survive backend regenerations. Currently the editor is a read-mostly surface — edits in `PropertiesPanel` mutate the store but never flow back to `script.cenas` / `clips.scenes`, so `regenerateStep("tts")` and `regenerateStep("clips")` discard them.
+
+**Context:** Diagnosed but parked during v3.0 editor debug session. Full evidence in [.planning/debug/reels-editor-multi-bugs.md](debug/reels-editor-multi-bugs.md).
+- 4a: per-scene Voz/Velocidade sliders are decorative (regen-tts doesn't pass per-cena overrides)
+- 4b: trim/freeze/duration only affect in-browser Remotion preview, lost on regen
+
+**Requirements:** TBD
+- Backend regen endpoints read from `step_state.editor` when present
+- TTS pipeline accepts per-cena voice/speed overrides (not just global)
+- Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
+- Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
+
+**Plans:** 0 plans
+**Estimate:** ~1-2 days backend + frontend
+**Priority:** medium (current workaround: regen first, re-edit manually)
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
