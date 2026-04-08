@@ -2,6 +2,7 @@
 
 import logging
 import os
+import subprocess
 import wave
 
 from google.genai import types
@@ -215,3 +216,74 @@ def estimate_tts_cost(text: str) -> float:
     chars = len(text)
     minutes = chars / 150
     return minutes * 0.019 / 60
+
+
+# Phase 22: ffmpeg concat demuxer for bit-exact PCM WAV concatenation (D-09)
+# Verified locally bit-exact: 3 input files (24kHz mono 16-bit) -> output frame
+# count equals sum(input frames); MD5 of concat PCM payload equals MD5 of
+# joined input payloads. Per RESEARCH.md Standard Stack and Common Pitfalls #5.
+def _concat_cena_wavs(per_cena_paths: list[str], output_path: str) -> str:
+    """Bit-exact PCM WAV concatenation via ffmpeg concat demuxer (-c copy).
+
+    All input files MUST be identical format (24kHz mono 16-bit PCM WAV) --
+    which is what `_wrap_pcm_as_wav` produces. -c copy is zero re-encode.
+
+    Args:
+        per_cena_paths: ordered list of paths to per-cena WAV files
+        output_path: where to write the concatenated WAV (parent dir created)
+
+    Returns:
+        output_path on success
+
+    Raises:
+        ValueError: empty per_cena_paths
+        RuntimeError: ffmpeg subprocess failed (stderr included)
+    """
+    if not per_cena_paths:
+        raise ValueError("_concat_cena_wavs: empty per_cena_paths")
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+    # ffmpeg -f concat requires a list file (it has to read durations in a
+    # pre-scan pass). Write next to output, delete after the call.
+    list_path = output_path + ".concat.txt"
+    with open(list_path, "w", encoding="utf-8") as f:
+        for p in per_cena_paths:
+            # Single-quoted absolute path; -safe 0 permits absolute paths and
+            # paths with spaces. Per RESEARCH.md Common Pitfalls #5 the -safe
+            # flag must come BEFORE -i, not after.
+            abs_p = os.path.abspath(p)
+            f.write(f"file '{abs_p}'\n")
+
+    cmd = [
+        "ffmpeg", "-v", "error", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", list_path,
+        "-c", "copy",
+        output_path,
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    finally:
+        try:
+            os.unlink(list_path)
+        except OSError:
+            pass
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg concat failed (exit {result.returncode}): "
+            f"{result.stderr[:500]}"
+        )
+
+    logger.info(
+        "Concatenated %d per-cena WAVs to %s",
+        len(per_cena_paths),
+        output_path,
+    )
+    return output_path
