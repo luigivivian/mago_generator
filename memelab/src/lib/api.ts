@@ -1517,6 +1517,8 @@ export interface ReelsConfig {
   subtitle_font_size: number;
   preset?: string;
   video_model?: string;
+  // 999.14: economic mode (Ken Burns + skip Kie clips)
+  economic_mode?: boolean;
 }
 
 export interface ReelsModelInfo {

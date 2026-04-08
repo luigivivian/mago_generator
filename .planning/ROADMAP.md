@@ -222,7 +222,8 @@ Plans:
 - `models.py`: add `economic_mode: bool = False` to `ReelsConfig`
 - Frontend reel config page: toggle + live cost preview based on target_duration × cenas × model credit cost
 
-**Plans:** 0 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [x] 999.14-01-PLAN.md — Backend: migration + ReelsConfig field + pipeline bypass + splitter bypass
+- [x] 999.14-02-PLAN.md — Frontend: toggle + cost preview + Ken Burns motion in Remotion Scene

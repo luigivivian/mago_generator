@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useReelJobs, useReelStatus, useReelsConfig, useReelsPresets, useReelsModels } from "@/hooks/use-reels";
+import { estimateReelCredits } from "@/lib/reels-cost";
 import { useCharacters } from "@/hooks/use-api";
 import { useCharacterContext } from "@/contexts/character-context";
 import {
@@ -582,6 +583,41 @@ function GenerationForm() {
               </div>
             )}
 
+            {/* 999.14 D-10: cost preview before generating */}
+            {(() => {
+              const cfg = reelsConfigs?.[0];
+              const economic = !!cfg?.economic_mode;
+              const model = cfg?.video_model ?? "hailuo/2-3-image-to-video-standard";
+              const dynamicEst = estimateReelCredits({
+                targetDuration: parseInt(duration),
+                videoModel: model,
+                economicMode: false,
+              });
+              const econEst = estimateReelCredits({
+                targetDuration: parseInt(duration),
+                videoModel: model,
+                economicMode: true,
+              });
+              const active = economic ? econEst : dynamicEst;
+              return (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {economic && (
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-medium">
+                      Modo economico
+                    </span>
+                  )}
+                  <span>
+                    Estimativa: ~{active.scenes} cenas, R$ {active.brl.toFixed(2)} ({active.credits} creditos)
+                  </span>
+                  {economic && (
+                    <span className="line-through text-muted-foreground/60">
+                      vs R$ {dynamicEst.brl.toFixed(2)} dinamico
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+
             {error && <p className="text-sm text-red-400">{error}</p>}
 
             {bibleConfig && !isBibleValid && (
@@ -771,6 +807,8 @@ function ConfigPanel() {
   const [transitionDuration, setTransitionDuration] = useState(String(config?.transition_duration ?? 0.3));
   const [subtitleFontSize, setSubtitleFontSize] = useState(String(config?.subtitle_font_size ?? 52));
   const [videoModel, setVideoModel] = useState(config?.video_model ?? "hailuo/2-3-image-to-video-standard");
+  // 999.14: economic mode toggle
+  const [economicMode, setEconomicMode] = useState(config?.economic_mode ?? false);
   const [expanded, setExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -789,6 +827,7 @@ function ConfigPanel() {
         transition_duration: parseFloat(transitionDuration),
         subtitle_font_size: parseInt(subtitleFontSize),
         video_model: videoModel,
+        economic_mode: economicMode,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -940,6 +979,29 @@ function ConfigPanel() {
               </p>
             )}
           </div>
+
+          {/* 999.14 D-02: economic mode toggle */}
+          <label
+            className={`flex items-start gap-3 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+              economicMode
+                ? "border-emerald-500/40 bg-emerald-500/10"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={economicMode}
+              onChange={(e) => setEconomicMode(e.target.checked)}
+              className="mt-0.5 accent-emerald-500"
+            />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium block">Modo economico (Ken Burns)</span>
+              <span className="text-xs text-muted-foreground block">
+                Pula geracao de video Kie e usa imagens estaticas com zoom/pan no editor.
+                Reduz custo em ~70% — ideal para reels longos ou orcamentos apertados.
+              </span>
+            </div>
+          </label>
 
           <div className="flex items-center gap-2">
             <Button onClick={handleSave} disabled={saving} size="sm">
