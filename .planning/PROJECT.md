@@ -12,7 +12,24 @@ Plataforma de geração e publicação automatizada de memes para Instagram. Pip
 
 See `.planning/milestones/` for archived details.
 
-## Current State (updated 2026-04-07)
+## Current Milestone: v4.0 Pipeline Fidelity Refactor
+
+**Goal:** Alinhar a pipeline de reels com o princípio-âncora "áudio é a âncora, tudo se alinha a ele" (ref: `pipeline-historia-narracao-imagem.md`), eliminando aproximações char-offset e tornando o fluxo determinístico — mantendo Gemini TTS como único provedor.
+
+**Target features:**
+- Per-cena TTS anchoring (refactor arquitetural de `tts.py` + `run_step_tts` para gerar 1 áudio Gemini TTS por cena, medir ffprobe, propagar duração exata como ground truth)
+- Per-cena audio duration propagation (clip trimming, SRT timing e sync de legendas consumindo a duração real, não a aproximação char-offset)
+- Structured image prompts (4-layer: subject + environment + style + camera em inglês; schema do roteiro com `image_prompt` separado de `legenda_overlay`, `character_card` top-level, `mood`, `transition_in/out` per-cena)
+- Mood-driven Ken Burns (mapa mood→preset; aplicar também no path `concat_clips_with_audio` Kie.ai clips)
+- Biblical tone speed fix (`tone == "biblical"` força `speaking_rate = 1.0`)
+
+**Key context:**
+- Biblical reels (Phase 1001) é o caso de uso que mais sofre com aproximação atual
+- Gap #1 (per-cena TTS) é o único refactor arquitetural — outros dependem dele porque precisam de duração real por cena
+- Mantém compatibilidade com editor (step_state shape estável)
+- Explicitamente fora de escopo: ElevenLabs integration, ads pipeline, meme manual, features de editor
+
+## Current State (updated 2026-04-08)
 
 **v3.0 shipped.** 8 phases, 25 plans. Production-grade in-browser video editor (Remotion + multi-track timeline + bug fixes + UX polish), economic Ken Burns mode that cuts reel costs ~70%, character-scoped navigation, biblical reels category, and a full Kie API credit system.
 
@@ -104,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 — Phase 999.1 (Video Generation) complete*
+*Last updated: 2026-04-08 — Milestone v4.0 (Pipeline Fidelity Refactor) started*

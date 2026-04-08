@@ -1,31 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Editor Polish & Cost Optimization
-status: Milestone complete — archived 2026-04-07
-stopped_at: v3.0 shipped via /gsd:autonomous lifecycle
-last_updated: "2026-04-07T22:00:00.000Z"
-last_activity: 2026-04-07
+milestone: v4.0
+milestone_name: Pipeline Fidelity Refactor
+status: Defining requirements
+stopped_at: Milestone v4.0 started 2026-04-08
+last_updated: "2026-04-08T00:00:00.000Z"
+last_activity: 2026-04-08
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 25
-  completed_plans: 25
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-24)
+See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** v3.0 shipped 2026-04-07. Awaiting next milestone.
+**Current focus:** v4.0 — Pipeline Fidelity Refactor. Alinhar reels pipeline com princípio-âncora "áudio é a âncora" do doc pipeline-historia-narracao-imagem.md. Eliminar aproximações char-offset via per-cena TTS anchoring + durações ffprobe-exatas.
 
 ## Current Position
 
-Milestone: v3.0 — COMPLETE (8/8 phases, 25/25 plans)
-Status: Awaiting /gsd:new-milestone to start v4.0
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-08 — Milestone v4.0 started
 
 ## Performance Metrics
 
