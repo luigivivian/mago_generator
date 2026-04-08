@@ -3,7 +3,8 @@
 import { useEffect, useCallback } from "react";
 import type { PlayerRef } from "@remotion/player";
 import { useEditorStore } from "@/stores/editor-store";
-import { EDITOR_FPS } from "@/stores/editor-types";
+import { EDITOR_FPS, DEFAULT_SUBTITLE_STYLE } from "@/stores/editor-types";
+import { genId } from "@/lib/editor";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -96,6 +97,25 @@ export function useEditorShortcuts(
         if (store.selectedSceneId) {
           store.freezeFrame(store.selectedSceneId, EDITOR_FPS);
         }
+        return;
+      }
+
+      // T = add subtitle ("Texto") at the playhead with a 2s default span,
+      // then select it so PropertiesPanel switches to the subtitle editor.
+      if (e.code === "KeyT" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const startFrame = Math.max(0, store.playheadFrame);
+        const endFrame = startFrame + 2 * EDITOR_FPS;
+        const id = genId("sub");
+        store.addSubtitle({
+          id,
+          text: "Nova legenda",
+          startFrame,
+          endFrame,
+          position: { x: 50, y: 85 },
+          style: { ...DEFAULT_SUBTITLE_STYLE },
+        });
+        store.setSelectedSubtitle(id);
         return;
       }
     },

@@ -16,7 +16,9 @@ function getAudioContext(): AudioContext {
   return sharedCtx;
 }
 
-// Raw cache keyed by URL only — zoom changes resample cheaply without re-decode
+// Raw cache keyed by `${audioUrl}::${versionKey}` so that TTS regeneration
+// (which keeps the URL stable but changes the file bytes) busts the cache
+// instead of replaying the stale waveform forever.
 const rawCache = new Map<string, { peaks: Float32Array; duration: number }>();
 
 /**
@@ -39,15 +41,22 @@ export function resamplePeaks(source: Float32Array, targetCount: number): number
   return result;
 }
 
-export function useAudioWaveform(audioUrl: string | undefined, numSamples: number = 200): WaveformData | null {
+export function useAudioWaveform(
+  audioUrl: string | undefined,
+  numSamples: number = 200,
+  // Optional version key — when this changes, the cache entry is treated
+  // as a different audio source and re-fetched. Pass step_state.tts.duration
+  // (or any monotonic-ish value the caller knows changes when the file does).
+  versionKey?: string | number,
+): WaveformData | null {
   const [data, setData] = useState<WaveformData | null>(null);
-  const abortRef = useRef<AbortController>();
+  const abortRef = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => {
     if (!audioUrl) return;
 
-    // Cache hit — resample from raw peaks (no fetch, no decode)
-    const cached = rawCache.get(audioUrl);
+    const cacheKey = `${audioUrl}::${versionKey ?? ""}`;
+    const cached = rawCache.get(cacheKey);
     if (cached) {
       const peaks = resamplePeaks(cached.peaks, numSamples);
       const peakMax = Math.max(...peaks, 0.01);
@@ -66,7 +75,10 @@ export function useAudioWaveform(audioUrl: string | undefined, numSamples: numbe
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    fetch(audioUrl, { headers, signal: controller.signal })
+    // cache: "no-cache" forces revalidation against the FastAPI file route so
+    // we always read the current file bytes after a TTS regeneration, even if
+    // the URL is unchanged.
+    fetch(audioUrl, { headers, signal: controller.signal, cache: "no-cache" })
       .then((r) => r.arrayBuffer())
       .then((buffer) => getAudioContext().decodeAudioData(buffer))
       .then((decoded) => {
@@ -77,7 +89,7 @@ export function useAudioWaveform(audioUrl: string | undefined, numSamples: numbe
         for (let i = 0; i < channelData.length; i++) {
           fullPeaks[i] = Math.abs(channelData[i]);
         }
-        rawCache.set(audioUrl, { peaks: fullPeaks, duration: decoded.duration });
+        rawCache.set(cacheKey, { peaks: fullPeaks, duration: decoded.duration });
 
         const peaks = resamplePeaks(fullPeaks, numSamples);
         const peakMax = Math.max(...peaks, 0.01);
@@ -86,7 +98,7 @@ export function useAudioWaveform(audioUrl: string | undefined, numSamples: numbe
       .catch(() => {});
 
     return () => controller.abort();
-  }, [audioUrl, numSamples]);
+  }, [audioUrl, numSamples, versionKey]);
 
   return data;
 }

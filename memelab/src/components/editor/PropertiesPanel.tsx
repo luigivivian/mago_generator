@@ -157,7 +157,19 @@ function ScenePanel({ jobId }: { jobId: string }) {
           <label className="text-xs text-muted-foreground">Tipo</label>
           <select
             value={scene.transition.type}
-            onChange={(e) => setTransition(scene.id, e.target.value as EditorScene["transition"]["type"], scene.transition.durationFrames)}
+            onChange={(e) => {
+              const newType = e.target.value as EditorScene["transition"]["type"];
+              // When switching from "none" to any actual transition, ensure
+              // duration is non-zero so ReelComposition's render guard
+              // (`durationFrames > 0`) actually emits the transition.
+              // Default to 15 frames (0.5s at 30fps) — same as ContextMenu.
+              const newDur = newType === "none"
+                ? 0
+                : scene.transition.durationFrames > 0
+                  ? scene.transition.durationFrames
+                  : 15;
+              setTransition(scene.id, newType, newDur);
+            }}
             className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {TRANSITION_TYPES.map((t) => (

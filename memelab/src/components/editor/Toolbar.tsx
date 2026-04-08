@@ -21,11 +21,16 @@ import {
   HelpCircle,
   Maximize2,
   Smartphone,
+  Type,
+  RotateCcw,
 } from "lucide-react";
 import type { SafePlatform } from "./SafeZoneOverlay";
 import { useUndoRedo } from "@/hooks/use-editor";
 import { useEditorStore } from "@/stores/editor-store";
-import { EDITOR_FPS } from "@/stores/editor-types";
+import { useStepState } from "@/hooks/use-reels";
+import { patchEditorState } from "@/lib/api";
+import { EDITOR_FPS, DEFAULT_SUBTITLE_STYLE } from "@/stores/editor-types";
+import { genId } from "@/lib/editor";
 import { ExportModal } from "./ExportModal";
 
 interface ToolbarProps {
@@ -78,6 +83,25 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
     if (store.selectedSceneId) store.freezeFrame(store.selectedSceneId, EDITOR_FPS);
   }, []);
 
+  // Add a new subtitle at the playhead with default 2s duration. After
+  // creating, select it so PropertiesPanel switches to the SubtitlePanel
+  // and the user lands directly on the text/style editor.
+  const handleAddSubtitle = useCallback(() => {
+    const store = useEditorStore.getState();
+    const startFrame = Math.max(0, store.playheadFrame);
+    const endFrame = startFrame + 2 * EDITOR_FPS;
+    const id = genId("sub");
+    store.addSubtitle({
+      id,
+      text: "Nova legenda",
+      startFrame,
+      endFrame,
+      position: { x: 50, y: 85 },
+      style: { ...DEFAULT_SUBTITLE_STYLE },
+    });
+    store.setSelectedSubtitle(id);
+  }, []);
+
   return (
     <div className="flex items-center gap-0.5">
       <button
@@ -109,6 +133,15 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
       </button>
       <button
         type="button"
+        onClick={handleAddSubtitle}
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent text-amber-300 border border-amber-500/30"
+        title="Adicionar legenda no playhead (T)"
+      >
+        <Type className="h-4 w-4" />
+        <span className="text-xs font-medium">Legenda</span>
+      </button>
+      <button
+        type="button"
         onClick={handleDelete}
         disabled={!hasSelection}
         className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-red-400 hover:text-red-300"
@@ -129,6 +162,42 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
   const [exportModalOpen, setExportModalOpen] = useState(false);
   // Use scenes count to re-run effect after Player mounts with data
   const scenesCount = useEditorStore((s) => s.scenes.length);
+  // 999.14 D-08 fix (Bug 1): "Reset editor state" reads the live step_state
+  // from SWR cache, reloads the editor store from it (overwriting any
+  // persisted-but-stale `step_state.editor` user-mutations from earlier
+  // sessions), and immediately PATCHes the freshly loaded state back to
+  // the backend so the staleness can never bite again on the next reload.
+  const { data: stepState } = useStepState(jobId);
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetEditorState = useCallback(async () => {
+    if (!stepState) return;
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            "Resetar o estado do editor descarta todas as edicoes salvas (cortes, duplicatas, legendas adicionadas, transicoes) e recarrega a partir das cenas/clipes originais. Continuar?",
+          );
+    if (!ok) return;
+    setResetting(true);
+    try {
+      const store = useEditorStore.getState();
+      store.loadFromStepState(stepState, jobId);
+      // Immediately persist the freshly loaded state so the next page load
+      // doesn't see the old persisted editor mutations.
+      const fresh = useEditorStore.getState().toEditorPersistState();
+      await patchEditorState(jobId, {
+        scenes: fresh.scenes as unknown as Record<string, unknown>[],
+        subtitles: fresh.subtitles as unknown as Record<string, unknown>[],
+        transitions: fresh.transitions as unknown as Record<string, unknown>[],
+        audioItems: fresh.audioItems as unknown as Record<string, unknown>[],
+      });
+    } catch (err) {
+      console.error("[reset-editor-state] failed:", err);
+    } finally {
+      setResetting(false);
+    }
+  }, [stepState, jobId]);
 
   useEffect(() => {
     const { current } = playerRef;
@@ -203,6 +272,26 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
       <div className="h-5 w-px bg-border" />
 
       <ToolbarEditButtons playerRef={playerRef} />
+
+      <div className="h-5 w-px bg-border" />
+
+      {/* 999.14 D-08 (Bug 1 escape hatch): reset persisted editor state to
+          the live step_state. Use when scenes look duplicated or counts
+          look wrong because an earlier session left stale `step_state.editor`. */}
+      <button
+        type="button"
+        onClick={handleResetEditorState}
+        disabled={resetting || !stepState}
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-100 border border-zinc-700"
+        title="Resetar editor — descarta edicoes e recarrega da pipeline"
+      >
+        {resetting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RotateCcw className="h-4 w-4" />
+        )}
+        <span className="text-xs font-medium">Resetar</span>
+      </button>
 
       <div className="h-5 w-px bg-border" />
 

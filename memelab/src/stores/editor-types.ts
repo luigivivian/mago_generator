@@ -46,6 +46,11 @@ export interface EditorAudioItem {
   durationInFrames: number;
   startFrom?: number; // frame offset within the source audio file
   volume?: number; // 0..1, undefined = full volume (999.12 D-09)
+  // Version tag for the underlying audio file. Set from step_state.tts.duration
+  // (or .srt.duration as fallback) at load time. Used by useAudioWaveform to
+  // bust its peak cache when the file content changes (e.g. after a TTS
+  // regen) — the URL is stable so we can't rely on it alone.
+  sourceVersion?: string;
 }
 
 // 999.12 D-19: per-track mute/solo

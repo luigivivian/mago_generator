@@ -95,6 +95,13 @@ export default function EditorPage() {
     const savedEditor = stepState.editor;
     const clipSceneCount = (stepState.clips?.scenes ?? stepState.video?.scenes ?? []).length;
     const savedSceneCount = savedEditor?.scenes?.length ?? 0;
+    // Detect broken persisted state: a previous buggy load may have written
+    // scenes without clipUrl/imgUrl (or empty strings). Any such scene means
+    // the persisted state is unusable — rebuild from stepState.
+    const savedHasBrokenMedia = savedEditor && savedEditor.scenes.length > 0 &&
+      (savedEditor.scenes as Array<{ clipUrl?: string; imgUrl?: string }>).some(
+        (sc) => !sc.clipUrl && !sc.imgUrl,
+      );
     const savedHasStaleTimings = savedEditor && savedEditor.scenes.length > 0 && (
       // Scene count mismatch with source data = stale (user split/deleted during a previous session)
       (clipSceneCount > 0 && savedSceneCount !== clipSceneCount) ||
@@ -102,7 +109,8 @@ export default function EditorPage() {
       (hasSceneTimings && Math.abs(
         (savedEditor.scenes as Array<{ durationInFrames: number }>).reduce((s, sc) => s + sc.durationInFrames, 0) / 30 -
         sceneTimings!.reduce((s, t) => s + t.duration, 0)
-      ) > 2)
+      ) > 2) ||
+      savedHasBrokenMedia
     );
 
     if (savedEditor && savedEditor.scenes.length > 0 && !savedHasStaleTimings) {
@@ -113,20 +121,15 @@ export default function EditorPage() {
         audioItems: savedEditor.audioItems as never[],
       });
       // Always reload subtitles from SRT if editor has none (cleared by regenerate)
-      if (
-        (!savedEditor.subtitles || savedEditor.subtitles.length === 0) &&
-        stepState.srt?.path
-      ) {
-        store.loadSubtitlesFromSrt(jobId, stepState.srt.path);
+      if (!savedEditor.subtitles || savedEditor.subtitles.length === 0) {
+        store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
       }
     } else {
       store.loadFromStepState(stepState, jobId);
     }
-    // Always ensure subtitles are loaded from fresh SRT when available
-    // This catches cases where editor cache has stale subtitles from before TTS regeneration
-    if (stepState.srt?.path) {
-      store.loadSubtitlesFromSrt(jobId, stepState.srt.path);
-    }
+    // Always ensure subtitles are loaded from fresh SRT (convention path
+    // used as fallback when step_state.srt.path is missing).
+    store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
     loadedRef.current = true;
   }, [stepState, jobId]);
 

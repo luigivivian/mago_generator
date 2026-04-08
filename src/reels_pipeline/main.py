@@ -415,11 +415,20 @@ class ReelsPipeline:
         )
 
         srt_path = os.path.join(job_dir, "subtitles.srt")
+        # Pass the known narração as forced-alignment hint so Gemini
+        # doesn't hallucinate a silent preamble and skip the opening.
+        expected_text = None
+        if script:
+            expected_text = script.get("narracao_completa") or " ".join(
+                c.get("narracao", "") for c in (script.get("cenas") or []) if c.get("narracao")
+            )
+            expected_text = expected_text.strip() or None
         await transcribe_to_srt(
             audio_path=audio_path,
             output_path=srt_path,
             language=self.config.get("script_language"),
             provider=self.config.get("transcription_provider"),
+            expected_text=expected_text,
         )
 
         # Preserve the raw Gemini SRT before alignment. Safety net for debugging

@@ -339,7 +339,14 @@ function AudioBlock({
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const waveform = useAudioWaveform(item.audioUrl, Math.max(50, Math.round(width / 2)));
+  // Pass item.sourceVersion as the cache-busting key — when TTS regenerates,
+  // editor-store.loadFromStepState writes the new step_state.tts.duration into
+  // sourceVersion, which busts the waveform's peak cache and forces a re-fetch.
+  const waveform = useAudioWaveform(
+    item.audioUrl,
+    Math.max(50, Math.round(width / 2)),
+    item.sourceVersion,
+  );
   const subtitles = useEditorStore((s) => s.subtitles);
 
   // Draw waveform on canvas

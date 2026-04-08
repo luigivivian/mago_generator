@@ -116,40 +116,103 @@ export const useEditorStore = create<EditorState>()(
           | Array<{ index: number; start: number; end: number; duration: number; narracao?: string }>
           | undefined;
 
-        const scenes: EditorScene[] = sceneStatuses.map((ss, i) => {
+        // Fallback: if clips/video have no scenes yet (pipeline hasn't produced
+        // them, or downstream got invalidated by a TTS regen) but we DO have
+        // SRT scene_timings, reconstruct scenes from timings so the editor is
+        // usable. This lets the user audit the audio/SRT alignment and add
+        // legendas even before clips exist.
+        const sourceCount = sceneStatuses.length > 0
+          ? sceneStatuses.length
+          : (sceneTimings?.length ?? 0);
+
+        // When step_state is sparse (clips.scenes=[], images.paths=[]) we
+        // reconstruct preview paths by pipeline convention: the pipeline
+        // always writes images/cena_{i:02d}.jpg and either
+        // clips/new_clip_{i:02d}_trimmed.mp4 (preferred) or
+        // clips/new_clip_{i:02d}.mp4. The backend file route serves paths
+        // relative to job_dir so these work even without step_state pointers.
+        const pad2 = (i: number) => i.toString().padStart(2, "0");
+        const conventionImg = (i: number) => `images/cena_${pad2(i)}.jpg`;
+        const conventionClip = (i: number) => `clips/new_clip_${pad2(i)}_trimmed.mp4`;
+
+        const scenes: EditorScene[] = Array.from({ length: sourceCount }, (_, i) => {
+          const ss = sceneStatuses[i];
           const sceneTiming = sceneTimings?.find((t) => t.index === i);
-          // Use SRT span duration (narration length) when available, otherwise clip duration
-          const durationSec = sceneTiming?.duration ?? ss.duration ?? 5;
+          const durationSec = sceneTiming?.duration ?? ss?.duration ?? 5;
+          const imgPath = ss?.img_path ?? imagePaths[i] ?? conventionImg(i);
+          const clipPath = ss?.clip_path ?? conventionClip(i);
           return {
             id: genId(),
             index: i,
-            clipUrl: ss.clip_path ? reelFileUrl(jobId, ss.clip_path) : undefined,
-            imgUrl: ss.img_path
-              ? reelFileUrl(jobId, ss.img_path)
-              : imagePaths[i]
-                ? reelFileUrl(jobId, imagePaths[i])
-                : undefined,
+            clipUrl: reelFileUrl(jobId, clipPath),
+            imgUrl: reelFileUrl(jobId, imgPath),
             durationInFrames: Math.round(durationSec * fps),
-            narration: sceneTiming?.narracao ?? ss.prompt ?? "",
+            narration: sceneTiming?.narracao ?? ss?.prompt ?? "",
             voiceConfig: { ...DEFAULT_VOICE_CONFIG },
             transition: { type: "none" as const, durationFrames: 0 },
             status: "ready" as const,
           };
         });
 
+        // Audio file convention: pipeline always writes audio.wav at job root.
+        // When step_state.tts.path is missing (sparse step_state), fall back
+        // to the convention path so the audio track still works.
+        const ttsPath = stepState.tts?.path ?? "audio.wav";
         const audioItems: EditorAudioItem[] = [];
-        if (stepState.tts?.path) {
-          const totalDuration = scenes.reduce((sum, s) => sum + s.durationInFrames, 0);
+        if (ttsPath) {
+          // 999.14 D-08 fix: audio block duration MUST be the real audio
+          // file length, not the sum of scene durations. The backend writes
+          // the real ffprobe duration to step_state.tts.duration when running
+          // the TTS step. If that's missing (legacy jobs), fall back to the
+          // SRT total duration (also real audio length, written by
+          // run_step_srt), and finally to the sum of scene durations as a
+          // last resort.
+          //
+          // When the audio block was sized to sum-of-scenes (the old buggy
+          // behavior), Remotion's <Sequence> would clip playback at that
+          // shorter span AND the waveform would be visually compressed
+          // because TimelineBlock paints all the bars into the narrower
+          // canvas — so the bars no longer aligned with where the playhead
+          // sat during playback.
+          const sceneTotalFrames = scenes.reduce(
+            (sum, s) => sum + s.durationInFrames,
+            0,
+          );
+          // Sanity check: backend sometimes writes a corrupted tts.duration
+          // (e.g. 0.0017s from a bad ffprobe read). Reject values outside
+          // [0.5s, 600s] and fall back through srt.duration -> last srt
+          // timing end -> sum(scene durations).
+          const isSane = (n: unknown): n is number =>
+            typeof n === "number" && n >= 0.5 && n <= 600;
+          const lastTimingEnd = sceneTimings && sceneTimings.length > 0
+            ? sceneTimings[sceneTimings.length - 1].end
+            : null;
+          const realAudioSeconds =
+            (isSane(stepState.tts?.duration) && stepState.tts!.duration) ||
+            (isSane(stepState.srt?.duration) && stepState.srt!.duration) ||
+            (isSane(lastTimingEnd) && lastTimingEnd) ||
+            null;
+          const audioFrames = realAudioSeconds
+            ? Math.round(realAudioSeconds * fps)
+            : sceneTotalFrames;
           audioItems.push({
             id: genId("audio"),
-            audioUrl: reelFileUrl(jobId, stepState.tts.path),
+            audioUrl: reelFileUrl(jobId, ttsPath),
             from: 0,
-            durationInFrames: totalDuration,
+            durationInFrames: audioFrames,
+            // Tag the audio with the source duration so the waveform hook
+            // can bust its peak cache when TTS regenerates (the URL stays
+            // stable but the file bytes change).
+            sourceVersion: realAudioSeconds != null
+              ? String(realAudioSeconds)
+              : undefined,
           });
         }
 
-        // Parse subtitles from SRT file if available (D-04: generation counter + abort)
-        const srtPath = stepState.srt?.path;
+        // Parse subtitles from SRT file if available (D-04: generation counter + abort).
+        // Convention fallback: pipeline always writes subtitles.srt at job root,
+        // so even when step_state.srt.path is missing we can still load it.
+        const srtPath = stepState.srt?.path ?? "subtitles.srt";
         if (srtPath) {
           srtAbortController?.abort();
           srtGeneration++;
@@ -163,7 +226,7 @@ export const useEditorStore = create<EditorState>()(
               : null;
           const headers: Record<string, string> = {};
           if (token) headers["Authorization"] = `Bearer ${token}`;
-          fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal })
+          fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal, cache: "no-cache" })
             .then((r) => r.text())
             .then((text) => {
               if (thisGen !== srtGeneration) return; // stale
@@ -788,7 +851,7 @@ export const useEditorStore = create<EditorState>()(
             : null;
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
-        fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal })
+        fetch(reelFileUrl(jobId, srtPath), { headers, signal: controller.signal, cache: "no-cache" })
           .then((r) => r.text())
           .then((text) => {
             if (thisGen !== srtGeneration) return; // stale

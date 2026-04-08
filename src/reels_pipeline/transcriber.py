@@ -27,6 +27,7 @@ async def transcribe_to_srt(
     output_path: str,
     language: str | None = None,
     provider: str | None = None,
+    expected_text: str | None = None,
 ) -> str:
     """Transcribe audio to SRT subtitle format.
 
@@ -35,6 +36,9 @@ async def transcribe_to_srt(
         output_path: Path to save the SRT file.
         language: Language code (default from config).
         provider: Transcription provider ("gemini" or "whisper_local").
+        expected_text: Optional known narration text. When provided, it's
+            included in the prompt as a forced-alignment hint so Gemini
+            doesn't hallucinate/skip the opening seconds.
 
     Returns:
         Path to the saved SRT file.
@@ -52,13 +56,49 @@ async def transcribe_to_srt(
     lang = language or REELS_SCRIPT_LANGUAGE
     audio_bytes = Path(audio_path).read_bytes()
 
+    # Probe duration so we can tell Gemini the real span. Gemini has a
+    # bug where it sometimes hallucinates 10-20s of "silence" at the
+    # start and begins transcription mid-audio. Passing the duration
+    # + full expected text as alignment hints forces it to cover the
+    # whole file.
+    audio_duration_s: float | None = None
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                audio_path,
+            ],
+            text=True,
+        ).strip()
+        audio_duration_s = float(out)
+    except Exception as e:
+        logger.warning(f"Failed to probe audio duration for prompt: {e}")
+
     audio_part = types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav")
-    prompt_text = (
-        f"Transcribe this audio to SRT subtitle format with timestamps. "
-        f"Language: {lang}. "
-        f"Group words in chunks of 4-5 words per subtitle entry. "
-        f"Return ONLY the SRT content, no markdown."
-    )
+    prompt_lines = [
+        "Transcribe the attached audio to SRT subtitle format with timestamps.",
+        f"Language: {lang}.",
+        "Group 4-5 words per subtitle entry.",
+    ]
+    if audio_duration_s is not None:
+        end_mmss = f"{int(audio_duration_s // 60):02d}:{audio_duration_s % 60:06.3f}"
+        prompt_lines.append(
+            f"CRITICAL: the audio is exactly {audio_duration_s:.2f} seconds long. "
+            f"The FIRST entry MUST start at or very near 00:00:00,000 (no more than 0.5s in). "
+            f"The LAST entry MUST end at or very near 00:{end_mmss.replace('.', ',')}. "
+            f"Transcribe EVERY spoken word from start to finish — do NOT skip the opening phrases."
+        )
+    if expected_text:
+        prompt_lines.append(
+            "Use this known narration text as ground truth when deciding word boundaries "
+            "(the spoken audio matches it verbatim):"
+        )
+        prompt_lines.append(f"<<<{expected_text.strip()}>>>")
+    prompt_lines.append("Return ONLY the SRT content, no markdown, no commentary.")
+    prompt_text = "\n".join(prompt_lines)
 
     client = _get_client()
 
@@ -92,13 +132,41 @@ async def transcribe_to_srt(
 
 
 def _normalize_srt_structure(srt_text: str) -> str:
-    """Ensure double-newline separators between SRT entries.
+    """Ensure double-newline separators between SRT entries and add missing
+    entry index numbers.
 
     Gemini sometimes returns entries separated by single newlines.
-    Inserts blank line before each entry index (digit line followed by timestamp).
+    Gemini also sometimes omits the integer index line entirely and emits
+    just `timestamp\ntext\n\ntimestamp\ntext...` — this reindexer walks the
+    blocks and prepends a 1-based index where missing so the output is
+    canonical SRT.
     """
     srt_text = srt_text.replace("\r\n", "\n")
-    return re.sub(r"\n(?=\d+\n\d{2}:\d{2})", "\n\n", srt_text)
+    srt_text = re.sub(r"\n(?=\d+\n\d{2}:\d{2})", "\n\n", srt_text)
+
+    # Walk blocks, ensure each starts with a bare integer index line.
+    blocks = re.split(r"\n\s*\n", srt_text.strip())
+    rebuilt: list[str] = []
+    ts_line_re = re.compile(r"^\d{2}:\d{2}:\d{2}[,.:]\d{2,3}\s*-->")
+    next_idx = 1
+    for block in blocks:
+        lines = [ln for ln in block.split("\n") if ln.strip() != ""]
+        if not lines:
+            continue
+        if ts_line_re.match(lines[0].strip()):
+            # Missing index — prepend one.
+            new_block = f"{next_idx}\n" + "\n".join(lines)
+        else:
+            # Already has an index (or something else) — keep as-is but
+            # still bump our counter to match what's there when possible.
+            try:
+                next_idx = int(lines[0].strip())
+            except ValueError:
+                pass
+            new_block = "\n".join(lines)
+        rebuilt.append(new_block)
+        next_idx += 1
+    return "\n\n".join(rebuilt) + "\n"
 
 
 def _normalize_srt_timestamps(srt_text: str) -> str:

@@ -1692,8 +1692,8 @@ export interface StepState {
   prompt?: { text: string; approved: boolean; job_dir?: string };
   images?: { paths: string[]; approved: boolean; status?: string; reuse_info?: Record<string, ImageReuseInfo> };
   script?: { json: Record<string, unknown>; approved: boolean; status?: string };
-  tts?: { path: string; approved: boolean; status?: string };
-  srt?: { path: string; approved: boolean; status?: string };
+  tts?: { path: string; approved: boolean; status?: string; duration?: number };
+  srt?: { path: string; approved: boolean; status?: string; duration?: number };
   clips?: { status?: string; scenes?: SceneStatus[]; approved?: boolean };
   video?: { path: string; approved: boolean; status?: string; scenes?: SceneStatus[]; export_status?: "rendering" | "complete" | "failed"; export_error?: string };
   editor?: EditorPersistState;

@@ -1,8 +1,18 @@
 "use client";
 
+import { Type } from "lucide-react";
 import { TimelineBlock } from "./TimelineBlock";
-import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/editor-types";
-import type { SnapTarget } from "@/lib/editor";
+import { useEditorStore } from "@/stores/editor-store";
+import {
+  EDITOR_FPS,
+  DEFAULT_SUBTITLE_STYLE,
+} from "@/stores/editor-types";
+import type {
+  EditorScene,
+  EditorSubtitle,
+  EditorAudioItem,
+} from "@/stores/editor-types";
+import { genId, type SnapTarget } from "@/lib/editor";
 
 interface TimelineTrackProps {
   type: "video" | "audio" | "subtitle";
@@ -89,6 +99,35 @@ export function TimelineTrack({
         </div>
       ) : (
         <div className="relative h-full" onPointerDown={handleBackgroundPointerDown}>
+          {/* Empty subtitle track CTA — only renders when there are zero
+              subtitles, so the user has a discoverable entry point to add
+              one without hunting for the toolbar button or right-click menu. */}
+          {type === "subtitle" && items.length === 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const store = useEditorStore.getState();
+                const startFrame = Math.max(0, store.playheadFrame);
+                const endFrame = startFrame + 2 * EDITOR_FPS;
+                const id = genId("sub");
+                store.addSubtitle({
+                  id,
+                  text: "Nova legenda",
+                  startFrame,
+                  endFrame,
+                  position: { x: 50, y: 85 },
+                  style: { ...DEFAULT_SUBTITLE_STYLE },
+                });
+                store.setSelectedSubtitle(id);
+              }}
+              className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-amber-300/70 hover:text-amber-200 hover:bg-amber-500/5 transition-colors"
+              title="Adicionar legenda no playhead (T)"
+            >
+              <Type className="h-3.5 w-3.5" />
+              <span>+ Adicionar legenda</span>
+            </button>
+          )}
           {(items as (EditorAudioItem | EditorSubtitle)[]).map((item) => (
             <TimelineBlock
               key={item.id}
