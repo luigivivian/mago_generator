@@ -14,6 +14,42 @@ from src.reels_pipeline.config import (
 
 logger = logging.getLogger("clip-flow.reels.tts")
 
+
+# Phase 22: Gemini TTS error classification (D-02)
+# Verified against google-genai 1.68.0:
+#   ClientError (4xx) has .code (int), .status (str), .message (str)
+#   ServerError (5xx) same shape
+# Retry: 429 RESOURCE_EXHAUSTED + all 5xx + unknown exceptions
+# Fail (do not retry): 400 INVALID_ARGUMENT (incl. content-safety blocks),
+#                      403 PERMISSION_DENIED (bad API key)
+def classify_tts_error(exc: BaseException) -> str:
+    """Classify a Gemini TTS exception as 'retry' or 'fail'.
+
+    See .planning/phases/22-per-cena-tts-anchoring/22-RESEARCH.md
+    Common Pitfalls #4 for the rationale on 400/403 non-retry.
+
+    Args:
+        exc: any exception raised from `client.models.generate_content`
+
+    Returns:
+        "retry" -- caller should backoff and try again
+        "fail"  -- caller should mark cena failed immediately, no retry
+    """
+    try:
+        from google.genai import errors as genai_errors
+    except ImportError:
+        return "retry"
+
+    if isinstance(exc, genai_errors.ClientError):
+        code = getattr(exc, "code", None)
+        if code in (400, 403):
+            return "fail"
+        return "retry"
+    if isinstance(exc, genai_errors.ServerError):
+        return "retry"
+    return "retry"
+
+
 # Gemini Flash TTS audio output: raw PCM 24kHz mono 16-bit
 _SAMPLE_RATE = 24000
 _SAMPLE_WIDTH = 2  # 16-bit
@@ -102,6 +138,20 @@ async def generate_narration(
         raise ValueError(f"Unknown TTS provider: {provider}")
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+    # Phase 22 D-11/D-12: Biblical tone forces speaking_rate = 1.0 at the
+    # lowest layer so EVERY caller (run_step_tts, batch mode, future
+    # selective-retry path) inherits the clamp. The existing
+    # _TONE_STYLE_PROMPTS["biblical"] explicitly says "Speak slowly...
+    # pause between sentences" — running that at 1.35x is the contradiction
+    # this clamp eliminates. Override is logged at INFO so production
+    # traces can verify it.
+    if tone == "biblical" and (speed is None or speed != 1.0):
+        logger.info(
+            "Biblical tone: forcing speaking_rate=1.0 (was %s)",
+            speed if speed is not None else "default",
+        )
+        speed = 1.0
 
     voice_name = voice or REELS_TTS_VOICE
     client = _get_client()
