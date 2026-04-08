@@ -87,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. Per-Cena TTS Anchoring | 0/TBD | Not started | - |
+| 22. Per-Cena TTS Anchoring | 1/5 | In Progress|  |
 | 23. Audio-Anchored Timing Propagation | 0/TBD | Not started | - |
 | 24. Script Schema v2 | 0/TBD | Not started | - |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
@@ -109,7 +109,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 0 plans
+**Plans:** 1/5 plans executed
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 

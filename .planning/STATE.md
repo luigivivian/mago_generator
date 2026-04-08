@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: planning
-stopped_at: Phase 22 context gathered
-last_updated: "2026-04-08T20:40:58.262Z"
-last_activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
+status: Ready to execute
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-04-08T23:13:37.133Z"
+last_activity: 2026-04-08
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,14 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** v4.0 — Pipeline Fidelity Refactor. Alinhar reels pipeline com principio-ancora "audio e a ancora" do doc pipeline-historia-narracao-imagem.md. Eliminar aproximacoes char-offset via per-cena TTS anchoring + duracoes ffprobe-exatas, schema de roteiro v2, image prompts estruturados, Ken Burns mood-driven.
+**Current focus:** Phase 22 — Per-Cena TTS Anchoring
 
 ## Current Position
 
-Phase: 22 — Per-Cena TTS Anchoring (not started)
-Plan: —
-Status: Roadmap defined, awaiting phase planning
-Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
+Phase: 22 (Per-Cena TTS Anchoring) — EXECUTING
+Plan: 2 of 5
 
 ## Progress
 
@@ -71,6 +69,8 @@ Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
 
 - Trend: v3.0 shipped 2026-04-07
 
+| Phase 22 P01 | 3min | 2 tasks | 2 files |
+
 ## Accumulated Context
 
 ### Roadmap Evolution
@@ -100,6 +100,9 @@ Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
 - [v4.0 Roadmap]: ElevenLabs integration explicitly deferred (user decision) — Gemini TTS remains sole provider
 - [v4.0 Roadmap]: Ads pipeline, meme manual pipeline, editor features, and subtitle style are all out of scope — v4.0 is exclusively reels pipeline fidelity
 
+- [Phase 22-01]: Wave 0 xfail stubs -- all 11 tests created as xfail, later waves flip to active as features land
+- [Phase 22-01]: Monkeypatch target: src.llm_client._get_client (source module) per plan spec -- may need adjustment in Wave 1 for from-import binding
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
@@ -125,6 +128,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-08
-Last session: 2026-04-08T20:40:58.254Z
-Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-per-cena-tts-anchoring/22-CONTEXT.md
+Last session: 2026-04-08T23:13:37.130Z
+Stopped at: Completed 22-01-PLAN.md
+Resume file: None
