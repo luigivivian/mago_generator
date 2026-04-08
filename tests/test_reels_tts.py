@@ -82,18 +82,55 @@ def test_sum_matches_concat_within_tolerance(tmp_path, make_fake_tts_wavs):
 # Bound to: 22-02 Plan, biblical clamp at top of generate_narration
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (22-02) pending -- biblical_clamps_speed_to_1")
 @pytest.mark.asyncio
 async def test_biblical_clamps_speed_to_1(tmp_path, fake_gemini_tts_client):
-    """TTS-05: Calling generate_narration(tone='biblical', speed=1.35) results in speaking_rate=1.0 in the prompt."""
-    pytest.fail("Stub -- implement when 22-02 lands")
+    """TTS-05: Calling generate_narration(tone='biblical', speed=1.35) emits a TTS prompt
+    that reflects 1.0x (100%) speaking rate, not 1.35x (135%)."""
+    from src.reels_pipeline.tts import generate_narration
+
+    out = tmp_path / "out.wav"
+    await generate_narration(
+        text="Em verdade vos digo",
+        output_path=str(out),
+        speed=1.35,
+        tone="biblical",
+    )
+    assert len(fake_gemini_tts_client.calls) == 1
+    contents = fake_gemini_tts_client.calls[0]["contents"]
+    # The clamp converts speed=1.35 -> 1.0 BEFORE the speed_hint is computed.
+    # speed_hint at tts.py:120 is empty when speaking_rate == 1.0.
+    # So NONE of the speed-related phrases may appear in the prompt.
+    prompt_text = str(contents)
+    speed_hint_phrases = ["135%", "100%", "Speak at", "% of normal speed"]
+    for phrase in speed_hint_phrases:
+        assert phrase not in prompt_text, (
+            f"clamp failed -- speed_hint phrase {phrase!r} found in prompt; "
+            f"speed_hint at tts.py:120 should be suppressed when speaking_rate == 1.0. "
+            f"Prompt head: {prompt_text[:200]}"
+        )
 
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (22-02) pending -- biblical_clamp_logged")
 @pytest.mark.asyncio
 async def test_biblical_clamp_logged(tmp_path, fake_gemini_tts_client, caplog):
-    """TTS-05 log (D-12): The override emits an INFO log line containing 'forcing speaking_rate=1.0'."""
-    pytest.fail("Stub -- implement when 22-02 lands")
+    """TTS-05 (D-12): The clamp emits an INFO log on the 'clip-flow.reels.tts' logger."""
+    import logging
+
+    from src.reels_pipeline.tts import generate_narration
+
+    caplog.set_level(logging.INFO, logger="clip-flow.reels.tts")
+    out = tmp_path / "out.wav"
+    await generate_narration(
+        text="E Deus disse",
+        output_path=str(out),
+        speed=1.35,
+        tone="biblical",
+    )
+    matched = [r for r in caplog.records if "forcing speaking_rate=1.0" in r.getMessage()]
+    assert len(matched) >= 1, (
+        f"expected an INFO log with 'forcing speaking_rate=1.0'; got: "
+        f"{[r.getMessage() for r in caplog.records]}"
+    )
+    assert matched[0].levelno == logging.INFO
 
 
 # ---------------------------------------------------------------------------
@@ -108,11 +145,35 @@ async def test_single_cena_failure_isolated(tmp_path, fake_gemini_tts_client):
     pytest.fail("Stub -- implement when 22-03 lands")
 
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (22-02) pending -- error_classification")
-@pytest.mark.asyncio
-async def test_error_classification(tmp_path, fake_gemini_tts_client):
-    """TTS-06 classifier: ClientError(400) is NOT retried; ClientError(429) IS retried 3x with exponential backoff."""
-    pytest.fail("Stub -- implement when 22-02 lands")
+def test_error_classification():
+    """TTS-06 classifier: ClientError(400/403) -> 'fail'; ClientError(429) + ServerError -> 'retry'."""
+    from src.reels_pipeline.tts import classify_tts_error
+
+    # Build minimal error instances using google-genai's typed exception classes.
+    # The constructor accepts (code, response_json, response) -- we forge a
+    # minimal shape compatible with .code attribute access.
+    from google.genai import errors as genai_errors
+
+    def make_client_err(code: int):
+        e = genai_errors.ClientError.__new__(genai_errors.ClientError)
+        e.code = code
+        e.status = "FORGED"
+        e.message = "test"
+        return e
+
+    def make_server_err(code: int):
+        e = genai_errors.ServerError.__new__(genai_errors.ServerError)
+        e.code = code
+        e.status = "FORGED"
+        e.message = "test"
+        return e
+
+    assert classify_tts_error(make_client_err(429)) == "retry"
+    assert classify_tts_error(make_client_err(400)) == "fail"
+    assert classify_tts_error(make_client_err(403)) == "fail"
+    assert classify_tts_error(make_server_err(500)) == "retry"
+    assert classify_tts_error(make_server_err(503)) == "retry"
+    assert classify_tts_error(ValueError("unknown")) == "retry"
 
 
 # ---------------------------------------------------------------------------
