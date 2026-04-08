@@ -82,6 +82,9 @@ def fake_gemini_tts_client(monkeypatch):
     """
     fake = FakeGeminiClient()
     monkeypatch.setattr("src.llm_client._get_client", lambda: fake)
+    # Also patch the local binding in tts.py — Python's `from X import Y`
+    # creates a local name that survives monkeypatch on the source module.
+    monkeypatch.setattr("src.reels_pipeline.tts._get_client", lambda: fake)
     return fake
 
 

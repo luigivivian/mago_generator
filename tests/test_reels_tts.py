@@ -23,16 +23,40 @@ from unittest.mock import patch
 import pytest
 
 
+def _make_fake_pipeline(config: dict | None = None):
+    """Build a minimal ReelsPipeline instance with config_override dict."""
+    from src.reels_pipeline.main import ReelsPipeline
+    return ReelsPipeline(config_override=config or {})
+
+
 # ---------------------------------------------------------------------------
 # TTS-01 -- `run_step_tts` produces one Gemini TTS file per cena
 # Bound to: 22-02 Plan, generate_narration_per_cena helper
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (22-02) pending -- generates_one_file_per_cena")
 @pytest.mark.asyncio
 async def test_generates_one_file_per_cena(tmp_path, fake_gemini_tts_client):
-    """TTS-01: After run_step_tts, exactly N files exist at audio/cena_{i:03d}.wav."""
-    pytest.fail("Stub -- implement when 22-02 lands")
+    """TTS-01: Exactly N files at audio/cena_{i:03d}.wav for N cenas in script."""
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "primeira cena"},
+        {"narracao": "segunda cena"},
+        {"narracao": "terceira cena"},
+    ]}
+    audio_path, total_dur, cost, cenas_meta = await pipe.run_step_tts(
+        script=script, job_dir=str(tmp_path)
+    )
+    # Assert per-cena files exist
+    for i in range(3):
+        p = tmp_path / "audio" / f"cena_{i:03d}.wav"
+        assert p.exists(), f"cena_{i:03d}.wav missing"
+    # Assert audio.wav (concat) exists
+    assert (tmp_path / "audio.wav").exists()
+    # Assert the fake client saw exactly 3 generate_content calls (one per cena)
+    assert len(fake_gemini_tts_client.calls) == 3
+    # Assert cenas_meta has 3 entries, all status complete
+    assert len(cenas_meta) == 3
+    assert all(c["status"] == "complete" for c in cenas_meta)
 
 
 # ---------------------------------------------------------------------------
@@ -40,11 +64,20 @@ async def test_generates_one_file_per_cena(tmp_path, fake_gemini_tts_client):
 # Bound to: 22-03 Plan, run_step_tts ffprobe loop
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-03) pending -- ffprobe_duration_measured_per_cena")
 @pytest.mark.asyncio
-async def test_ffprobe_duration_measured_per_cena(tmp_path, fake_gemini_tts_client, make_fake_tts_wavs):
-    """TTS-02: Every cenas[i].duration is a float > 0 set by get_video_duration()."""
-    pytest.fail("Stub -- implement when 22-03 lands")
+async def test_ffprobe_duration_measured_per_cena(tmp_path, fake_gemini_tts_client):
+    """TTS-02: cenas_meta[i].duration is a float > 0 for every successful cena."""
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "uma"},
+        {"narracao": "duas"},
+    ]}
+    _, _, _, cenas_meta = await pipe.run_step_tts(
+        script=script, job_dir=str(tmp_path)
+    )
+    for c in cenas_meta:
+        assert isinstance(c["duration"], float), f"cena {c['index']} duration not float: {c['duration']!r}"
+        assert c["duration"] > 0, f"cena {c['index']} duration not positive: {c['duration']}"
 
 
 # ---------------------------------------------------------------------------
@@ -52,11 +85,30 @@ async def test_ffprobe_duration_measured_per_cena(tmp_path, fake_gemini_tts_clie
 # Bound to: 22-03 Plan, on_cena_update + flag_modified
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-03) pending -- step_state_cenas_persisted")
 @pytest.mark.asyncio
 async def test_step_state_cenas_persisted(tmp_path, fake_gemini_tts_client):
-    """TTS-03: step_state['tts']['cenas'][i] has dict with index/path/duration/status keys."""
-    pytest.fail("Stub -- implement when 22-03 lands")
+    """TTS-03: cenas_meta shape matches the step_state.tts.cenas[] contract."""
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "alfa"},
+        {"narracao": "beta"},
+        {"narracao": "gama"},
+    ]}
+    # Also capture on_cena_update callback
+    updates: list[list[dict]] = []
+    _, _, _, cenas_meta = await pipe.run_step_tts(
+        script=script,
+        job_dir=str(tmp_path),
+        on_cena_update=lambda lst: updates.append(lst),
+    )
+    # Assert required keys on every entry
+    for c in cenas_meta:
+        assert set(c.keys()) >= {"index", "narracao", "path", "duration", "status"}
+        assert c["status"] == "complete"
+        assert c["path"] is not None
+        assert c["duration"] is not None
+    # Callback fired at least once per cena
+    assert len(updates) >= 3
 
 
 # ---------------------------------------------------------------------------
@@ -64,17 +116,49 @@ async def test_step_state_cenas_persisted(tmp_path, fake_gemini_tts_client):
 # Bound to: 22-03 Plan, _concat_cena_wavs ffmpeg helper
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-03) pending -- concat_not_single_call")
 @pytest.mark.asyncio
 async def test_concat_not_single_call(tmp_path, fake_gemini_tts_client):
-    """TTS-04: ffmpeg subprocess is called with `-f concat -c copy`; Gemini is called N times for N cenas (not N+1)."""
-    pytest.fail("Stub -- implement when 22-03 lands")
+    """TTS-04: ffmpeg concat path is used -- Gemini is called N times for N cenas, not N+1.
+
+    If the concat were done as a single additional Gemini call, the fake
+    client would see 4 calls for a 3-cena script. We assert exactly 3.
+    """
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "um"},
+        {"narracao": "dois"},
+        {"narracao": "tres"},
+    ]}
+    await pipe.run_step_tts(script=script, job_dir=str(tmp_path))
+    # Exactly N Gemini calls -- concat is ffmpeg, not Gemini
+    assert len(fake_gemini_tts_client.calls) == 3, (
+        f"expected 3 Gemini calls (one per cena); got {len(fake_gemini_tts_client.calls)}"
+    )
+    # audio.wav still exists (proves concat ran)
+    assert (tmp_path / "audio.wav").exists()
 
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-03) pending -- sum_matches_concat_within_tolerance")
 def test_sum_matches_concat_within_tolerance(tmp_path, make_fake_tts_wavs):
-    """TTS-04 tolerance: |sum(per_cena_durations) - get_video_duration(audio.wav)| < 0.050s."""
-    pytest.fail("Stub -- implement when 22-03 lands")
+    """TTS-04 tolerance: |sum(per_cena_durations) - concat_duration| < 0.050s.
+
+    Uses real PCM WAV files (via make_fake_tts_wavs fixture) so ffprobe
+    reads real format metadata. Verified bit-exact locally.
+    """
+    from src.reels_pipeline.tts import _concat_cena_wavs
+    from src.reels_pipeline.video_builder import get_video_duration
+
+    # 3 WAV files with distinct frame counts
+    per_cena_paths = make_fake_tts_wavs([73_123, 89_451, 105_903])
+    out_path = str(tmp_path / "audio.wav")
+    _concat_cena_wavs(per_cena_paths, out_path)
+
+    per_cena_durs = [get_video_duration(p) for p in per_cena_paths]
+    concat_dur = get_video_duration(out_path)
+
+    # Success criterion #2 tolerance
+    assert abs(sum(per_cena_durs) - concat_dur) < 0.050
+    # Stronger: sub-millisecond (bit-exact concat)
+    assert abs(sum(per_cena_durs) - concat_dur) < 0.001
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +222,54 @@ async def test_biblical_clamp_logged(tmp_path, fake_gemini_tts_client, caplog):
 # Bound to: 22-02 Plan, retry/classifier; 22-03 Plan, isolation in run_step_tts
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-03) pending -- single_cena_failure_isolated")
 @pytest.mark.asyncio
 async def test_single_cena_failure_isolated(tmp_path, fake_gemini_tts_client):
-    """TTS-06: When cena 3 of 5 raises persistently, cenas 0/1/2/4 still succeed; cena 3 has failed=True."""
-    pytest.fail("Stub -- implement when 22-03 lands")
+    """TTS-06: Cena 3 of 5 fails persistently -- cenas 0/1/2/4 succeed; cena 3 marked failed."""
+    from google.genai import errors as genai_errors
+
+    # Build a non-retryable error (400 -> classifier "fail" -> single attempt)
+    def make_400():
+        e = genai_errors.ClientError.__new__(genai_errors.ClientError)
+        e.code = 400
+        e.status = "INVALID_ARGUMENT"
+        e.message = "simulated content-safety block"
+        return e
+
+    # Monkeypatch generate_content to raise only for the specific cena's text.
+    # With Semaphore(3) + gather(), call order is non-deterministic, so we
+    # match on contents rather than call index.
+    failing_text = "cena tres narracao"
+    original_gen = fake_gemini_tts_client.generate_content
+
+    def selective_gen(*, model, contents, config):
+        if failing_text in contents:
+            raise make_400()
+        return original_gen(model=model, contents=contents, config=config)
+
+    fake_gemini_tts_client.generate_content = selective_gen
+    fake_gemini_tts_client.models = fake_gemini_tts_client  # re-bind
+
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "cena zero narracao"},
+        {"narracao": "cena um narracao"},
+        {"narracao": "cena dois narracao"},
+        {"narracao": failing_text},
+        {"narracao": "cena quatro narracao"},
+    ]}
+    audio_path, total_dur, cost, cenas_meta = await pipe.run_step_tts(
+        script=script, job_dir=str(tmp_path)
+    )
+    # Pipeline did not abort
+    assert os.path.isfile(audio_path)
+    # Cena 3 is failed
+    assert cenas_meta[3]["status"] == "failed"
+    assert cenas_meta[3].get("failed") is True
+    # Cenas 0, 1, 2, 4 are complete
+    for i in (0, 1, 2, 4):
+        assert cenas_meta[i]["status"] == "complete", f"cena {i} should be complete: {cenas_meta[i]}"
+    # audio.wav concat ran over the 4 survivors
+    assert total_dur > 0
 
 
 def test_error_classification():
