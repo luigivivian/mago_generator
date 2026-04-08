@@ -93,6 +93,16 @@ function ScenePanel({ jobId }: { jobId: string }) {
   };
 
   const handleRegenNarration = async () => {
+    // 999.14 D-09 (Bug 4 unparked): warn the user that regenerating TTS
+    // wipes step_state.editor on the backend (reels.py:1174-1175 pops
+    // editor on tts/srt/script regen). All editor cuts/trims/subtitles
+    // will be lost. Let them confirm so they don't lose work silently.
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Regenerar a narracao apaga TODAS as suas edicoes do editor (cortes de audio, trims de cena, legendas adicionadas, transicoes). O audio sera reconstruido a partir do roteiro original com a voz/velocidade configurada nas Configuracoes do Reel. Continuar?",
+      );
+      if (!ok) return;
+    }
     setRegenNarration(true);
     useEditorStore.setState((state) => ({
       scenes: state.scenes.map((s) =>
@@ -112,6 +122,15 @@ function ScenePanel({ jobId }: { jobId: string }) {
   };
 
   const handleRegenClip = async () => {
+    // 999.14 D-09 (Bug 4 unparked): clip regen does NOT wipe editor state
+    // on the backend (only tts/srt/script do — reels.py:1174). But the
+    // visual asset will change, so warn the user and let them cancel.
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Regenerar este clip vai gerar um novo arquivo de video para a cena. Suas edicoes do editor (cortes, trims, legendas) serao preservadas. Continuar?",
+      );
+      if (!ok) return;
+    }
     setRegenClip(true);
     useEditorStore.setState((state) => ({
       scenes: state.scenes.map((s) =>
@@ -137,11 +156,18 @@ function ScenePanel({ jobId }: { jobId: string }) {
           label="Duracao"
           value={durationSec}
           min={0.5}
-          max={15}
+          max={20}
           step={0.1}
           unit="s"
           onChange={(v) => trimScene(scene.id, Math.round(v * EDITOR_FPS))}
         />
+        {/* 999.14 D-09 (Bug 6 fix): hint that the duration slider only
+            stretches/shrinks the scene visually — it does NOT trim the
+            audio. Use "Cortar Inicio/Fim" in the toolbar for that. */}
+        <p className="text-[10px] text-muted-foreground/70 leading-tight">
+          A duracao mostra apenas o tempo visual da cena. Para cortar o
+          audio junto, use os botoes "Inicio" / "Fim" na barra superior.
+        </p>
         {scene.narration && (
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Narracao</label>
@@ -212,6 +238,16 @@ function ScenePanel({ jobId }: { jobId: string }) {
           unit="x"
           onChange={handleUpdateSpeed}
         />
+        {/* 999.14 D-09 (Bug 4 unparked): Voice/speed are display-only at the
+            scene level. The pipeline does ONE TTS call for narracao_completa
+            and uses the global ReelsConfig values, not per-scene. We surface
+            this so the user understands "Regenerar Narracao" won't pick up
+            the per-scene change. Tracked in DEVLOG as future work. */}
+        <p className="text-[10px] text-amber-400/80 leading-tight">
+          ⚠ Voz e velocidade aqui sao apenas visualizacao. O TTS atual gera o
+          audio inteiro de uma vez e usa as configuracoes globais do job.
+          Mude a voz padrao em Configuracoes do Reel antes de regenerar.
+        </p>
       </Section>
 
       <Section title="Acoes">
@@ -488,19 +524,48 @@ function AudioPanel() {
 
   if (!audioItem) return null;
   const volumePct = Math.round((audioItem.volume ?? 1) * 100);
+  const startFromSec = (audioItem.startFrom ?? 0) / EDITOR_FPS;
+  const durationSec = audioItem.durationInFrames / EDITOR_FPS;
+  const fromSec = audioItem.from / EDITOR_FPS;
 
   return (
-    <Section title="Volume">
-      <SliderField
-        label="Volume"
-        value={volumePct}
-        min={0}
-        max={100}
-        step={1}
-        unit="%"
-        onChange={(v) => setAudioVolume(audioItem.id, v / 100)}
-      />
-    </Section>
+    <div className="space-y-3">
+      <Section title="Audio">
+        <div className="text-[11px] text-muted-foreground space-y-0.5">
+          <div className="flex justify-between">
+            <span>Posicao no timeline:</span>
+            <span className="text-foreground tabular-nums">{fromSec.toFixed(2)}s</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Duracao:</span>
+            <span className="text-foreground tabular-nums">{durationSec.toFixed(2)}s</span>
+          </div>
+          {startFromSec > 0 && (
+            <div className="flex justify-between text-amber-300/90">
+              <span>Pulando do inicio:</span>
+              <span className="tabular-nums">{startFromSec.toFixed(2)}s</span>
+            </div>
+          )}
+        </div>
+        {/* 999.14 D-09 (Bug 6 fix): explain audio editing options */}
+        <p className="text-[10px] text-muted-foreground/70 leading-tight">
+          Arraste as bordas do bloco para trim, arraste o meio para mover.
+          Use "Cortar Inicio" / "Cortar Fim" na barra superior para um corte
+          que tambem ajusta as cenas.
+        </p>
+      </Section>
+      <Section title="Volume">
+        <SliderField
+          label="Volume"
+          value={volumePct}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          onChange={(v) => setAudioVolume(audioItem.id, v / 100)}
+        />
+      </Section>
+    </div>
   );
 }
 
@@ -509,12 +574,20 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
+  // IMPORTANT: every hook in this component must be called unconditionally
+  // on every render, in the same order. Do NOT move any useEditorStore /
+  // useSelectedX call below an early return — doing so changes the hook
+  // count between renders (e.g., single-select → multi-select) and
+  // triggers "Rendered fewer hooks than expected" (Bug 8, 2026-04-08).
   const scene = useSelectedScene();
   const subtitle = useSelectedSubtitle();
   // 999.12 D-01: surface multi-select state
   const selection = useEditorStore((s) => s.selection);
   const bulkDeleteSelected = useEditorStore((s) => s.bulkDeleteSelected);
   const bulkDuplicateSelected = useEditorStore((s) => s.bulkDuplicateSelected);
+  // 999.12 D-09: read selectedAudioId up here (before any early return) so
+  // the hook order stays stable across single/multi-select transitions.
+  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
 
   // 999.12 D-01: when more than 1 item is selected, show a compact summary
   // instead of the per-item editor (which only fits one).
@@ -563,7 +636,6 @@ export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
   }
 
   // 999.12 D-09: when only an audio item is selected, show AudioPanel
-  const selectedAudioId = useEditorStore((s) => s.selectedAudioId);
   if (!scene && !subtitle && selectedAudioId) {
     return (
       <div className="p-4 space-y-4">

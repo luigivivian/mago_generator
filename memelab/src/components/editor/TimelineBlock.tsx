@@ -437,6 +437,35 @@ function AudioBlock({
       <span className="absolute top-0.5 left-3 text-[9px] text-blue-300/80 pointer-events-none z-[6]">
         {(item.durationInFrames / 30).toFixed(1)}s
       </span>
+
+      {/* 999.14 D-09 (Bug 6 fix): trim status indicator. Shown when the
+          audio item is trimmed from the source — startFrom > 0 means
+          leading source seconds are skipped, and (startFrom + duration <
+          totalSourceFrames) means trailing source seconds are skipped.
+          The user reported "audio chumbado" (stuck/glued) because
+          there was no visual signal that their cut had taken effect.
+          This badge fixes that. */}
+      {((item.startFrom ?? 0) > 0 ||
+        (waveform &&
+          (item.startFrom ?? 0) + item.durationInFrames <
+            Math.round(waveform.duration * EDITOR_FPS) - 5)) && (
+        <span
+          className="absolute top-0.5 right-3 text-[9px] font-medium text-amber-300 bg-amber-900/60 px-1 rounded pointer-events-none z-[6]"
+          title={
+            waveform
+              ? `Audio cortado: pulando ${((item.startFrom ?? 0) / EDITOR_FPS).toFixed(1)}s do inicio, ${(
+                  Math.max(
+                    0,
+                    waveform.duration -
+                      ((item.startFrom ?? 0) + item.durationInFrames) / EDITOR_FPS,
+                  )
+                ).toFixed(1)}s do fim. Original: ${waveform.duration.toFixed(1)}s.`
+              : "Audio cortado"
+          }
+        >
+          ✂ -{((item.startFrom ?? 0) / EDITOR_FPS).toFixed(1)}s
+        </span>
+      )}
     </div>
   );
 }

@@ -23,6 +23,8 @@ import {
   Smartphone,
   Type,
   RotateCcw,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import type { SafePlatform } from "./SafeZoneOverlay";
 import { useUndoRedo } from "@/hooks/use-editor";
@@ -83,6 +85,39 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
     if (store.selectedSceneId) store.freezeFrame(store.selectedSceneId, EDITOR_FPS);
   }, []);
 
+  // 999.14 D-09 (Bug 6 fix): ripple-trim from frame 0 to playhead. This
+  // is the "remove the slow intro" workflow the user explicitly requested.
+  // It cuts BOTH the audio and the scenes/subtitles in one undoable
+  // operation so the timeline stays internally consistent. The previous
+  // behavior — cut audio independently, scenes stay put — left the user
+  // with a broken alignment they described as "audio chumbado".
+  const handleTrimToPlayhead = useCallback(() => {
+    const store = useEditorStore.getState();
+    if (store.playheadFrame <= 0) return;
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            `Cortar tudo antes do playhead (${(store.playheadFrame / EDITOR_FPS).toFixed(1)}s)? Isso remove os clips e legendas iniciais e corta o audio para que o timeline comece onde o playhead esta agora.`,
+          );
+    if (!ok) return;
+    store.rippleTrimToPlayhead();
+  }, []);
+
+  const handleTrimAfterPlayhead = useCallback(() => {
+    const store = useEditorStore.getState();
+    const total = store.scenes.reduce((sum, s) => sum + s.durationInFrames, 0);
+    if (store.playheadFrame >= total) return;
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            `Cortar tudo depois do playhead (${(store.playheadFrame / EDITOR_FPS).toFixed(1)}s)? Isso remove os clips, legendas e audio que vem depois desse ponto.`,
+          );
+    if (!ok) return;
+    store.rippleTrimAfterPlayhead();
+  }, []);
+
   // Add a new subtitle at the playhead with default 2s duration. After
   // creating, select it so PropertiesPanel switches to the SubtitlePanel
   // and the user lands directly on the text/style editor.
@@ -112,6 +147,31 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         title="Cortar no Playhead (S)"
       >
         <Scissors className="h-4 w-4" />
+      </button>
+      {/* 999.14 D-09 (Bug 6 fix): ripple-trim "remove tudo antes/depois
+          do playhead". The user explicitly asked for the "remove slow
+          intro" workflow. These two buttons make it a single click —
+          cuts the audio AND scenes AND subtitles together so the
+          timeline stays in sync (the prior independent cut left things
+          misaligned, which the user perceived as "audio chumbado"). */}
+      <button
+        type="button"
+        onClick={handleTrimToPlayhead}
+        disabled={playheadFrame <= 0}
+        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
+        title="Cortar tudo antes do playhead — remove o inicio (clips, audio e legendas)"
+      >
+        <ChevronsLeft className="h-4 w-4" />
+        <span className="text-[10px] font-medium">Inicio</span>
+      </button>
+      <button
+        type="button"
+        onClick={handleTrimAfterPlayhead}
+        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
+        title="Cortar tudo depois do playhead — remove o final (clips, audio e legendas)"
+      >
+        <ChevronsRight className="h-4 w-4" />
+        <span className="text-[10px] font-medium">Fim</span>
       </button>
       <button
         type="button"

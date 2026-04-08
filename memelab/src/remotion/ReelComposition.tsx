@@ -11,7 +11,6 @@ import type {
   EditorAudioItem,
   EditorSubtitle,
 } from "../stores/editor-types";
-import { EDITOR_FPS } from "../stores/editor-types";
 import { useEditorStore } from "../stores/editor-store";
 import { Scene } from "./components/Scene";
 import { SubtitleOverlay } from "./components/SubtitleOverlay";
@@ -100,9 +99,19 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
             from={item.from}
             durationInFrames={item.durationInFrames}
           >
+            {/* 999.14 D-10 (Bug 7 fix): Remotion <Audio trimBefore> takes
+                FRAMES, not seconds — at 30fps composition, trimBefore={60}
+                skips 2 seconds of source audio. The previous code divided
+                item.startFrom by EDITOR_FPS, converting frames to seconds,
+                resulting in 30x LESS audio being skipped than intended.
+                Result: the waveform was drawn assuming the audio plays
+                from second X (correct) but Remotion actually played from
+                second X/30 (wrong) — that's why the user saw the playhead
+                drift relative to the waveform under it. Pass startFrom
+                directly as a frame count. */}
             <Audio
               src={item.audioUrl}
-              trimBefore={(item.startFrom ?? 0) / EDITOR_FPS}
+              trimBefore={item.startFrom ?? 0}
               volume={effectiveVolume}
             />
           </Sequence>

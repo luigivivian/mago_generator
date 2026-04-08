@@ -63,6 +63,13 @@ interface EditorState {
   trimAudioItem: (audioId: string, newDuration: number) => void;
   trimAudioLeft: (audioId: string, newFrom: number) => void;
   moveAudioItem: (audioId: string, newFrom: number) => void;
+  // 999.14 D-09 (Bug 6): ripple-cut up to playhead — trims the leading
+  // segment off BOTH audio and scenes/subtitles, shifting everything left
+  // so the timeline starts where the playhead was. The single most-requested
+  // workflow ("delete the slow intro").
+  rippleTrimToPlayhead: () => void;
+  // 999.14 D-09: same idea but cuts from the playhead to the end
+  rippleTrimAfterPlayhead: () => void;
   // Scene tools
   trimSceneLeft: (sceneId: string, newTrimFrom: number) => void;
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
@@ -620,6 +627,168 @@ export const useEditorStore = create<EditorState>()(
             a.id === audioId ? { ...a, from: Math.max(0, newFrom) } : a,
           ),
         }));
+      },
+
+      // 999.14 D-09 (Bug 6): ripple-cut from frame 0 up to the current
+      // playhead. This is the "remove slow intro" workflow the user explicitly
+      // requested. It does FOUR things in one undoable operation:
+      //
+      //   1. Trim audio: every audio item that starts at or before the
+      //      playhead has its leading segment skipped via startFrom += cut.
+      //      Items entirely before the playhead are deleted. Items entirely
+      //      after the playhead get their `from` shifted left by the cut.
+      //   2. Trim scenes: walks scenes accumulating frame offsets. Scenes
+      //      entirely inside [0, playhead) are deleted. The scene that
+      //      contains the playhead has its left edge trimmed (durationInFrames
+      //      reduced and trimFrom set so the source clip skips the cut).
+      //   3. Trim subtitles: subs entirely before the playhead are deleted.
+      //      Subs that span the playhead are clipped (startFrame := 0).
+      //      All subs after are shifted left by the cut amount.
+      //   4. Reset playhead to 0.
+      //
+      // This operation is intentionally aggressive — it COMPRESSES the
+      // timeline. The user's stated complaint was "audio chumbado" because
+      // cutting the audio alone left scenes misaligned. This action keeps
+      // them in sync.
+      rippleTrimToPlayhead: () => {
+        set((state) => {
+          const cut = state.playheadFrame;
+          if (cut <= 0) return state;
+
+          // 1. Audio: each item is in absolute frames via item.from + duration.
+          //    For each item, three cases: entirely before cut, spans cut, or
+          //    entirely after cut.
+          const audioItems: EditorAudioItem[] = [];
+          for (const a of state.audioItems) {
+            const aEnd = a.from + a.durationInFrames;
+            if (aEnd <= cut) {
+              // Entirely inside the cut region — drop it.
+              continue;
+            }
+            if (a.from >= cut) {
+              // Entirely after the cut — shift left.
+              audioItems.push({ ...a, from: a.from - cut });
+              continue;
+            }
+            // Spans the cut: keep the tail. The retained portion starts at
+            // `cut` (timeline frame) and corresponds to source position
+            // `(a.startFrom ?? 0) + (cut - a.from)`. After shift, its new
+            // `from` becomes 0.
+            const shavedFrames = cut - a.from;
+            audioItems.push({
+              ...a,
+              from: 0,
+              durationInFrames: a.durationInFrames - shavedFrames,
+              startFrom: (a.startFrom ?? 0) + shavedFrames,
+            });
+          }
+
+          // 2. Scenes: walk accumulating offsets, drop scenes entirely
+          //    before the cut, trim the spanning scene, keep the rest.
+          const scenes: EditorScene[] = [];
+          let cursor = 0;
+          for (const s of state.scenes) {
+            const sStart = cursor;
+            const sEnd = cursor + s.durationInFrames;
+            cursor = sEnd;
+            if (sEnd <= cut) {
+              // Entirely inside cut region — drop it.
+              continue;
+            }
+            if (sStart >= cut) {
+              // Entirely after cut — keep as-is (no offset needed since
+              // scenes are sequential without absolute positioning).
+              scenes.push(s);
+              continue;
+            }
+            // Spans the cut: trim the leading portion. Keep the right half.
+            const shaved = cut - sStart;
+            scenes.push({
+              ...s,
+              durationInFrames: s.durationInFrames - shaved,
+              trimFrom: (s.trimFrom ?? 0) + shaved,
+            });
+          }
+
+          // 3. Subtitles: drop entirely-before, clip spanning, shift after.
+          const subtitles: EditorSubtitle[] = [];
+          for (const sub of state.subtitles) {
+            if (sub.endFrame <= cut) continue;
+            if (sub.startFrame >= cut) {
+              subtitles.push({
+                ...sub,
+                startFrame: sub.startFrame - cut,
+                endFrame: sub.endFrame - cut,
+              });
+              continue;
+            }
+            // Spans the cut — clip start to 0
+            subtitles.push({
+              ...sub,
+              startFrame: 0,
+              endFrame: sub.endFrame - cut,
+            });
+          }
+
+          return {
+            scenes: reindexScenes(scenes),
+            audioItems,
+            subtitles,
+            playheadFrame: 0,
+          };
+        });
+      },
+
+      // 999.14 D-09 (Bug 6): mirror of rippleTrimToPlayhead — drops
+      // everything from the playhead to the end. Useful for trimming the
+      // CTA off the end of a video.
+      rippleTrimAfterPlayhead: () => {
+        set((state) => {
+          const cut = state.playheadFrame;
+
+          const audioItems: EditorAudioItem[] = [];
+          for (const a of state.audioItems) {
+            const aEnd = a.from + a.durationInFrames;
+            if (a.from >= cut) continue; // entirely after — drop
+            if (aEnd <= cut) {
+              audioItems.push(a); // entirely before — keep
+              continue;
+            }
+            // spans the cut: keep the head, shorten duration
+            audioItems.push({ ...a, durationInFrames: cut - a.from });
+          }
+
+          const scenes: EditorScene[] = [];
+          let cursor = 0;
+          for (const s of state.scenes) {
+            const sStart = cursor;
+            const sEnd = cursor + s.durationInFrames;
+            cursor = sEnd;
+            if (sStart >= cut) continue; // entirely after — drop
+            if (sEnd <= cut) {
+              scenes.push(s); // entirely before — keep
+              continue;
+            }
+            // spans the cut: trim the trailing portion
+            scenes.push({ ...s, durationInFrames: cut - sStart });
+          }
+
+          const subtitles: EditorSubtitle[] = [];
+          for (const sub of state.subtitles) {
+            if (sub.startFrame >= cut) continue;
+            if (sub.endFrame <= cut) {
+              subtitles.push(sub);
+              continue;
+            }
+            subtitles.push({ ...sub, endFrame: cut });
+          }
+
+          return {
+            scenes: reindexScenes(scenes),
+            audioItems,
+            subtitles,
+          };
+        });
       },
 
       setSelectedScene: (sceneId) =>
