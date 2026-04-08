@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Pipeline Fidelity Refactor
-status: Defining requirements
-stopped_at: Milestone v4.0 started 2026-04-08
+status: Roadmap defined
+stopped_at: Roadmap created for v4.0 — 5 phases (22-26), 26/26 requirements mapped
 last_updated: "2026-04-08T00:00:00.000Z"
 last_activity: 2026-04-08
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
+  current_phase: 22
 ---
 
 # Project State
@@ -20,20 +21,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** v4.0 — Pipeline Fidelity Refactor. Alinhar reels pipeline com princípio-âncora "áudio é a âncora" do doc pipeline-historia-narracao-imagem.md. Eliminar aproximações char-offset via per-cena TTS anchoring + durações ffprobe-exatas.
+**Current focus:** v4.0 — Pipeline Fidelity Refactor. Alinhar reels pipeline com principio-ancora "audio e a ancora" do doc pipeline-historia-narracao-imagem.md. Eliminar aproximacoes char-offset via per-cena TTS anchoring + duracoes ffprobe-exatas, schema de roteiro v2, image prompts estruturados, Ken Burns mood-driven.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 22 — Per-Cena TTS Anchoring (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-04-08 — Milestone v4.0 started
+Status: Roadmap defined, awaiting phase planning
+Last activity: 2026-04-08 — Roadmap v4.0 created (5 phases, 26/26 reqs mapped)
+
+## Progress
+
+```
+[                    ] 0/5 phases
+[                    ] 0/0 plans (plans TBD)
+```
+
+**Phases:**
+
+| # | Phase | Reqs | Status |
+|---|-------|------|--------|
+| 22 | Per-Cena TTS Anchoring | 6 | Not started |
+| 23 | Audio-Anchored Timing Propagation | 5 | Not started |
+| 24 | Script Schema v2 | 6 | Not started |
+| 25 | Structured Image Generation | 4 | Not started |
+| 26 | Mood-Driven Ken Burns | 5 | Not started |
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0 (v2.0)
+- Total plans completed: 0 (v4.0)
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -45,212 +63,66 @@ Last activity: 2026-04-08 — Milestone v4.0 started
 
 **Recent Trend:**
 
-- Last 5 plans: -
-- Trend: -
-
-*Updated after each plan completion*
-| Phase 12 P01 | 9min | 2 tasks | 9 files |
-| Phase 12 P02 | 8min | 2 tasks | 4 files |
-| Phase 13 P01 | 3min | 2 tasks | 5 files |
-| Phase 13 P02 | 3min | 2 tasks | 5 files |
-| Quick 260325-qhl | 6min | 3 tasks | 7 files |
-| Phase 999.1 P01 | 2min | 2 tasks | 6 files |
-| Phase 999.1 P02 | 3min | 2 tasks | 3 files |
-| Phase 999.1 P03 | 3min | 2 tasks | 4 files |
-| Phase 15 P01 | 4min | 2 tasks | 4 files |
-| Phase 15 P02 | 4min | 2 tasks | 3 files |
-| Phase 16 P02 | 4min | 2 tasks | 4 files |
-| Phase 999.2 P01 | 6min | 2 tasks | 6 files |
-| Phase 999.2 P02 | 5min | 3 tasks | 5 files |
-| Phase 999.3 P01 | 4min | 1 tasks | 3 files |
-| Phase 999.3 P02 | 4min | 1 tasks | 3 files |
-| Phase 18 P01 | 3min | 2 tasks | 5 files |
-| Phase 18 P02 | 5min | 2 tasks | 3 files |
-| Phase 19 P01 | 5min | 2 tasks | 4 files |
-| Phase 19 P02 | 3min | 2 tasks | 2 files |
-| Phase 19 P02 | 4min | 2 tasks | 2 files |
-| Phase 20 P01 | 4min | 2 tasks | 7 files |
-| Phase 20 P02 | 2min | 2 tasks | 3 files |
-| Phase 21 P01 | 2min | 1 tasks | 3 files |
-| Phase 21 P02 | 3min | 2 tasks | 4 files |
-| Phase 999.4 P01 | 3min | 2 tasks | 6 files |
-| Phase 999.4 P02 | 3min | 2 tasks | 4 files |
-| Phase 999.4 P03 | 2min | 2 tasks | 2 files |
-| Phase 999.4 P04 | 2min | 2 tasks | 2 files |
-| Phase 999.4 P05 | 3min | 2 tasks | 4 files |
-| Phase 999.5 P01 | 3min | 3 tasks | 5 files |
-| Phase 999.5 P02 | 2min | 1 tasks | 2 files |
-| Phase 999.5 P03 | 5min | 2 tasks | 8 files |
-| Phase 999.5 P04 | 3min | 2 tasks | 5 files |
-| Phase 999.6 P02 | 2min | 1 tasks | 3 files |
-| Phase 999.6 P01 | 2min | 2 tasks | 4 files |
-| Phase 999.6 P03 | 1min | 2 tasks | 5 files |
-| Phase 421 P01 | 3min | 2 tasks | 6 files |
-| Phase 421 P02 | 2min | 2 tasks | 4 files |
-| Phase 421 P03 | 2min | 2 tasks | 2 files |
-| Phase 421 P04 | 2min | 1 tasks | 1 files |
-| Phase 421 P05 | 2min | 2 tasks | 2 files |
-| Phase 421 P06 | 3min | 2 tasks | 6 files |
-| Phase 421 P07 | 5min | 2 tasks | 13 files |
-| Phase quick-260330-ie5 P01 | 3min | 2 tasks | 5 files |
-| Phase quick-260330-tgu P01 | 5min | 2 tasks | 4 files |
-| Phase 999.9 P01 | 4min | 2 tasks | 5 files |
-| Phase 999.9 P03 | 1min | 1 tasks | 2 files |
-| Phase 999.9 P02 | 6min | 2 tasks | 4 files |
-| Phase 999.9 P04 | 3min | 2 tasks | 4 files |
-| Phase 1000 P01 | 4min | 2 tasks | 9 files |
-| Phase 1000 P02 | 7min | 2 tasks | 10 files |
-| Phase 1000 P03 | 3min | 1 tasks | 2 files |
-| Phase 1001 P01 | 3min | 2 tasks | 4 files |
-| Phase 1001 P05 | 3min | 2 tasks | 3 files |
-| Phase 1001 P04 | 9min | 3 tasks | 4 files |
-| Phase 999.11 P01 | 4min | 2 tasks | 10 files |
-| Phase 999.11 P03 | 6min | 2 tasks | 8 files |
-| Phase 999.11 P02 | 12min | 2 tasks | 7 files |
-| Phase quick-260407-2cj P01 | 5min | 3 tasks | 5 files |
+- Last 5 plans (carried from v3.0 tail):
+  | Phase 1001 P04 | 9min | 3 tasks | 4 files |
+  | Phase 999.11 P01 | 4min | 2 tasks | 10 files |
+  | Phase 999.11 P03 | 6min | 2 tasks | 8 files |
+  | Phase 999.11 P02 | 12min | 2 tasks | 7 files |
+  | Phase quick-260407-2cj P01 | 5min | 3 tasks | 5 files |
+- Trend: v3.0 shipped 2026-04-07
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+**v4.0 (2026-04-08):**
+- Phase 22 (Per-Cena TTS Anchoring) is the architectural foundation — everything else consumes `tts.cenas[i].duration` as ground truth
+- Phase 23 directly consumes Phase 22 output (clip trimming, SRT, editor audio items)
+- Phase 24 (Script Schema v2) is independent of Phase 22/23 but blocks Phase 25 (needs image_prompt) and Phase 26 (needs mood field)
+- Phase 25 depends on Phase 24 (can't use image_prompt without the schema)
+- Phase 26 depends on BOTH Phase 22 (real per-cena durations for > 6s gate) and Phase 24 (mood field)
+- Fine granularity (5 phases for 26 reqs) mirrors category boundaries without artificial splitting
+
+**v3.0 carry-over:**
 - Phase 999.9 added: Kie API credit system with per-model pricing, logs, and balance management
 - Phase 1000 added: Character-scoped navigation — sidebar selector scoping all content by selected character
 - Phase 1001 added: Biblical reels category — Gemini-generated faithful biblical narratives with AI/manual script options
 
-### Decisions
+### Decisions (active — v4.0)
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+- [v4.0 Roadmap]: Phase 22 ships FIRST because all other phases need real per-cena durations — this is the only arch refactor in the milestone
+- [v4.0 Roadmap]: Script Schema v2 (Phase 24) sequenced after TIMING because TTS refactor works on the existing `cena.narracao` field and doesn't need new schema fields — the schema migration blocks IMAGE/MOTION but not TTS/TIMING
+- [v4.0 Roadmap]: Ken Burns (Phase 26) is last because it needs BOTH real durations (> 6s rule) AND mood field (preset map)
+- [v4.0 Roadmap]: 5 phases map 1:1 to the 5 requirement categories (TTS, TIMING, SCRIPT, IMAGE, MOTION) — the categories themselves are natural delivery boundaries, no artificial splits
+- [v4.0 Roadmap]: `narracao_completa` continues to exist (concatenated from per-cena files) so editor waveform UI (Bug 7 fix) stays stable — compat is a hard constraint
+- [v4.0 Roadmap]: ElevenLabs integration explicitly deferred (user decision) — Gemini TTS remains sole provider
+- [v4.0 Roadmap]: Ads pipeline, meme manual pipeline, editor features, and subtitle style are all out of scope — v4.0 is exclusively reels pipeline fidelity
 
-- [v2.0 Roadmap]: Split Instagram publishing into two phases (14: Connection/CDN, 15: Scheduling/Publishing) for cleaner delivery boundaries
-- [v2.0 Roadmap]: Dashboard v2 (Phase 16) depends only on Phase 13 (tenant isolation), not on publishing — can be parallelized
-- [v2.0 Roadmap]: Auth v2 (password reset, 2FA, OAuth) deferred to future milestone
-- Pipeline nao chama Gemini Image API — apenas compoe backgrounds existentes + frases
-- Agentes de trends desacoplados do pipeline (consulta avulsa)
-- [Phase 12]: Hex color passed via background_path param — avoids new parameter, detected by startswith('#')
-- [Phase 12]: Manual pipeline forces background_mode=static and use_gemini_image=False — zero Gemini Image calls guaranteed
-- [Phase 12]: Optimistic UI updates for approve/reject — immediate feedback, revert on API error
-- [Phase 13]: Fetch-then-check pattern for 403 vs 404 distinction in CharacterRepository
-- [Phase 13]: PermissionError at repo level, HTTPException 403 at deps.py helper level
-- [Phase 13]: Transitive ownership via Character join for all child-table repos (consistent pattern)
-- [Phase 13]: ThemeRepository hybrid ownership: global themes public, user themes by user_id, character themes by Character.user_id
-- [Quick 260325-qhl]: Tile-based token estimation: ceil(w/768)*ceil(h/768)*258 per input image
-- [Quick 260325-qhl]: cost_usd accumulated via upsert per day/service/tier bucket in api_usage
-- [Phase 999.1]: Migration 012 chains from 011 (sequential pattern); all video columns nullable; GCSUploader lazy client init
-- [Phase 999.1]: Config fallback chain (param -> config module -> env var) for video_gen modules
-- [Phase 999.1]: 17 motion templates for full theme coverage (15 core + cotidiano + descanso)
-- [Phase 999.1]: Background video task uses get_session_factory() for independent DB sessions (request session unavailable in BackgroundTasks)
-- [Phase 999.1]: Budget enforcement: pre-check estimated cost before generation, track actual cost after completion via kie_video service
-- [Phase 15]: InstagramStatus type includes token_expires_at for future expiry warnings
-- [Phase 15]: useInstagramStatus refreshes every 60s with errorRetryCount 1 (non-critical)
-- [Phase 15]: Month view uses colored dots (not full cards) for compact calendar cells
-- [Phase 15]: Schedule dialog hard-blocks submit when Instagram not connected
-- [Phase 16]: QuotaAlerts uses existing useUsage() data (no new endpoint/DB tables needed)
-- [Phase 16]: Charts placed below existing dashboard content, not replacing anything
-- [Phase 999.2]: Migration 014 chains from 012 (not 013) because 013 migrations exist only in parallel worktrees
-- [Phase 999.2]: Textfile approach for FFmpeg drawtext phrase text to avoid Windows escaping issues
-- [Phase 999.2]: Typewriter mode uses line-by-line reveal with per-line fade-in (not char-by-char)
-- [Phase 999.2]: LegendWorker uses lazy renderer init to avoid importing FFmpeg deps when disabled
-- [Phase 999.2]: Legend runs AFTER asyncio.gather in PostProductionLayer (sequential post-step for I/O-heavy FFmpeg)
-- [Phase 999.3]: v2 templates use 4 sentences 300-355 chars; camera mapped per theme emotional tone; MOTION_TEMPLATES alias points to V2 for backward compat
-- [Phase 999.3]: v2 system prompt uses structured CAMERA/SUBJECT/PHYSICS/ATMOSPHERE sections per OpenAI Cookbook
-- [Phase 999.3]: max_tokens 250 for v2 (4-5 sentences, 300-500 chars); _get_system_prompt()/_get_enhance_prompt() version switching
-- [Phase 18]: Stale scanner checks Kie.ai task status before marking as failed (avoids false positives)
-- [Phase 18]: Progress endpoint queries Kie.ai live for generating jobs, returns from DB for terminal states
-- [Phase 18]: Video section always shown (even when empty) with centered empty state
-- [Phase 18]: BRL cost in video cards: cost_usd * 5.5 (approximate conversion)
-- [Phase 19]: JSON LIKE filtering for video model in MySQL; dict copy for SQLAlchemy JSON change detection; separate useVideoGallery hook from useVideoList
-- [Phase 19]: VideoCard inline component in same file (per Phase 18 pattern)
-- [Phase 19]: Video Gerado badge uses violet color to distinguish from source badges (gemini=blue, comfyui=purple, static=zinc)
-- [Phase 19]: Inline VideoCard component in same file per Phase 18 pattern
-- [Phase 19]: Violet badge color for Video Gerado distinguishes from existing source badges
-- [Phase 20]: tier=model_id approach: per-model rows via existing unique constraint, no schema change needed
-- [Phase 20]: Legacy api_usage rows (cost_brl=0, cost_usd>0) handled by USD*BRL fallback in summary query
-- [Phase 20]: compute_video_cost_brl in config.py: prices_brl lookup with closest-duration snap, USD fallback for unknown models
-- [Phase 20]: VideoCreditsCard placed below existing dashboard content, before Dialog (per Phase 16 pattern)
-- [Phase 20]: No existing cost_usd displays modified (deferred to Phase 21 per user decision)
-- [Phase 20]: formatBRL uses Intl.NumberFormat pt-BR for locale-aware BRL formatting
-- [Phase 21]: All-time totals use separate unbounded queries (not limited to 14-day comparison window)
-- [Phase 21]: Active packages defined as ContentPackage with video_status IS NOT NULL
-- [Phase 21]: Legacy cost_brl=0 fallback applied at both period and daily level using VIDEO_USD_TO_BRL
-- [Phase 21]: VIDEO_USD_TO_BRL = 5.75 frontend constant matching backend config.py for BRL conversion
-- [Phase 21]: Arrow icons (TrendingUp/TrendingDown/Minus) rendered inside StatsCard component for reusability, not in dashboard page
-- [Phase 21]: Active packages count shown as description subtitle on Videos Gerados card (clean 4-card grid)
-- [Phase 999.4]: TTS/transcription defaults to gemini (not openai) — zero new dependencies for reels pipeline
-- [Phase 999.4]: Direct Gemini API for image gen (no wrapper), response_schema for script JSON, PCM-to-WAV for TTS
-- [Phase 999.4]: xfade filter for crossfade transitions (not concat demuxer); lazy imports in pipeline orchestrator
-- [Phase 999.4]: Models imported from src/reels_pipeline/models.py (no duplication in api/models.py)
-- [Phase 999.4]: Native HTML range inputs for config sliders (no Slider component in project)
-- [Phase 999.5]: Per-step pipeline methods take explicit I/O for interactive execution (no hidden class state)
-- [Phase 999.5]: Video segmentation uses greedy bin-packing at ~30s boundaries; SRT slicing filters and re-indexes entries
-- [Phase 999.5]: Prompt step runs sync, heavy steps in background; flag_modified on all step_state mutations; regenerate clears downstream
-- [Phase 999.5]: Approve-then-execute pattern: each step component calls approveStep then executeStep for next step
-- [Phase 999.5]: StepScript auto-saves dirty edits on approve to prevent data loss
-- [Phase 999.5]: Shared handleApprove/handleRegenerate in jobId page centralizes API calls and SWR refresh for all 6 steps
-- [Phase 999.5]: StepSubtitles auto-saves dirty SRT edits on approve to prevent data loss (same pattern as StepScript)
-- [Phase 999.6]: Hailuo 2.3 Standard model for per-scene image-to-video (R$1.31/6s); static image fallback on failure; FontSize=28 Bold=1 Outline=3 MarginV=80 for mobile subtitles
-- [Phase 999.6]: n_imagens defaults to 5 when image_paths=None (text-only script gen mode)
-- [Phase 999.6]: Per-cena image gen falls back to generic gen when no script available in step_state
-- [Phase 999.6]: Button labels reflect next action (Gerar Roteiro, Gerar Imagens, Aprovar e Gerar Narracao) for clearer UX
-- [Phase 421]: Migration 020 chains from 018 (latest numbered); Float for cost columns matching ReelsJob; Config follows reels_pipeline pattern
-- [Phase 421]: compose_scene uses gemini-2.5-flash-image for scene composition; analyze_product uses gemini-2.5-flash text model for JSON analysis
-- [Phase 421]: prompt_builder appends NEGATIVE_PROMPTS per style after LLM-generated motion prompt; copy_generator uses response_mime_type=application/json
-- [Phase 421]: KieMusicClient uses same Bearer token auth and BASE_URL as KieSora2Client (no shared base class)
-- [Phase 421]: GCS upload_image before Kie.ai create_task (public URL required); estimate_cost returns BRL breakdown per D-19
-- [Phase 421]: Ads router mirrors reels.py pattern exactly (background tasks, flag_modified, get_session_factory)
-- [Phase 421]: Manual collapsible sections in wizard (no Accordion component); client-side cost estimate by style; AI analysis via /ads/analyze pre-fill
-- [Phase 421]: AdStepper uses horizontal scrollable layout for 8 steps; StepExport has no approve button per D-22 auto-complete; Ad API types created inline due to worktree isolation
-- [Phase quick-260330-tgu]: Niche selector replaces plain text input; enhance sends PT-BR niche label to Gemini
-- [Phase 999.8-G]: Pure Python cosine similarity (no numpy) for asset reuse; Gemini text-embedding-004 for 768-dim embeddings; threshold 0.85 for conservative match
-- [Phase 999.9]: CreditService at service layer (not middleware) because background tasks bypass HTTP middleware
-- [Phase 999.9]: Integer credits avoid floating point rounding ($7=1000 credits, $0.007/credit)
-- [Phase 999.9]: SELECT FOR UPDATE for MySQL row locking; SQLite single-writer fallback
-- [Phase 999.9]: Deduct before API call, refund on failure (prevents overspend)
-- [Phase 999.9]: Router registered in app.py (not __init__.py) matching actual codebase pattern for all 15+ route modules
-- [Phase 999.9]: Read-only credit pre-check in HTTP handlers, actual deduction in background tasks (prevents session scope issues)
-- [Phase 999.9]: Per-scene credit deduction in reels with total pre-check upfront (prevents partial reel)
-- [Phase 999.9]: Credit gating at ads route layer (not pipeline) since pipeline methods lack user_id
-- [Phase 999.9]: Native date inputs for credit log filters (consistent with existing pattern); admin top-up gated by useAuth role check
-- [Phase 1000]: character_slug resolves to character_id via get_user_character (lazy import inside each endpoint)
-- [Phase 1000]: Drive images: when character_slug set, only scan assets/backgrounds/{slug}/ directory (skip generated/memes)
-- [Phase 1000]: queue_summary with character_slug uses ScheduledPostRepository list_posts per status (no service-level change)
-- [Phase 1000]: activeSlug || undefined pattern: empty string becomes undefined to omit API param (backward-compatible unfiltered results)
-- [Phase 1000]: SWR cache key uses character_slug ?? 'all' so character switch triggers auto-refetch without manual mutate()
-- [Phase 1000]: Empty string default for activeSlug: new/returning users see all content without character filter, consistent with Plan 02 activeSlug || undefined pattern
-- [Phase 1001]: Migration 029 chains from 028; bible_config as JSON for flexible schema
-- [Phase 1001]: 25 stories (14 OT + 11 NT) with multi-language titles covering evangelical canon
-- [Phase 1001]: parse_manual_script splits on double newline or --- markers, distributes duration evenly
-- [Phase 1001]: Plan 02 dependent tests use conditional import + skipif (auto-enable when _BIBLE_SYSTEM_PROMPTS lands)
-- [Phase 1001]: Verse highlighting renders below textareas as preview divs, not inside textarea elements
-- [Phase 1001]: Bible subtitle overlay: Bold=1, 1.3x font, amber &H00F5C518& in BGR format for ASS force_style
-- [Phase 1001]: Series CRUD endpoints placed before /{job_id} catch-all to avoid FastAPI path conflicts
-- [Phase 999.11]: genId monotonic counter (prefix-Date.now()-counter) ensures unique IDs even in tight loops; pure editor functions extracted to lib/editor/ with barrel export
-- [Phase 999.11]: D-01 already resolved: no timeupdate listener exists, RAF loop is sole playhead source
-- [Phase 999.11]: Generation counter + AbortController pattern for SRT fetch race in both loadFromStepState and loadSubtitlesFromSrt
-- [Phase 999.11]: trimScene clamps to 15 frames BEFORE computing cascade delta; freezeFrame uses same cascade pattern; VideoBlock left handle separate from right handle
+Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
 
 0 pending todos in `.planning/todos/pending/`.
 
-### Blockers/Concerns
+### Blockers/Concerns (v4.0)
 
-- Facebook App Review for `instagram_content_publish` takes 2-6 weeks — must start early (during Phase 13)
-- Cloudflare R2 CDN setup required before Phase 14 testing
-- `api_usage.date` column DateTime vs Date ambiguity — resolve during Phase 16 planning
+- Per-cena Gemini TTS may hit rate limits on long biblical reels (>10 cenas) — Phase 22 must design backoff + selective retry
+- Editor `narracao_completa` waveform compat is a hard constraint — any change to audio shape must pass the regression (Bug 7 fix in `ReelComposition.tsx`)
+- Float cursor drift (ref doc section 9) is already a known bug — Phase 23 must fix with `round(cursor * 1000) / 1000`
+- Legacy jobs in the DB with pre-v2 roteiros must continue to load — Phase 24 migration layer is mandatory, not optional
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260330-ie5 | Enhance ads wizard scene step with customizable presets for backgrounds cameras lighting organized by product categories editable scene suggestions product description and manual prompt editing | 2026-03-30 | 9e02cdc | [260330-ie5-enhance-ads-wizard-scene-step-with-custo](./quick/260330-ie5-enhance-ads-wizard-scene-step-with-custo/) |
-| 260330-tgu | Add Enhance Theme button to reels creation - AI-powered topic suggestions after sub-theme selection | 2026-03-31 | 073c33c | [260330-tgu-add-enhance-theme-button-to-reels-creati](./quick/260330-tgu-add-enhance-theme-button-to-reels-creati/) |
-| 260402-04t | Add loop option to reels - end phrase transitions back to video start for infinite loop effect | 2026-04-02 | 2d7d3d6 | [260402-04t-add-loop-option-to-reels-end-phrase-tran](./quick/260402-04t-add-loop-option-to-reels-end-phrase-tran/) |
-| 260407-2cj | Preserve Gemini word-level timings in SRT alignment - text-match cenas to chunks via difflib, save raw SRT backup, fix step_state.tts vs srt key mismatch in editor | 2026-04-07 | 45d04d5 | [260407-2cj-preserve-gemini-word-level-timings-in-sr](./quick/260407-2cj-preserve-gemini-word-level-timings-in-sr/) |
+| 260330-ie5 | Enhance ads wizard scene step with customizable presets | 2026-03-30 | 9e02cdc | [260330-ie5-...](./quick/260330-ie5-enhance-ads-wizard-scene-step-with-custo/) |
+| 260330-tgu | Add Enhance Theme button to reels creation | 2026-03-31 | 073c33c | [260330-tgu-...](./quick/260330-tgu-add-enhance-theme-button-to-reels-creati/) |
+| 260402-04t | Add loop option to reels | 2026-04-02 | 2d7d3d6 | [260402-04t-...](./quick/260402-04t-add-loop-option-to-reels-end-phrase-tran/) |
+| 260407-2cj | Preserve Gemini word-level timings in SRT alignment | 2026-04-07 | 45d04d5 | [260407-2cj-...](./quick/260407-2cj-preserve-gemini-word-level-timings-in-sr/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-06
-Last session: 2026-04-07T05:05:09.427Z
-Stopped at: Completed quick task 260407-2cj
+Last activity: 2026-04-08
+Last session: 2026-04-08T00:00:00.000Z
+Stopped at: Roadmap v4.0 created — awaiting `/gsd:plan-phase 22`
 Resume file: None

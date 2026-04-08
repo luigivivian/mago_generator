@@ -78,33 +78,35 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| TTS-01 | TBD | Pending |
-| TTS-02 | TBD | Pending |
-| TTS-03 | TBD | Pending |
-| TTS-04 | TBD | Pending |
-| TTS-05 | TBD | Pending |
-| TTS-06 | TBD | Pending |
-| TIMING-01 | TBD | Pending |
-| TIMING-02 | TBD | Pending |
-| TIMING-03 | TBD | Pending |
-| TIMING-04 | TBD | Pending |
-| TIMING-05 | TBD | Pending |
-| SCRIPT-01 | TBD | Pending |
-| SCRIPT-02 | TBD | Pending |
-| SCRIPT-03 | TBD | Pending |
-| SCRIPT-04 | TBD | Pending |
-| SCRIPT-05 | TBD | Pending |
-| SCRIPT-06 | TBD | Pending |
-| IMAGE-01 | TBD | Pending |
-| IMAGE-02 | TBD | Pending |
-| IMAGE-03 | TBD | Pending |
-| IMAGE-04 | TBD | Pending |
-| MOTION-01 | TBD | Pending |
-| MOTION-02 | TBD | Pending |
-| MOTION-03 | TBD | Pending |
-| MOTION-04 | TBD | Pending |
-| MOTION-05 | TBD | Pending |
+| TTS-01 | Phase 22 | Pending |
+| TTS-02 | Phase 22 | Pending |
+| TTS-03 | Phase 22 | Pending |
+| TTS-04 | Phase 22 | Pending |
+| TTS-05 | Phase 22 | Pending |
+| TTS-06 | Phase 22 | Pending |
+| TIMING-01 | Phase 23 | Pending |
+| TIMING-02 | Phase 23 | Pending |
+| TIMING-03 | Phase 23 | Pending |
+| TIMING-04 | Phase 23 | Pending |
+| TIMING-05 | Phase 23 | Pending |
+| SCRIPT-01 | Phase 24 | Pending |
+| SCRIPT-02 | Phase 24 | Pending |
+| SCRIPT-03 | Phase 24 | Pending |
+| SCRIPT-04 | Phase 24 | Pending |
+| SCRIPT-05 | Phase 24 | Pending |
+| SCRIPT-06 | Phase 24 | Pending |
+| IMAGE-01 | Phase 25 | Pending |
+| IMAGE-02 | Phase 25 | Pending |
+| IMAGE-03 | Phase 25 | Pending |
+| IMAGE-04 | Phase 25 | Pending |
+| MOTION-01 | Phase 26 | Pending |
+| MOTION-02 | Phase 26 | Pending |
+| MOTION-03 | Phase 26 | Pending |
+| MOTION-04 | Phase 26 | Pending |
+| MOTION-05 | Phase 26 | Pending |
+
+**Coverage:** 26/26 v4.0 requirements mapped (100%). No orphans.
 
 ---
 
-*Last updated: 2026-04-08 — Milestone v4.0 started*
+*Last updated: 2026-04-08 — Roadmap v4.0 defined (5 phases, 22-26)*
