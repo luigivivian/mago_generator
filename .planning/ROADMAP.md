@@ -77,7 +77,9 @@
   3. A biblical job ships both `BIBLE_STYLE_DNA` AND the per-cena `image_prompt` in the final prompt (not one overriding the other) — verifiable by grepping the outgoing prompt for both substrings
   4. The final prompt always contains an explicit aspect ratio string (`9:16`, `16:9`, etc.) matching the job config, and Gemini never receives an ambiguous prompt
   5. UI hint: yes — this phase touches the reels UI only indirectly (generated images render in existing components); no new UI surfaces
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 25-01-PLAN.md — Wave 0: xfail test stubs for IMAGE-01..IMAGE-04 + fake_gemini_image_client fixture
+  - [ ] 25-02-PLAN.md — Wave 1: prompt builder rewrite + call site updates + flip 4 tests
 
 ### Phase 26: Mood-Driven Ken Burns
 **Goal**: Ken Burns motion is driven by each cena's `mood` field, applied consistently in both the static slideshow path (`build_reel_video`) and the Kie.ai clips path (`concat_clips_with_audio`), gated by real per-cena duration > 6s.
@@ -97,8 +99,8 @@
 |-------|----------------|--------|-----------|
 | 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 4/4 | Complete   | 2026-04-09 |
-| 24. Script Schema v2 | 4/4 | Complete   | 2026-04-09 |
-| 25. Structured Image Generation | 0/TBD | Not started | - |
+| 24. Script Schema v2 | 4/4 | Complete    | 2026-04-09 |
+| 25. Structured Image Generation | 0/2 | Not started | - |
 | 26. Mood-Driven Ken Burns | 0/TBD | Not started | - |
 
 ## Backlog
