@@ -403,6 +403,9 @@ class ReelsPipeline:
         os.makedirs(per_cena_dir, exist_ok=True)
         audio_path = os.path.join(job_dir, "audio.wav")
 
+        # Phase 01: per-cena voice/speed overrides from editor_config
+        per_cena_configs: dict = self.config.get("per_cena_configs") or {}
+
         # Detect biblical tone (also clamped inside generate_narration as
         # belt-and-braces -- see tts.py D-11 clamp)
         tone = self.config.get("tone")
@@ -478,12 +481,13 @@ class ReelsPipeline:
                 for attempt in range(3):
                     _update_cena(i, {"status": "generating"})
                     try:
+                        per_cena = (per_cena_configs.get(str(i)) or {})
                         await generate_narration(
                             text=cena_narracao,
                             output_path=cena_path,
-                            voice=self.config.get("tts_voice"),
+                            voice=per_cena.get("voice") or self.config.get("tts_voice"),
                             provider=self.config.get("tts_provider"),
-                            speed=self.config.get("tts_speed"),
+                            speed=per_cena.get("speed") or self.config.get("tts_speed"),
                             tone=tone,
                         )
                         duration = get_video_duration(cena_path)

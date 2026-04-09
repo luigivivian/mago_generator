@@ -1332,6 +1332,11 @@ async def regenerate_step(
         if key in job_config and key not in config_override:
             config_override[key] = job_config[key]
 
+    # Phase 01: thread per-cena editor overrides into config_override
+    editor_config = step_state.get("editor_config", {})
+    if editor_config.get("cenas"):
+        config_override["per_cena_configs"] = editor_config["cenas"]
+
     session_factory = get_session_factory()
     background_tasks.add_task(
         _execute_step_task, job_id, step_name, config_override, session_factory
