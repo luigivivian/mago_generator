@@ -18,7 +18,7 @@
 
 - [x] **Phase 22: Per-Cena TTS Anchoring** — Refactor `run_step_tts` to generate one Gemini TTS file per cena, measured via ffprobe, persisted as ground truth in `step_state.tts.cenas[i].duration` (completed 2026-04-09)
 - [x] **Phase 23: Audio-Anchored Timing Propagation** — Clip trimming, SRT generation, and editor audio items consume per-cena durations directly, eliminating char-offset approximations (completed 2026-04-09)
-- [ ] **Phase 24: Script Schema v2** — Canonical roteiro schema with `character_card`, `image_prompt`, `mood`, `transition_in/out` per cena, plus legacy defaults migration
+- [x] **Phase 24: Script Schema v2** — Canonical roteiro schema with `character_card`, `image_prompt`, `mood`, `transition_in/out` per cena, plus legacy defaults migration (completed 2026-04-09)
 - [ ] **Phase 25: Structured Image Generation** — Per-cena image generation consumes `cena.image_prompt` (4-layer subject/env/style/camera) with `character_card.style_seed` prepended and explicit aspect ratio
 - [ ] **Phase 26: Mood-Driven Ken Burns** — Replace even/odd pattern with mood→preset map, apply in `concat_clips_with_audio` path too, gated by real per-cena duration > 6s rule
 
@@ -65,7 +65,7 @@
   - [x] 24-01-PLAN.md — Wave 0: xfail test stubs for SCRIPT-01..SCRIPT-06 in tests/test_reels_script_schema.py
   - [x] 24-02-PLAN.md — Wave 1: ROTEIRO_SCHEMA extension + Pydantic models + migrate_legacy_roteiro() + flip 5 tests
   - [x] 24-03-PLAN.md — Wave 2: system prompt updates (7 templates) + character_card injection + flip 2 tests
-  - [ ] 24-04-PLAN.md — Wave 3: migration wiring in reels.py + bible_stories + scene_splitter + flip 3 tests
+  - [x] 24-04-PLAN.md — Wave 3: migration wiring in reels.py + bible_stories + scene_splitter + flip 3 tests
 
 ### Phase 25: Structured Image Generation
 **Goal**: Per-cena image generation consumes `cena.image_prompt` as the primary prompt, prepends `character_card.style_seed` when present, keeps `BIBLE_STYLE_DNA` as a combinable layer (not an override), and always specifies aspect ratio explicitly.
@@ -97,7 +97,7 @@
 |-------|----------------|--------|-----------|
 | 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 4/4 | Complete   | 2026-04-09 |
-| 24. Script Schema v2 | 3/4 | In Progress|  |
+| 24. Script Schema v2 | 4/4 | Complete   | 2026-04-09 |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
 | 26. Mood-Driven Ken Burns | 0/TBD | Not started | - |
 
@@ -117,7 +117,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 
