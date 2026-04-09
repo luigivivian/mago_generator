@@ -20,10 +20,10 @@
 
 ### Audio-Anchored Timing (clip trimming e SRT usando durações per-cena)
 
-- [ ] **TIMING-01**: `concat_clips_with_audio` consome `tts.cenas[i].duration` diretamente como ground truth para trimming de clips Kie.ai (elimina char-offset fallback)
+- [x] **TIMING-01**: `concat_clips_with_audio` consome `tts.cenas[i].duration` diretamente como ground truth para trimming de clips Kie.ai (elimina char-offset fallback)
 - [x] **TIMING-02**: `scene_timings` (estrutura consumida pelo clip trimming e SRT) é construída somando durações per-cena: `start = sum(cenas[0..i-1].duration)`, `end = start + cenas[i].duration`
 - [x] **TIMING-03**: `align_srt_with_script` (método char-offset) é substituído por construção direta a partir de `tts.cenas[i].duration` — o SRT é gerado sobre o arquivo per-cena individualmente e depois deslocado pela soma das durações anteriores
-- [ ] **TIMING-04**: Editor (`step_state.editor.audioItems`) continua recebendo `total_duration` correto (soma das per-cena durations), mantendo compatibilidade com Bug 7 fix em `ReelComposition.tsx`
+- [x] **TIMING-04**: Editor (`step_state.editor.audioItems`) continua recebendo `total_duration` correto (soma das per-cena durations), mantendo compatibilidade com Bug 7 fix em `ReelComposition.tsx`
 - [x] **TIMING-05**: `cursor` acumulado usa `round(cursor * 1000) / 1000` para evitar erro de float (ref doc seção 9 — "Cenas desalinhadas após a terceira")
 
 ### Script Schema v2 (roteiro canônico)
@@ -84,10 +84,10 @@
 | TTS-04 | Phase 22 | Complete |
 | TTS-05 | Phase 22 | Complete |
 | TTS-06 | Phase 22 | Complete |
-| TIMING-01 | Phase 23 | Pending |
+| TIMING-01 | Phase 23 | Complete |
 | TIMING-02 | Phase 23 | Complete |
 | TIMING-03 | Phase 23 | Complete |
-| TIMING-04 | Phase 23 | Pending |
+| TIMING-04 | Phase 23 | Complete |
 | TIMING-05 | Phase 23 | Complete |
 | SCRIPT-01 | Phase 24 | Pending |
 | SCRIPT-02 | Phase 24 | Pending |
