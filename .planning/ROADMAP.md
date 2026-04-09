@@ -18,7 +18,7 @@
 
 Plans:
 - [x] 01-01-PLAN.md — Wave 0 xfail test stubs (backend + frontend)
-- [ ] 01-02-PLAN.md — Backend: new /scene-config endpoint + TTS per-cena override
+- [x] 01-02-PLAN.md — Backend: new /scene-config endpoint + TTS per-cena override
 - [ ] 01-03-PLAN.md — Frontend write: patchSceneConfig + PropertiesPanel handlers + remove warning
 - [ ] 01-04-PLAN.md — Frontend read: editor_config merge on load + flip frontend tests green
 
