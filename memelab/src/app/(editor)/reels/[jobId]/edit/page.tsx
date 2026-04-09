@@ -130,6 +130,27 @@ export default function EditorPage() {
     // Always ensure subtitles are loaded from fresh SRT (convention path
     // used as fallback when step_state.srt.path is missing).
     store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
+
+    // Phase 01: merge per-scene editor_config back into voiceConfig after load.
+    // This ensures voice/speed configured before a regen are visible after reload.
+    const editorConfig = stepState.editor_config;
+    if (editorConfig?.cenas) {
+      useEditorStore.setState((state) => ({
+        scenes: state.scenes.map((scene) => {
+          const override = editorConfig.cenas[String(scene.index)];
+          if (!override) return scene;
+          return {
+            ...scene,
+            voiceConfig: {
+              ...scene.voiceConfig,
+              ...(override.voice !== undefined ? { voice: override.voice } : {}),
+              ...(override.speed !== undefined ? { speed: override.speed } : {}),
+            },
+          };
+        }),
+      }));
+    }
+
     loadedRef.current = true;
 
     // Clear zundo temporal history so the first Ctrl+Z after load only
