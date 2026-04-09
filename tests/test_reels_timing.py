@@ -313,17 +313,112 @@ async def test_run_step_srt_falls_back_to_legacy_without_tts_cenas(tmp_path):
 # Bound to: 23-04 Plan, integration test on video_builder.py:850-855
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 3 (23-04) pending — concat_clips_with_audio_consumes_new_scene_timings")
-def test_concat_clips_with_audio_consumes_new_scene_timings(tmp_path):
+def test_concat_clips_with_audio_consumes_new_scene_timings(tmp_path, monkeypatch):
     """TIMING-01: When scene_timings built from tts.cenas is passed to
-    concat_clips_with_audio via step_state.srt.scene_timings, the trim loop
-    at video_builder.py:850-855 uses each cena's duration as authoritative.
+    concat_clips_with_audio, the trim loop at video_builder.py:850-855 uses
+    each cena's duration as authoritative.
 
     Asserts that the scene_durs list derived inside concat_clips_with_audio
     matches [t['duration'] + transition_duration for t in scene_timings]
     when scene_timings length matches clip count.
+
+    We monkey-patch _trim_clips_to_durations to capture the durations list
+    without running ffmpeg. The rest of concat_clips_with_audio (the actual
+    ffmpeg xfade invocation) is bypassed via a second monkey-patch on
+    subprocess.run.
     """
-    pytest.fail("Stub — implement when 23-04 lands")
+    from src.reels_pipeline import video_builder
+    from src.reels_pipeline.timing import build_scene_timings_from_cenas
+
+    # Build fake clip paths (3 placeholder .mp4 files)
+    clip_paths = []
+    for i in range(3):
+        p = tmp_path / f"clip_{i}.mp4"
+        p.write_bytes(b"\x00" * 1024)  # not a real MP4, but os.path.exists() passes
+        clip_paths.append(str(p))
+
+    audio_path = tmp_path / "audio.wav"
+    audio_path.write_bytes(b"\x00" * 1024)
+
+    srt_path = tmp_path / "subtitles.srt"
+    srt_path.write_text(
+        "1\n00:00:00,000 --> 00:00:02,000\nPrimeira\n\n"
+        "2\n00:00:02,000 --> 00:00:05,500\nSegunda\n\n"
+        "3\n00:00:05,500 --> 00:00:07,250\nTerceira\n",
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "out.mp4"
+
+    # Build scene_timings from the new helper
+    tts_cenas = [
+        {"index": 0, "narracao": "Primeira", "path": "c0.wav", "duration": 2.0, "status": "complete"},
+        {"index": 1, "narracao": "Segunda", "path": "c1.wav", "duration": 3.5, "status": "complete"},
+        {"index": 2, "narracao": "Terceira", "path": "c2.wav", "duration": 1.75, "status": "complete"},
+    ]
+    scene_timings = build_scene_timings_from_cenas(tts_cenas)
+    assert len(scene_timings) == 3
+
+    # Capture the durations list passed to _trim_clips_to_durations
+    captured: dict = {}
+
+    def fake_trim(paths, durations):
+        captured["paths"] = list(paths)
+        captured["durations"] = list(durations)
+        return list(paths)  # return unchanged so concat_clips_with_audio continues
+
+    monkeypatch.setattr(video_builder, "_trim_clips_to_durations", fake_trim)
+
+    # Stub get_video_duration (avoid real ffprobe)
+    monkeypatch.setattr(video_builder, "get_video_duration", lambda p: 7.25)
+
+    # Stub the final ffmpeg invocation — we only care about the trim-loop
+    # argument extraction, not the xfade assembly. The function may call
+    # subprocess.run multiple times (xfade + mux); return success from all.
+    import subprocess as _sub
+
+    class _FakeProc:
+        returncode = 0
+        stderr = ""
+        stdout = ""
+
+    def fake_run(*args, **kwargs):
+        # Write the output file so callers that stat() it succeed
+        try:
+            if args and isinstance(args[0], list) and args[0]:
+                for tok in args[0]:
+                    if isinstance(tok, str) and tok.endswith(".mp4") and str(output_path) in tok:
+                        output_path.write_bytes(b"\x00" * 1024)
+        except Exception:
+            pass
+        return _FakeProc()
+
+    monkeypatch.setattr(_sub, "run", fake_run)
+
+    # Call the real concat_clips_with_audio — it runs the trim-loop branch at
+    # video_builder.py:850 (scene_timings truthy and length == n_clips).
+    try:
+        video_builder.concat_clips_with_audio(
+            clip_paths=clip_paths,
+            audio_path=str(audio_path),
+            srt_path=str(srt_path),
+            output_path=str(output_path),
+            transition_duration=0.3,
+            scene_timings=scene_timings,
+        )
+    except Exception:
+        # Assembly may fail post-trim because we are stubbing ffmpeg. The
+        # trim-loop has already run by then — that's what matters for the
+        # assertion below.
+        pass
+
+    # PROOF: _trim_clips_to_durations was invoked with the expected durations
+    assert "durations" in captured, "fake_trim was never called — trim branch not taken"
+    expected = [t["duration"] + 0.3 for t in scene_timings]
+    assert captured["durations"] == expected, (
+        f"trim durations {captured['durations']} != expected {expected} "
+        f"— video_builder.py:850-855 did not consume the new scene_timings"
+    )
 
 
 # --------------------------------------------------------------------
