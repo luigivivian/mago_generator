@@ -28,12 +28,12 @@
 
 ### Script Schema v2 (roteiro canônico)
 
-- [ ] **SCRIPT-01**: `ROTEIRO_SCHEMA` em `script_gen.py` adiciona campo top-level `character_card: {description: string, style_seed: string}` — anexado a todo `image_prompt` que envolva o personagem
-- [ ] **SCRIPT-02**: Cada cena ganha campo `image_prompt: string` em inglês no formato 4-layer (`subject, environment, visual_style, camera, aspect ratio, no text, no watermark`) — separado de `legenda_overlay`
-- [ ] **SCRIPT-03**: Cada cena ganha campo `mood: enum("mysterious", "dramatic", "hopeful", "tense", "calm", "sad", "epic")` — usado downstream para lighting guidance e Ken Burns preset
-- [ ] **SCRIPT-04**: Cada cena ganha campos `transition_in: enum("fade", "cut", "dissolve", "slide")` e `transition_out` — substituindo o `transition_type` global em `video_builder`
-- [ ] **SCRIPT-05**: System prompt do LLM de roteiro atualizado para gerar o novo schema; bible prompts atualizados para respeitar os mesmos campos
-- [ ] **SCRIPT-06**: Migration de compatibilidade: roteiros legacy (sem os campos novos) continuam renderizando com defaults (`mood=calm`, `transition_in/out=fade`, `image_prompt` derivado de `legenda_overlay`)
+- [x] **SCRIPT-01**: `ROTEIRO_SCHEMA` em `script_gen.py` adiciona campo top-level `character_card: {description: string, style_seed: string}` — anexado a todo `image_prompt` que envolva o personagem
+- [x] **SCRIPT-02**: Cada cena ganha campo `image_prompt: string` em inglês no formato 4-layer (`subject, environment, visual_style, camera, aspect ratio, no text, no watermark`) — separado de `legenda_overlay`
+- [x] **SCRIPT-03**: Cada cena ganha campo `mood: enum("mysterious", "dramatic", "hopeful", "tense", "calm", "sad", "epic")` — usado downstream para lighting guidance e Ken Burns preset
+- [x] **SCRIPT-04**: Cada cena ganha campos `transition_in: enum("fade", "cut", "dissolve", "slide")` e `transition_out` — substituindo o `transition_type` global em `video_builder`
+- [x] **SCRIPT-05**: System prompt do LLM de roteiro atualizado para gerar o novo schema; bible prompts atualizados para respeitar os mesmos campos
+- [x] **SCRIPT-06**: Migration de compatibilidade: roteiros legacy (sem os campos novos) continuam renderizando com defaults (`mood=calm`, `transition_in/out=fade`, `image_prompt` derivado de `legenda_overlay`)
 
 ### Image Generation (prompts estruturados)
 
@@ -89,12 +89,12 @@
 | TIMING-03 | Phase 23 | Complete |
 | TIMING-04 | Phase 23 | Complete |
 | TIMING-05 | Phase 23 | Complete |
-| SCRIPT-01 | Phase 24 | Pending |
-| SCRIPT-02 | Phase 24 | Pending |
-| SCRIPT-03 | Phase 24 | Pending |
-| SCRIPT-04 | Phase 24 | Pending |
-| SCRIPT-05 | Phase 24 | Pending |
-| SCRIPT-06 | Phase 24 | Pending |
+| SCRIPT-01 | Phase 24 | Complete |
+| SCRIPT-02 | Phase 24 | Complete |
+| SCRIPT-03 | Phase 24 | Complete |
+| SCRIPT-04 | Phase 24 | Complete |
+| SCRIPT-05 | Phase 24 | Complete |
+| SCRIPT-06 | Phase 24 | Complete |
 | IMAGE-01 | Phase 25 | Pending |
 | IMAGE-02 | Phase 25 | Pending |
 | IMAGE-03 | Phase 25 | Pending |

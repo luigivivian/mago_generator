@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: Phase complete — ready for verification
-stopped_at: Completed 23-04-PLAN.md
-last_updated: "2026-04-09T02:10:29.620Z"
+status: Ready to execute
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-04-09T14:51:54.796Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 23 — audio-anchored-timing-propagation
+**Current focus:** Phase 24 — script-schema-v2
 
 ## Current Position
 
-Phase: 23 (audio-anchored-timing-propagation) — EXECUTING
-Plan: 4 of 4
+Phase: 24 (script-schema-v2) — EXECUTING
+Plan: 2 of 4
 
 ## Progress
 
@@ -78,6 +78,7 @@ Plan: 4 of 4
 | Phase 23 P02 | 4min | 2 tasks | 2 files |
 | Phase 23 P03 | 28min | 3 tasks | 3 files |
 | Phase 23 P04 | 8min | 2 tasks | 1 files |
+| Phase 24 P01 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Plan: 4 of 4
 - [Phase 23-02]: Cursor reuse via `cursor = end` (point D) instead of re-rounding cursor+dur -- end already rounded at point B, so reusing guarantees byte-exact start[i+1]==end[i] with no double-rounding drift
 - [Phase 23-02]: Failed cena emits zero-duration slot at prev_end without advancing cursor -- preserves index alignment with script.cenas so splitter and trim loop stay balanced
 
+- [Phase 24-01]: Wave 0 xfail stubs -- all 10 tests created as xfail/strict, later waves flip to active as features land
+- [Phase 24-01]: Test naming mirrors requirement IDs (test_01 -> SCRIPT-01, etc.) for traceability
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
@@ -151,6 +155,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T02:10:29.616Z
-Stopped at: Completed 23-04-PLAN.md
+Last session: 2026-04-09T14:51:54.793Z
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
