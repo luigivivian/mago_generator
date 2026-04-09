@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: Ready to plan
-stopped_at: Completed 22-05-PLAN.md
-last_updated: "2026-04-09T00:20:59.374Z"
+status: Ready to execute
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-04-09T01:37:29.924Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 9
+  completed_plans: 6
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 22 — per-cena-tts-anchoring
+**Current focus:** Phase 23 — audio-anchored-timing-propagation
 
 ## Current Position
 
-Phase: 999.15
-Plan: Not started
+Phase: 23 (audio-anchored-timing-propagation) — EXECUTING
+Plan: 2 of 4
 
 ## Progress
 
@@ -74,6 +74,7 @@ Plan: Not started
 | Phase 22 P03 | 9min | 3 tasks | 4 files |
 | Phase 22 P04 | 4min | 3 tasks | 2 files |
 | Phase 22 P05 | 2min | 1 tasks | 2 files |
+| Phase 23 P01 | 3min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ Plan: Not started
 - [Phase 22-05]: Editor compat regression test built as direct run_step_tts call + manual step_data assembly (no FastAPI test client) -- isolates pipeline contract from DB/HTTP plumbing, runs in <1.1s
 - [Phase 22-05]: Manual editor smoke test (load regenerated reel + check waveform) explicitly NOT automated -- documented in 22-VALIDATION.md as a /gsd:verify-work human gate
 - [Phase 22-05]: Phase 22 validation suite at 11/11 GREEN -- closure ready for /gsd:verify-work
+- [Phase 23-01]: Wave 0 xfail stubs -- 7 tests installed at tests/test_reels_timing.py mirroring Phase 22 pattern; later waves grep test names verbatim and flip xfail markers
+- [Phase 23-01]: TIMING-04 implemented as regression lock (Option C) -- frontend reads stepState.tts.duration directly, no new backend field needed
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -142,6 +145,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T00:15:28.237Z
-Stopped at: Completed 22-05-PLAN.md
+Last session: 2026-04-09T01:37:29.921Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None
