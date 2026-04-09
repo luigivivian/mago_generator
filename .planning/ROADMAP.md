@@ -14,10 +14,13 @@
 **Goal:** Make editor edits authoritative -- voice/speed/trim/freeze/duration must flow back to script.cenas/clips.scenes and survive regenerateStep(). Currently edits in PropertiesPanel mutate the store but are silently discarded on regeneration.
 **Requirements**: TBD
 **Depends on:** none
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 1 to break down)
+- [ ] 01-01-PLAN.md — Wave 0 xfail test stubs (backend + frontend)
+- [ ] 01-02-PLAN.md — Backend: new /scene-config endpoint + TTS per-cena override
+- [ ] 01-03-PLAN.md — Frontend write: patchSceneConfig + PropertiesPanel handlers + remove warning
+- [ ] 01-04-PLAN.md — Frontend read: editor_config merge on load + flip frontend tests green
 
 ## Backlog
 
