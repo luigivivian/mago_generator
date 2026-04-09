@@ -147,6 +147,9 @@ Plan: Not started
 - [Phase 26-01]: Calm preset as fallback for unknown mood values -- safe default, no crash
 - [Phase 26-01]: Scale to 2x width before zoompan so pan/zoom has headroom without boundary artifacts
 
+- [Phase 01-01]: Mirrored Phase 22 xfail pattern exactly (pytest.mark.xfail strict=True) for backend stubs
+- [Phase 01-01]: Used vitest it.todo() for frontend stubs (matches existing Phase 11 convention)
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos

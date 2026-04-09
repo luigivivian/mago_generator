@@ -104,6 +104,7 @@
 | 24. Script Schema v2 | 4/4 | Complete    | 2026-04-09 |
 | 25. Structured Image Generation | 2/2 | Complete    | 2026-04-09 |
 | 26. Mood-Driven Ken Burns | 1/2 | Complete    | 2026-04-09 |
+| 01. Per-Scene Config Write-Back | 1/4 | In Progress | - |
 
 ## Backlog
 
@@ -121,9 +122,12 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 2/2 plans complete
+**Plans:** 1/4 plans complete
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 
 Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+- [x] 01-01-PLAN.md — Wave 0: xfail/todo test stubs for per-scene config write-back (5 backend + 2 frontend)
+- [ ] 01-02-PLAN.md
+- [ ] 01-03-PLAN.md
+- [ ] 01-04-PLAN.md
