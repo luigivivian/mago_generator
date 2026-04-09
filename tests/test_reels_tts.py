@@ -308,11 +308,53 @@ def test_error_classification():
 # Bound to: 22-04 Plan, route handler cena_indices param
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (22-04) pending -- selective_retry_preserves_others")
 @pytest.mark.asyncio
 async def test_selective_retry_preserves_others(tmp_path, fake_gemini_tts_client):
-    """Success #4: Calling /step/tts with cena_indices=[2] regenerates only cena 2; other cenas' paths/durations unchanged."""
-    pytest.fail("Stub -- implement when 22-04 lands")
+    """Success #4: cena_indices=[2] regenerates only cena 2; other cenas' paths/durations unchanged."""
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": f"cena {i}"} for i in range(5)
+    ]}
+
+    # First run: regenerate all
+    _, _, _, cenas_meta_1 = await pipe.run_step_tts(
+        script=script, job_dir=str(tmp_path)
+    )
+    assert len(fake_gemini_tts_client.calls) == 5
+    # Snapshot mtimes of all per-cena files
+    original_mtimes = {}
+    for i in range(5):
+        p = tmp_path / "audio" / f"cena_{i:03d}.wav"
+        assert p.exists()
+        original_mtimes[i] = p.stat().st_mtime_ns
+
+    # Tiny sleep so mtime can change on the regenerated file
+    import time
+    time.sleep(0.01)
+
+    # Second run: selective retry, only index 2
+    _, _, _, cenas_meta_2 = await pipe.run_step_tts(
+        script=script,
+        job_dir=str(tmp_path),
+        cena_indices=[2],
+    )
+    # Exactly ONE new Gemini call (on top of the 5 from the first run)
+    assert len(fake_gemini_tts_client.calls) == 6
+
+    # Cena 2 has a newer mtime (regenerated)
+    new_mtime_2 = (tmp_path / "audio" / "cena_002.wav").stat().st_mtime_ns
+    assert new_mtime_2 > original_mtimes[2]
+
+    # Cenas 0, 1, 3, 4 have UNCHANGED mtimes (preserved)
+    for i in (0, 1, 3, 4):
+        preserved_mtime = (tmp_path / "audio" / f"cena_{i:03d}.wav").stat().st_mtime_ns
+        assert preserved_mtime == original_mtimes[i], (
+            f"cena {i} was regenerated unexpectedly during selective retry"
+        )
+
+    # cenas_meta_2 still has 5 entries, all complete
+    assert len(cenas_meta_2) == 5
+    assert all(c["status"] == "complete" for c in cenas_meta_2)
 
 
 # ---------------------------------------------------------------------------
