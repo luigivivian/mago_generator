@@ -295,10 +295,17 @@ async def _execute_step_task(
             elif step_name == "srt":
                 audio_path = step_state.get("tts", {}).get("path", "")
                 script_json = step_state.get("script", {}).get("json", {})
+                # Phase 23: thread per-cena meta so run_step_srt uses the
+                # audio-anchored scene_timings path (ffprobe-measured
+                # durations landed in Phase 22). Legacy jobs without
+                # tts.cenas get None here → run_step_srt falls through to
+                # align_srt_with_script.
+                tts_cenas = step_state.get("tts", {}).get("cenas") or None
                 srt_path, duration, scene_timings, expanded_script = await pipeline.run_step_srt(
                     audio_path=audio_path,
                     job_dir=job_dir,
                     script=script_json or None,
+                    tts_cenas=tts_cenas,
                 )
                 step_data["path"] = srt_path
                 step_data["duration"] = duration
