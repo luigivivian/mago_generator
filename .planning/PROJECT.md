@@ -29,7 +29,9 @@ See `.planning/milestones/` for archived details.
 - Mantém compatibilidade com editor (step_state shape estável)
 - Explicitamente fora de escopo: ElevenLabs integration, ads pipeline, meme manual, features de editor
 
-## Current State (updated 2026-04-08)
+## Current State (updated 2026-04-09)
+
+**v4.0 complete.** 5 phases (22-26), 17 plans. Pipeline fidelity refactor — per-cena TTS anchoring, audio-anchored timing propagation, Script Schema v2, structured image generation, mood-driven Ken Burns. All 37 reels tests GREEN.
 
 **v3.0 shipped.** 8 phases, 25 plans. Production-grade in-browser video editor (Remotion + multi-track timeline + bug fixes + UX polish), economic Ken Burns mode that cuts reel costs ~70%, character-scoped navigation, biblical reels category, and a full Kie API credit system.
 
@@ -121,4 +123,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 — Milestone v4.0 (Pipeline Fidelity Refactor) started*
+*Last updated: 2026-04-09 — Milestone v4.0 (Pipeline Fidelity Refactor) complete*
