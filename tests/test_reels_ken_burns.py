@@ -16,7 +16,6 @@ import pytest
 # Bound to: 26-01 Plan (Wave 0), ken_burns.py MOOD_PRESETS dict
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="Plan 01: ken_burns module not yet created")
 def test_01_mood_preset_map():
     """MOTION-01: MOOD_PRESETS has 7 keys, each with float start_zoom/end_zoom/pan_x/pan_y."""
     from src.reels_pipeline.ken_burns import MOOD_PRESETS
@@ -34,7 +33,6 @@ def test_01_mood_preset_map():
 # Bound to: 26-01 Plan (Wave 0), get_kb_filter function
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="Plan 01: get_kb_filter not yet implemented")
 def test_02_preset_zoompan_params():
     """MOTION-02: get_kb_filter returns zoompan filter with correct d= and pan expressions."""
     from src.reels_pipeline.ken_burns import get_kb_filter
@@ -61,7 +59,6 @@ def test_03_concat_path_applies_kb():
 # Bound to: 26-01 Plan (Wave 0), _zoom_expr easing parameter
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="Plan 01: easing not yet implemented")
 def test_04_easing_config():
     """MOTION-04: linear easing vs ease-in-out produce different zoom expressions."""
     from src.reels_pipeline.ken_burns import get_kb_filter
@@ -76,7 +73,6 @@ def test_04_easing_config():
 # Bound to: 26-01 Plan (Wave 0), REELS_KENBURNS_MIN_DURATION gate
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="Plan 01: duration gate not yet implemented")
 def test_05_duration_gate():
     """MOTION-05: duration <= 6.0 returns empty, > 6.0 returns zoompan filter."""
     from src.reels_pipeline.ken_burns import get_kb_filter

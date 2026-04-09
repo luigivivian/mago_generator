@@ -67,6 +67,8 @@ REELS_AVAILABLE_MODELS = {
 
 # Ken-burns (zoompan) effect on static image slideshow
 REELS_KENBURNS_ENABLED = os.environ.get("REELS_KENBURNS_ENABLED", "true").lower() == "true"
+REELS_KENBURNS_EASING = os.environ.get("REELS_KENBURNS_EASING", "ease-in-out")
+REELS_KENBURNS_MIN_DURATION = float(os.environ.get("REELS_KENBURNS_MIN_DURATION", "6.0"))
 
 # Output
 REELS_OUTPUT_DIR = os.getenv("REELS_OUTPUT_DIR", "output/reels")
