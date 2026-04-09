@@ -362,8 +362,61 @@ async def test_selective_retry_preserves_others(tmp_path, fake_gemini_tts_client
 # Bound to: 22-05 Plan, integration test
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 3 (22-05) pending -- editor_compat_tts_path_and_duration_still_written")
 @pytest.mark.asyncio
 async def test_editor_compat_tts_path_and_duration_still_written(tmp_path, fake_gemini_tts_client):
-    """Success #5: After run_step_tts, step_state['tts']['path'] endswith 'audio.wav' and step_state['tts']['duration'] is float in [0.5, 600]."""
-    pytest.fail("Stub -- implement when 22-05 lands")
+    """Success #5: Regression for the editor compat contract.
+
+    The editor reads:
+        stepState.tts.path           -> memelab/src/stores/editor-store.ts:167
+        stepState.tts.duration       -> memelab/src/stores/editor-store.ts:192-198
+
+    Contract:
+        path: non-empty string, points to the audio.wav concat file
+        duration: float in [0.5, 600] (editor's isSane bounds)
+
+    This test runs run_step_tts directly and simulates the route handler's
+    step_data assembly to isolate the pipeline contract from the FastAPI
+    test client.
+    """
+    pipe = _make_fake_pipeline()
+    script = {"cenas": [
+        {"narracao": "primeira"},
+        {"narracao": "segunda"},
+        {"narracao": "terceira"},
+    ]}
+
+    # Mirror what src/api/routes/reels.py tts branch assembles after Plan 04
+    audio_path, total_duration, cost_usd, cenas_meta = await pipe.run_step_tts(
+        script=script, job_dir=str(tmp_path)
+    )
+
+    step_data = {
+        "path": audio_path,
+        "duration": total_duration,
+        "cenas": cenas_meta,
+        "total_duration_source": "ffprobe_concat",
+        "cost_usd": cost_usd,
+        "status": "complete",
+    }
+
+    # editor-store.ts:167 -- the path must end with audio.wav and exist
+    assert isinstance(step_data["path"], str)
+    assert step_data["path"].endswith("audio.wav"), (
+        f"editor compat violation: tts.path must end with 'audio.wav'; got {step_data['path']}"
+    )
+    assert os.path.isfile(step_data["path"]), (
+        f"editor compat violation: tts.path points to missing file {step_data['path']}"
+    )
+
+    # editor-store.ts:192-198 -- duration must be a float in [0.5, 600]
+    assert isinstance(step_data["duration"], float), (
+        f"editor compat violation: tts.duration must be float; got {type(step_data['duration'])}"
+    )
+    assert 0.5 <= step_data["duration"] <= 600, (
+        f"editor compat violation: tts.duration={step_data['duration']} outside editor's isSane bounds [0.5, 600]"
+    )
+
+    # Additive fields from Plan 04
+    assert isinstance(step_data["cenas"], list)
+    assert len(step_data["cenas"]) == len(script["cenas"])
+    assert step_data["total_duration_source"] == "ffprobe_concat"
