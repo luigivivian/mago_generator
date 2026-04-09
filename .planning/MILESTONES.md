@@ -1,5 +1,31 @@
 # Milestones
 
+## v4.0 Pipeline Fidelity Refactor (Shipped: 2026-04-09)
+
+**Phases completed:** 6 phases, 17 plans, 33 tasks
+
+**Key accomplishments:**
+
+- 11 xfail test stubs + shared TTS fixtures (FakeGeminiClient, WAV factory) establishing the validation contract for per-cena TTS refactor
+- Biblical tone forces speaking_rate=1.0 at lowest TTS layer (D-11/D-12); classify_tts_error dispatches 400/403 as 'fail', 429/5xx/unknown as 'retry' for Plan 03's per-cena retry loop
+- run_step_tts rewritten as bounded-parallel per-cena loop with Semaphore(3), ffmpeg bit-exact concat, partial failure isolation, and 6 tests flipped GREEN
+- Route handler `_execute_step_task` tts branch rewritten to call new `run_step_tts(script, job_dir, cena_indices, on_cena_update)` signature with per-cena progress writes via independent session, plus optional `cena_indices` body param on execute_step for D-06 selective retry — 10 of 11 tests in test_reels_tts.py now GREEN.
+- Final xfail in `tests/test_reels_tts.py` flipped to active GREEN — Phase 22 validation suite is now 11/11 with the editor compat contract pinned at the pipeline boundary.
+- 7 xfail stub tests installed at tests/test_reels_timing.py — validation contract for TIMING-01..05 ready for Waves 1-3 to flip
+- Pure single-source-of-truth `build_scene_timings_from_cenas` helper with 4-point float-drift elimination; 3 tests flipped xfail→GREEN
+- Gated run_step_srt with tts_cenas kwarg so the srt step consumes Phase 22's ffprobe-measured per-cena durations as audio-anchored scene_timings, with legacy char-offset fallback preserved for pre-Phase-22 jobs.
+- Flipped the final 2 xfail stubs to active GREEN — Phase 23 validation suite is now fully locked. Test 06 proves the video_builder trim loop consumes the new scene_timings shape; test 07 locks the editor audio contract with a 50ms regression tolerance on step_data['duration'] vs sum(cenas.duration).
+- 10 xfail test stubs covering SCRIPT-01 through SCRIPT-06 requirements plus 4 extras for migration idempotency, bible v2 fields, optional character_card, and image_prompt/overlay distinction
+- Extended ROTEIRO_SCHEMA with character_card, image_prompt, mood enum (7 values), and transition_in/out enum (4 values) per cena, plus idempotent migration function for legacy roteiros
+- Updated all 7 system prompt templates with v2 field instructions (image_prompt, mood, transitions) and injected character_card from character_context in generate_script()
+- migrate_legacy_roteiro wired into reels.py at 3 injection points (load + 2 writes), parse_manual_script emits v2 fields natively, 10/10 tests GREEN
+- 4 xfail test stubs for IMAGE-01..04 with FakeGeminiImageClient fixture returning valid JPEG bytes
+- Composable prompt builder consuming cena.image_prompt + character_card.style_seed + BIBLE_STYLE_DNA as layers, with configurable aspect ratio from config
+- Pure-function Ken Burns engine with 7 mood presets, smoothstep/linear easing, duration gate at 6s, and 4/5 tests GREEN
+- Wired get_kb_filter into all 4 video assembly call sites (build_reel_video, _make_static, _build_scene_motion_prompt, build_segment_videos), removed even/odd alternation, all 5 MOTION tests GREEN
+
+---
+
 ## v3.0 Editor Polish & Cost Optimization (Shipped: 2026-04-07)
 
 **Phases completed:** 8 phases, 25 plans, 0 critical gaps
