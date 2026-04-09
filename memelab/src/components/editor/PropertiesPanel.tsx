@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Loader2, ChevronDown, ChevronRight, RefreshCw, X } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { useSelectedScene, useSelectedSubtitle } from "@/hooks/use-editor";
-import { regenerateStep } from "@/lib/api";
+import { regenerateStep, patchSceneConfig } from "@/lib/api";
 import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
 import { loadPresets, savePresets, addPreset, renamePreset, deletePreset, type SubtitlePreset } from "@/lib/editor";
@@ -82,6 +82,10 @@ function ScenePanel({ jobId }: { jobId: string }) {
         s.id === scene.id ? { ...s, voiceConfig: { ...s.voiceConfig, voice } } : s
       ),
     }));
+    patchSceneConfig(jobId, scene.index, { voice }).catch(() => {
+      // Fire-and-forget — store mutation is authoritative for UX,
+      // network failure is non-blocking (user will see stale on reload)
+    });
   };
 
   const handleUpdateSpeed = (speed: number) => {
@@ -90,6 +94,9 @@ function ScenePanel({ jobId }: { jobId: string }) {
         s.id === scene.id ? { ...s, voiceConfig: { ...s.voiceConfig, speed } } : s
       ),
     }));
+    patchSceneConfig(jobId, scene.index, { speed }).catch(() => {
+      // Fire-and-forget
+    });
   };
 
   const handleRegenNarration = async () => {
@@ -99,7 +106,7 @@ function ScenePanel({ jobId }: { jobId: string }) {
     // will be lost. Let them confirm so they don't lose work silently.
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        "Regenerar a narracao apaga TODAS as suas edicoes do editor (cortes de audio, trims de cena, legendas adicionadas, transicoes). O audio sera reconstruido a partir do roteiro original com a voz/velocidade configurada nas Configuracoes do Reel. Continuar?",
+        "Regenerar a narracao apaga TODAS as suas edicoes do editor (cortes de audio, trims de cena, legendas adicionadas, transicoes). O audio sera reconstruido a partir do roteiro original e usa as configuracoes de voz por cena (ou globais do job se nao configurado por cena). Continuar?",
       );
       if (!ok) return;
     }
@@ -238,16 +245,6 @@ function ScenePanel({ jobId }: { jobId: string }) {
           unit="x"
           onChange={handleUpdateSpeed}
         />
-        {/* 999.14 D-09 (Bug 4 unparked): Voice/speed are display-only at the
-            scene level. The pipeline does ONE TTS call for narracao_completa
-            and uses the global ReelsConfig values, not per-scene. We surface
-            this so the user understands "Regenerar Narracao" won't pick up
-            the per-scene change. Tracked in DEVLOG as future work. */}
-        <p className="text-[10px] text-amber-400/80 leading-tight">
-          ⚠ Voz e velocidade aqui sao apenas visualizacao. O TTS atual gera o
-          audio inteiro de uma vez e usa as configuracoes globais do job.
-          Mude a voz padrao em Configuracoes do Reel antes de regenerar.
-        </p>
       </Section>
 
       <Section title="Acoes">
