@@ -430,8 +430,10 @@ def test_concat_clips_with_audio_consumes_new_scene_timings(tmp_path, monkeypatc
 # reads via stepState.tts.duration in editor-store.ts:197-201.
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 3 (23-04) pending — editor_audio_items_total_duration_matches_per_cena_sum")
-def test_editor_audio_items_total_duration_matches_per_cena_sum(tmp_path):
+@pytest.mark.asyncio
+async def test_editor_audio_items_total_duration_matches_per_cena_sum(
+    tmp_path, fake_gemini_tts_client, monkeypatch
+):
     """TIMING-04 regression lock: After a simulated run_step_tts + route-handler
     step_data assembly, assert
         abs(step_data['duration'] - sum(c['duration'] for c in step_data['cenas'] if not c.get('failed'))) < 0.050.
@@ -442,5 +444,70 @@ def test_editor_audio_items_total_duration_matches_per_cena_sum(tmp_path):
 
     No FastAPI test client. Construct step_data manually by calling run_step_tts
     on a minimal script (fake Gemini) and reading the returned values.
+
+    Phase 22 D-11 reminder: tts.py does `from src.llm_client import _get_client`
+    at import time, creating a local binding. The fake_gemini_tts_client
+    fixture patches src.llm_client._get_client but we must ALSO patch the
+    local binding in src.reels_pipeline.tts for the monkeypatch to take effect
+    inside generate_narration.
     """
-    pytest.fail("Stub — implement when 23-04 lands")
+    from src.reels_pipeline.main import ReelsPipeline
+    from src.reels_pipeline import tts as _tts_module
+
+    # Ensure the tts module's local _get_client binding also points to the fake
+    monkeypatch.setattr(_tts_module, "_get_client", lambda: fake_gemini_tts_client)
+
+    script = {
+        "cenas": [
+            {"narracao": "Primeira cena do teste de regressão."},
+            {"narracao": "Segunda cena com texto um pouco mais longo para variar a duração."},
+            {"narracao": "Terceira e última cena."},
+        ],
+        "narracao_completa": (
+            "Primeira cena do teste de regressão. "
+            "Segunda cena com texto um pouco mais longo para variar a duração. "
+            "Terceira e última cena."
+        ),
+    }
+
+    pipeline = ReelsPipeline(config_override={
+        "tts_voice": "default",
+        "tts_provider": "gemini",
+        "tts_speed": 1.0,
+        "tone": None,
+    })
+
+    audio_path, total_duration, cost_usd, cenas_meta = await pipeline.run_step_tts(
+        script=script,
+        job_dir=str(tmp_path),
+    )
+
+    # Simulate the route handler's step_data assembly (reels.py:267-281)
+    step_data: dict = {}
+    step_data["path"] = audio_path
+    step_data["duration"] = total_duration
+    step_data["cenas"] = cenas_meta
+    step_data["total_duration_source"] = "ffprobe_concat"
+    step_data["cost_usd"] = cost_usd
+
+    # Sanity checks on the assembled shape
+    assert step_data["path"].endswith("audio.wav")
+    assert isinstance(step_data["duration"], float)
+    assert step_data["duration"] > 0.0
+    assert len(step_data["cenas"]) == 3
+
+    # Regression lock: step_data['duration'] ≈ sum of non-failed per-cena durations
+    # Tolerance is 50ms per 23-CONTEXT.md Option C (ffmpeg concat may drift
+    # by sub-millisecond on real files; 50ms is the conservative bound matching
+    # Phase 22 success criterion #2).
+    per_cena_sum = sum(
+        float(c.get("duration") or 0.0)
+        for c in step_data["cenas"]
+        if not c.get("failed")
+    )
+    drift = abs(step_data["duration"] - per_cena_sum)
+    assert drift < 0.050, (
+        f"step_data['duration']={step_data['duration']} drifted from "
+        f"sum(cenas.duration)={per_cena_sum} by {drift}s (> 50ms) — "
+        f"editor would read a mismatched waveform length."
+    )
