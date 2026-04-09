@@ -8,8 +8,20 @@ __pycache__/
 .env
 gen-lang-client-*.json
 
-# Output
+# Output & generated
 output/
+generated_mago/
+
+# Assets, characters, images (large binaries — keep local only)
+assets/
+characters/
+
+# Database
+data/
+clipflow.db
+
+# Playwright MCP logs
+.playwright-mcp/
 
 # Node
 node_modules/
