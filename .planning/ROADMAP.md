@@ -49,7 +49,7 @@
 **Plans**: 4 plans
   - [x] 23-01-PLAN.md — Wave 0: xfail test stubs for TIMING-01..TIMING-05 in tests/test_reels_timing.py
   - [x] 23-02-PLAN.md — Wave 1: build_scene_timings_from_cenas helper in src/reels_pipeline/timing.py + flip 3 tests
-  - [ ] 23-03-PLAN.md — Wave 2: run_step_srt tts_cenas kwarg + gated branch + route handler thread + flip 2 tests
+  - [x] 23-03-PLAN.md — Wave 2: run_step_srt tts_cenas kwarg + gated branch + route handler thread + flip 2 tests
   - [ ] 23-04-PLAN.md — Wave 3: concat_clips_with_audio integration test + editor regression lock + flip 2 tests
 
 ### Phase 24: Script Schema v2
@@ -92,7 +92,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
-| 23. Audio-Anchored Timing Propagation | 2/4 | In Progress|  |
+| 23. Audio-Anchored Timing Propagation | 3/4 | In Progress|  |
 | 24. Script Schema v2 | 0/TBD | Not started | - |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
 | 26. Mood-Driven Ken Burns | 0/TBD | Not started | - |
@@ -113,7 +113,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 
