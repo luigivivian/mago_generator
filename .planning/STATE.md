@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: Ready to execute
-stopped_at: Completed 22-03-PLAN.md
-last_updated: "2026-04-08T23:33:10.868Z"
-last_activity: 2026-04-08
+status: Executing Phase 22
+stopped_at: Completed 22-04-PLAN.md
+last_updated: "2026-04-09T00:10:07.125Z"
+last_activity: 2026-04-09
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -20,18 +20,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 22 — Per-Cena TTS Anchoring
+**Current focus:** Phase 22 — per-cena-tts-anchoring
 
 ## Current Position
 
-Phase: 22 (Per-Cena TTS Anchoring) — EXECUTING
-Plan: 4 of 5
+Phase: 22 (per-cena-tts-anchoring) — EXECUTING
+Plan: 2 of 5
 
 ## Progress
 
 ```
 [                    ] 0/5 phases
-[                    ] 0/0 plans (plans TBD)
+[████████████████░░░░] 4/5 plans (Phase 22)
 ```
 
 **Phases:**
@@ -72,6 +72,7 @@ Plan: 4 of 5
 | Phase 22 P01 | 3min | 2 tasks | 2 files |
 | Phase 22 P02 | 4min | 2 tasks | 2 files |
 | Phase 22 P03 | 9min | 3 tasks | 4 files |
+| Phase 22 P04 | 4min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Plan: 4 of 5
 - [Phase 22-02]: classify_tts_error dispatches 400/403 as fail (non-retryable), 429/5xx/unknown as retry -- Plan 03 imports this
 - [Phase 22-03]: Monkeypatch must also target tts module local binding (src.reels_pipeline.tts._get_client) because from-import creates local name that survives source-module patching
 - [Phase 22-03]: Route handler at reels.py:221 left on old run_step_tts signature -- Plan 04 owns that update, interactive TTS step broken until then
+- [Phase 22-04]: cena_indices threaded via config_override (no new _execute_step_task signature) -- keeps step-specific params in one place
+- [Phase 22-04]: cena_indices=[] normalized to None (regen all) inside tts branch -- avoids surprising no-op
+- [Phase 22-04]: validation only at route layer (non-negative ints, 400) -- upper-bound deferred to pipeline since route lacks script context
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -133,7 +137,7 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 
 ## Session Continuity
 
-Last activity: 2026-04-08
-Last session: 2026-04-08T23:33:10.862Z
-Stopped at: Completed 22-03-PLAN.md
+Last activity: 2026-04-09
+Last session: 2026-04-09T00:10:07.122Z
+Stopped at: Completed 22-04-PLAN.md
 Resume file: None
