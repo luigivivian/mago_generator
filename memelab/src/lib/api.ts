@@ -1697,6 +1697,15 @@ export interface StepState {
   clips?: { status?: string; scenes?: SceneStatus[]; approved?: boolean };
   video?: { path: string; approved: boolean; status?: string; scenes?: SceneStatus[]; export_status?: "rendering" | "complete" | "failed"; export_error?: string };
   editor?: EditorPersistState;
+  editor_config?: {
+    cenas: Record<string, {
+      voice?: string;
+      speed?: number;
+      trim_from?: number;
+      freeze_frames?: number;
+      duration_override?: number;
+    }>;
+  };
   feedback_status?: "approved" | "posted" | null;
   posted_platforms?: string[];
 }
@@ -2022,6 +2031,28 @@ export async function patchEditorState(jobId: string, editorState: EditorPersist
   return request<{ job_id: string; saved: boolean }>(
     `/reels/${jobId}/editor-state`,
     { method: "PATCH", body: JSON.stringify(editorState) },
+  );
+}
+
+export interface SceneConfigOverride {
+  voice?: string;
+  speed?: number;
+  trim_from?: number;
+  freeze_frames?: number;
+  duration_override?: number;
+}
+
+export async function patchSceneConfig(
+  jobId: string,
+  sceneIndex: number,
+  config: SceneConfigOverride,
+) {
+  return request<{ job_id: string; saved: boolean }>(
+    `/reels/${jobId}/scene-config`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ cenas: { [String(sceneIndex)]: config } }),
+    },
   );
 }
 
