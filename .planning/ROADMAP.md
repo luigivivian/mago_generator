@@ -19,7 +19,7 @@
 - [x] **Phase 22: Per-Cena TTS Anchoring** — Refactor `run_step_tts` to generate one Gemini TTS file per cena, measured via ffprobe, persisted as ground truth in `step_state.tts.cenas[i].duration` (completed 2026-04-09)
 - [x] **Phase 23: Audio-Anchored Timing Propagation** — Clip trimming, SRT generation, and editor audio items consume per-cena durations directly, eliminating char-offset approximations (completed 2026-04-09)
 - [x] **Phase 24: Script Schema v2** — Canonical roteiro schema with `character_card`, `image_prompt`, `mood`, `transition_in/out` per cena, plus legacy defaults migration (completed 2026-04-09)
-- [x] **Phase 25: Structured Image Generation** — Per-cena image generation consumes `cena.image_prompt` (4-layer subject/env/style/camera) with `character_card.style_seed` prepended and explicit aspect ratio (completed 2026-04-09)
+- [ ] **Phase 25: Structured Image Generation** — Per-cena image generation consumes `cena.image_prompt` (4-layer subject/env/style/camera) with `character_card.style_seed` prepended and explicit aspect ratio
 - [ ] **Phase 26: Mood-Driven Ken Burns** — Replace even/odd pattern with mood→preset map, apply in `concat_clips_with_audio` path too, gated by real per-cena duration > 6s rule
 
 ## Phase Details
@@ -78,8 +78,8 @@
   4. The final prompt always contains an explicit aspect ratio string (`9:16`, `16:9`, etc.) matching the job config, and Gemini never receives an ambiguous prompt
   5. UI hint: yes — this phase touches the reels UI only indirectly (generated images render in existing components); no new UI surfaces
 **Plans**: 2 plans
-  - [x] 25-01-PLAN.md — Wave 0: xfail test stubs for IMAGE-01..IMAGE-04 + fake_gemini_image_client fixture
-  - [x] 25-02-PLAN.md — Wave 1: prompt builder rewrite + call site updates + flip 4 tests
+  - [ ] 25-01-PLAN.md — Wave 0: xfail test stubs for IMAGE-01..IMAGE-04 + fake_gemini_image_client fixture
+  - [ ] 25-02-PLAN.md — Wave 1: prompt builder rewrite + call site updates + flip 4 tests
 
 ### Phase 26: Mood-Driven Ken Burns
 **Goal**: Ken Burns motion is driven by each cena's `mood` field, applied consistently in both the static slideshow path (`build_reel_video`) and the Kie.ai clips path (`concat_clips_with_audio`), gated by real per-cena duration > 6s.
@@ -100,7 +100,7 @@
 | 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 4/4 | Complete   | 2026-04-09 |
 | 24. Script Schema v2 | 4/4 | Complete    | 2026-04-09 |
-| 25. Structured Image Generation | 2/2 | Complete   | 2026-04-09 |
+| 25. Structured Image Generation | 0/2 | Planned    |  |
 | 26. Mood-Driven Ken Burns | 0/TBD | Not started | - |
 
 ## Backlog
@@ -119,7 +119,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 2/2 plans complete
+**Plans:** 0/2 plans executed
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 

@@ -47,10 +47,26 @@ export function useEditorShortcuts(
         return;
       }
 
-      // Ctrl+Z = undo, Ctrl+Shift+Z = redo
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
+      // Ctrl+Z / Cmd+Z = undo; Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y = redo.
+      // Match BOTH e.code === "KeyZ" (physical key position — US-QWERTY
+      // layout-independent) AND e.key matching "z"/"Z" (character) for
+      // robustness across non-QWERTY keyboard layouts where e.code can
+      // drift on some browsers. Same for KeyY/Ctrl+Y redo alias.
+      const isZ = e.code === "KeyZ" || e.key === "z" || e.key === "Z";
+      const isY = e.code === "KeyY" || e.key === "y" || e.key === "Y";
+      if ((e.ctrlKey || e.metaKey) && (isZ || (isY && !e.shiftKey))) {
         e.preventDefault();
-        if (e.shiftKey) {
+        // Diagnostic log (editor-undo-redo-broken): confirms the handler
+        // fires and shows past/future counts. Temporary until user verifies
+        // the fix; remove on confirmation.
+        console.log("[editor-shortcuts] undo/redo", {
+          isZ,
+          isY,
+          shift: e.shiftKey,
+          pastLen: temporal.pastStates.length,
+          futureLen: temporal.futureStates.length,
+        });
+        if (isY || e.shiftKey) {
           if (temporal.futureStates.length > 0) temporal.redo();
         } else {
           if (temporal.pastStates.length > 0) temporal.undo();

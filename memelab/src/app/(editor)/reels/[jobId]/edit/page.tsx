@@ -131,6 +131,21 @@ export default function EditorPage() {
     // used as fallback when step_state.srt.path is missing).
     store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
     loadedRef.current = true;
+
+    // Clear zundo temporal history so the first Ctrl+Z after load only
+    // undoes USER actions — not the initial load sequence. Without this,
+    // the editor loads scenes → zundo records that as a past state →
+    // first Ctrl+Z would "undo" the load and blank the editor (which
+    // looks like "undo is broken" to the user because the UI jumps to
+    // an inconsistent state they didn't create). Also clears any async
+    // subtitles-from-SRT past state pushed by the fetch above (fires
+    // after this effect body returns). Waiting a tick ensures the SRT
+    // fetch's .then() handler has a chance to land its set({subtitles})
+    // before we wipe the history.
+    const clearTimer = setTimeout(() => {
+      useEditorStore.temporal.getState().clear();
+    }, 500);
+    return () => clearTimeout(clearTimer);
   }, [stepState, jobId]);
 
   if (isLoading || !stepState) {
