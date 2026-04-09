@@ -61,7 +61,11 @@
   2. Running the same step on a biblical job produces a roteiro respecting the same v2 schema (bible system prompt updated)
   3. Loading a legacy job (roteiro without v2 fields) through `/reels/{jobId}` does not crash — missing fields are filled with defaults (`mood=calm`, `transition_in/out=fade`, `image_prompt` derived from `legenda_overlay`), verifiable by loading a pre-v4.0 job and advancing it through images + clips
   4. The `image_prompt` field is distinct from `legenda_overlay` in every v2 roteiro (no accidental reuse), and `legenda_overlay` remains PT-BR while `image_prompt` is in English
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 24-01-PLAN.md — Wave 0: xfail test stubs for SCRIPT-01..SCRIPT-06 in tests/test_reels_script_schema.py
+  - [ ] 24-02-PLAN.md — Wave 1: ROTEIRO_SCHEMA extension + Pydantic models + migrate_legacy_roteiro() + flip 5 tests
+  - [ ] 24-03-PLAN.md — Wave 2: system prompt updates (7 templates) + character_card injection + flip 2 tests
+  - [ ] 24-04-PLAN.md — Wave 3: migration wiring in reels.py + bible_stories + scene_splitter + flip 3 tests
 
 ### Phase 25: Structured Image Generation
 **Goal**: Per-cena image generation consumes `cena.image_prompt` as the primary prompt, prepends `character_card.style_seed` when present, keeps `BIBLE_STYLE_DNA` as a combinable layer (not an override), and always specifies aspect ratio explicitly.
@@ -93,7 +97,7 @@
 |-------|----------------|--------|-----------|
 | 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 4/4 | Complete   | 2026-04-09 |
-| 24. Script Schema v2 | 0/TBD | Not started | - |
+| 24. Script Schema v2 | 0/4 | Not started | - |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
 | 26. Mood-Driven Ken Burns | 0/TBD | Not started | - |
 
