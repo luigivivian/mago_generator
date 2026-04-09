@@ -92,7 +92,7 @@
   4. Setting `REELS_KENBURNS_EASING=linear` in env changes the motion curve on the next render, and `ease-in-out` is the default when the env var is unset
   5. The even/odd alternation pattern in `video_builder.py:218-228` is no longer the motion driver (grep confirms it is removed or unreachable)
 **Plans**: 2 plans
-  - [ ] 26-01-PLAN.md — Wave 1: ken_burns.py module + config vars + xfail stubs + flip 4 tests (MOTION-01/02/04/05)
+  - [x] 26-01-PLAN.md — Wave 1: ken_burns.py module + config vars + xfail stubs + flip 4 tests (MOTION-01/02/04/05)
   - [ ] 26-02-PLAN.md — Wave 2: wire into build_reel_video + concat path + _make_static + _build_scene_motion_prompt + flip MOTION-03
 
 ## Progress Table
@@ -103,7 +103,7 @@
 | 23. Audio-Anchored Timing Propagation | 4/4 | Complete   | 2026-04-09 |
 | 24. Script Schema v2 | 4/4 | Complete    | 2026-04-09 |
 | 25. Structured Image Generation | 2/2 | Complete    | 2026-04-09 |
-| 26. Mood-Driven Ken Burns | 0/2 | Not started | - |
+| 26. Mood-Driven Ken Burns | 1/2 | In Progress|  |
 
 ## Backlog
 
@@ -121,7 +121,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 0/2 plans executed
+**Plans:** 1/2 plans executed
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 

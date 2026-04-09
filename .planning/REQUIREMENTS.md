@@ -44,11 +44,11 @@
 
 ### Mood-Driven Ken Burns
 
-- [ ] **MOTION-01**: Pattern fixo even/odd em `video_builder.py:218-228` é substituído por mapa `mood → kenBurnsPreset` (ex: `mysterious → slow_zoom_in`, `dramatic → diagonal`, `hopeful → slow_zoom_out`, `tense → pan_left`, `calm → slow_zoom_in`, `sad → slow_zoom_out`, `epic → diagonal`)
-- [ ] **MOTION-02**: Presets definidos com `{startScale, endScale, panX, panY}` conforme referência do doc seção 6.3
+- [x] **MOTION-01**: Pattern fixo even/odd em `video_builder.py:218-228` é substituído por mapa `mood → kenBurnsPreset` (ex: `mysterious → slow_zoom_in`, `dramatic → diagonal`, `hopeful → slow_zoom_out`, `tense → pan_left`, `calm → slow_zoom_in`, `sad → slow_zoom_out`, `epic → diagonal`)
+- [x] **MOTION-02**: Presets definidos com `{startScale, endScale, panX, panY}` conforme referência do doc seção 6.3
 - [ ] **MOTION-03**: Ken Burns é aplicado também no path `concat_clips_with_audio` (economic mode / Kie.ai clips), não só em `build_reel_video` (static slideshow) — hoje só rola no segundo
-- [ ] **MOTION-04**: Easing configurável entre `linear` e `ease-in-out` via `REELS_KENBURNS_EASING` (default `ease-in-out` conforme recomendação do doc para movimento natural)
-- [ ] **MOTION-05**: Ken Burns só é aplicado quando a duração da cena (derivada de `tts.cenas[i].duration`) é `> 6s` — mantém regra do doc
+- [x] **MOTION-04**: Easing configurável entre `linear` e `ease-in-out` via `REELS_KENBURNS_EASING` (default `ease-in-out` conforme recomendação do doc para movimento natural)
+- [x] **MOTION-05**: Ken Burns só é aplicado quando a duração da cena (derivada de `tts.cenas[i].duration`) é `> 6s` — mantém regra do doc
 
 ---
 
@@ -99,11 +99,11 @@
 | IMAGE-02 | Phase 25 | Complete |
 | IMAGE-03 | Phase 25 | Complete |
 | IMAGE-04 | Phase 25 | Complete |
-| MOTION-01 | Phase 26 | Pending |
-| MOTION-02 | Phase 26 | Pending |
+| MOTION-01 | Phase 26 | Complete |
+| MOTION-02 | Phase 26 | Complete |
 | MOTION-03 | Phase 26 | Pending |
-| MOTION-04 | Phase 26 | Pending |
-| MOTION-05 | Phase 26 | Pending |
+| MOTION-04 | Phase 26 | Complete |
+| MOTION-05 | Phase 26 | Complete |
 
 **Coverage:** 26/26 v4.0 requirements mapped (100%). No orphans.
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
 status: Ready to execute
-stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-04-09T16:30:41.737Z"
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-04-09T17:28:19.210Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 15
-  completed_plans: 13
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 16
 ---
 
 # Project State
@@ -20,11 +20,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 25 — structured-image-generation
+**Current focus:** Phase 26 — mood-driven-ken-burns
 
 ## Current Position
 
-Phase: 25 (structured-image-generation) — EXECUTING
+Phase: 26 (mood-driven-ken-burns) — EXECUTING
 Plan: 2 of 2
 
 ## Progress
@@ -83,6 +83,7 @@ Plan: 2 of 2
 | Phase 24 P03 | 3min | 2 tasks | 2 files |
 | Phase 24 P04 | 3min | 2 tasks | 4 files |
 | Phase 25 P01 | 3min | 2 tasks | 2 files |
+| Phase 26 P01 | 2min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,10 @@ Plan: 2 of 2
 - [Phase 24-04]: Migration applied at both write and load points in reels.py for belt-and-suspenders coverage
 - [Phase 24-04]: scene_splitter needs no code changes -- dict(orig_cena) already copies all v2 fields; only clarifying comments added
 
+- [Phase 26-01]: Smoothstep easing (3t^2 - 2t^3) as default, linear as env-var alternative -- natural motion feel
+- [Phase 26-01]: Calm preset as fallback for unknown mood values -- safe default, no crash
+- [Phase 26-01]: Scale to 2x width before zoompan so pan/zoom has headroom without boundary artifacts
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
@@ -166,6 +171,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T16:30:41.733Z
-Stopped at: Completed 25-01-PLAN.md
+Last session: 2026-04-09T17:28:19.207Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
