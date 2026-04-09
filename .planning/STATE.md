@@ -175,6 +175,7 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 | 260330-tgu | Add Enhance Theme button to reels creation | 2026-03-31 | 073c33c | [260330-tgu-...](./quick/260330-tgu-add-enhance-theme-button-to-reels-creati/) |
 | 260402-04t | Add loop option to reels | 2026-04-02 | 2d7d3d6 | [260402-04t-...](./quick/260402-04t-add-loop-option-to-reels-end-phrase-tran/) |
 | 260407-2cj | Preserve Gemini word-level timings in SRT alignment | 2026-04-07 | 45d04d5 | [260407-2cj-...](./quick/260407-2cj-preserve-gemini-word-level-timings-in-sr/) |
+| 260409-si4 | Fix audio waveform misalignment after cut + move | 2026-04-09 | cc4c067 | [260409-si4-...](./quick/260409-si4-fix-audio-waveform-misalignment-after-cu/) |
 
 ## Session Continuity
 
