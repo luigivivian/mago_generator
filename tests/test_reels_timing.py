@@ -26,6 +26,9 @@ stepState.tts.duration directly — not audioItems[0].total_duration.
 
 from __future__ import annotations
 
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from src.reels_pipeline.timing import build_scene_timings_from_cenas
@@ -161,16 +164,84 @@ def test_float_drift_across_many_cenas(tmp_path):
 # Success #5 verification via unittest.mock.patch (RESEARCH.md §5 pattern 2)
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (23-03) pending — run_step_srt_uses_new_path_when_tts_cenas_present")
-def test_run_step_srt_uses_new_path_when_tts_cenas_present(tmp_path):
+@pytest.mark.asyncio
+async def test_run_step_srt_uses_new_path_when_tts_cenas_present(tmp_path):
     """TIMING-03: With tts_cenas kwarg provided, run_step_srt does NOT call
     align_srt_with_script; it calls build_scene_timings_from_cenas instead.
 
-    Uses unittest.mock.patch on
-    src.reels_pipeline.main.align_srt_with_script and asserts
-    mock.assert_not_called() after the step runs.
+    Uses unittest.mock.patch on src.reels_pipeline.transcriber.align_srt_with_script
+    and asserts mock.assert_not_called() after the step runs.
     """
-    pytest.fail("Stub — implement when 23-03 lands")
+    from src.reels_pipeline.main import ReelsPipeline
+
+    # Write a placeholder subtitles.srt so the legacy branch's open() would not
+    # fail if the gate were broken — this makes the test fail loudly if the
+    # new path is bypassed.
+    srt_placeholder = tmp_path / "subtitles.srt"
+    srt_placeholder.write_text(
+        "1\n00:00:00,000 --> 00:00:02,000\nPrimeira cena\n\n"
+        "2\n00:00:02,000 --> 00:00:04,000\nSegunda cena\n",
+        encoding="utf-8",
+    )
+
+    audio_placeholder = tmp_path / "audio.wav"
+    audio_placeholder.write_bytes(b"\x00" * 1024)  # not a real WAV, but os.path.getsize works
+
+    script = {
+        "cenas": [
+            {"narracao": "Primeira cena"},
+            {"narracao": "Segunda cena"},
+            {"narracao": "Terceira cena"},
+        ],
+        "narracao_completa": "Primeira cena. Segunda cena. Terceira cena.",
+    }
+
+    tts_cenas = [
+        {"index": 0, "narracao": "Primeira cena", "path": "c0.wav", "duration": 2.0, "status": "complete"},
+        {"index": 1, "narracao": "Segunda cena", "path": "c1.wav", "duration": 3.5, "status": "complete"},
+        {"index": 2, "narracao": "Terceira cena", "path": "c2.wav", "duration": 1.75, "status": "complete"},
+    ]
+
+    pipeline = ReelsPipeline(config_override={
+        "script_language": "pt-BR",
+        "transcription_provider": "gemini",
+    })
+
+    # Mock transcribe_to_srt so we don't hit Gemini or the real file system,
+    # and mock align_srt_with_script so we can assert it is NOT called.
+    async def fake_transcribe(**kwargs):
+        # Write the output file so downstream os.path.getsize etc. work.
+        Path(kwargs["output_path"]).write_text(
+            srt_placeholder.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        return None
+
+    with patch("src.reels_pipeline.transcriber.transcribe_to_srt", new=AsyncMock(side_effect=fake_transcribe)), \
+         patch("src.reels_pipeline.transcriber.align_srt_with_script") as mock_align, \
+         patch("src.reels_pipeline.transcriber.estimate_transcription_cost", return_value=0.01):
+        srt_path, duration, scene_timings, _expanded = await pipeline.run_step_srt(
+            audio_path=str(audio_placeholder),
+            job_dir=str(tmp_path),
+            script=script,
+            tts_cenas=tts_cenas,
+        )
+
+    # Gate assertion: the legacy aligner MUST NOT have been called
+    mock_align.assert_not_called()
+
+    # New path result assertion: scene_timings was built from tts_cenas
+    assert scene_timings is not None
+    assert len(scene_timings) == 3
+    assert scene_timings[0]["start"] == 0.0
+    assert scene_timings[0]["end"] == 2.0
+    assert scene_timings[1]["start"] == 2.0
+    assert scene_timings[1]["end"] == 5.5
+    assert scene_timings[2]["start"] == 5.5
+    assert scene_timings[2]["end"] == 7.25
+
+    # Duration return value is the final cursor (scene_timings[-1].end), not
+    # the file-size heuristic — this proves the Edit 3 swap in Task 1 landed.
+    assert scene_timings[-1]["end"] == 7.25
 
 
 # --------------------------------------------------------------------
@@ -178,16 +249,63 @@ def test_run_step_srt_uses_new_path_when_tts_cenas_present(tmp_path):
 # Bound to: 23-03 Plan, else-branch at src/reels_pipeline/main.py:~647
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 2 (23-03) pending — run_step_srt_falls_back_to_legacy_without_tts_cenas")
-def test_run_step_srt_falls_back_to_legacy_without_tts_cenas(tmp_path):
+@pytest.mark.asyncio
+async def test_run_step_srt_falls_back_to_legacy_without_tts_cenas(tmp_path):
     """TIMING-03 fallback: With tts_cenas=None (or kwarg omitted), run_step_srt
     MUST call align_srt_with_script (legacy char-offset path).
 
-    Uses unittest.mock.patch on
-    src.reels_pipeline.main.align_srt_with_script and asserts
-    mock.assert_called_once() after the step runs on a legacy job.
+    Uses unittest.mock.patch on src.reels_pipeline.transcriber.align_srt_with_script
+    and asserts mock.assert_called_once() after the step runs on a legacy job.
     """
-    pytest.fail("Stub — implement when 23-03 lands")
+    from src.reels_pipeline.main import ReelsPipeline
+
+    srt_placeholder = tmp_path / "subtitles.srt"
+    srt_placeholder.write_text(
+        "1\n00:00:00,000 --> 00:00:02,000\nPrimeira cena\n",
+        encoding="utf-8",
+    )
+
+    audio_placeholder = tmp_path / "audio.wav"
+    audio_placeholder.write_bytes(b"\x00" * 1024)
+
+    script = {
+        "cenas": [{"narracao": "Primeira cena"}],
+        "narracao_completa": "Primeira cena.",
+    }
+
+    pipeline = ReelsPipeline(config_override={
+        "script_language": "pt-BR",
+        "transcription_provider": "gemini",
+    })
+
+    async def fake_transcribe(**kwargs):
+        Path(kwargs["output_path"]).write_text(
+            srt_placeholder.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        return None
+
+    fake_aligned_srt = "1\n00:00:00,000 --> 00:00:02,000\nPrimeira cena\n"
+    fake_scene_timings = [
+        {"index": 0, "start": 0.0, "end": 2.0, "duration": 2.0, "narracao": "Primeira cena"}
+    ]
+
+    with patch("src.reels_pipeline.transcriber.transcribe_to_srt", new=AsyncMock(side_effect=fake_transcribe)), \
+         patch(
+             "src.reels_pipeline.transcriber.align_srt_with_script",
+             return_value=(fake_aligned_srt, fake_scene_timings),
+         ) as mock_align, \
+         patch("src.reels_pipeline.transcriber.estimate_transcription_cost", return_value=0.01):
+        srt_path, duration, scene_timings, _expanded = await pipeline.run_step_srt(
+            audio_path=str(audio_placeholder),
+            job_dir=str(tmp_path),
+            script=script,
+            # NO tts_cenas kwarg — legacy path
+        )
+
+    # Fallback assertion: the legacy aligner MUST have been called exactly once
+    mock_align.assert_called_once()
+    # Result assertion: scene_timings came from the mock return
+    assert scene_timings == fake_scene_timings
 
 
 # --------------------------------------------------------------------
