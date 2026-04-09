@@ -25,6 +25,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from src.api.deps import get_current_user, db_session
 from src.api.models import EditorStatePayload
 from src.database.models import ReelsConfig, ReelsJob, SceneAsset
+from src.reels_pipeline.script_migration import migrate_legacy_roteiro
 from src.reels_pipeline.models import (
     ReelGenerateRequest,
     ReelStatusResponse,
@@ -164,6 +165,11 @@ async def _execute_step_task(
             flag_modified(job, "step_state")
             await session.commit()
 
+            # Phase 24: migrate legacy roteiros before any downstream step reads them
+            script_json = step_state.get("script", {}).get("json", {})
+            if script_json and script_json.get("cenas"):
+                step_state["script"]["json"] = migrate_legacy_roteiro(script_json)
+
             # Inject job-level language into config for pipeline steps
             if job.language:
                 config_override["script_language"] = job.language
@@ -211,9 +217,9 @@ async def _execute_step_task(
                     job_dir=job_dir,
                     character_id=job.character_id,
                 )
-                step_data["json"] = script_result
+                step_data["json"] = migrate_legacy_roteiro(script_result)
                 step_data["status"] = "complete"
-                job.script_json = script_result
+                job.script_json = step_data["json"]
 
             elif step_name == "tts":
                 script_json = step_state.get("script", {}).get("json", {})
@@ -1343,8 +1349,8 @@ async def edit_step(
             req.script_json["narracao_completa"] = " ".join(
                 c.get("narracao", "") for c in cenas if c.get("narracao")
             )
-        step_state["script"]["json"] = req.script_json
-        job.script_json = req.script_json
+        step_state["script"]["json"] = migrate_legacy_roteiro(req.script_json)
+        job.script_json = step_state["script"]["json"]
 
     elif step_name == "srt":
         if req.srt_entries is None:

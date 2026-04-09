@@ -85,7 +85,7 @@ def split_long_scenes_in_script(
         )
         if timing is None:
             # No timing for this cena (rare edge case) — pass through
-            cena_copy = dict(orig_cena)
+            cena_copy = dict(orig_cena)  # Copies all fields including v2 (image_prompt, mood, transitions)
             cena_copy["imagem_index"] = new_idx
             new_cenas.append(cena_copy)
             new_idx += 1
@@ -214,7 +214,7 @@ def split_long_scenes_in_script(
 
             sub_narracao = narration_chunks[sub_i] if sub_i < len(narration_chunks) else ""
 
-            sub_cena = dict(orig_cena)
+            sub_cena = dict(orig_cena)  # Copies all fields including v2 (image_prompt, mood, transitions)
             sub_cena["imagem_index"] = new_idx
             sub_cena["duracao_segundos"] = round(sub_end - sub_start, 2)
             sub_cena["narracao"] = sub_narracao

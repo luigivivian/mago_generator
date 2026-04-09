@@ -68,6 +68,10 @@ def parse_manual_script(text: str, target_duration: int) -> dict:
             "duracao_segundos": duration_per_scene,
             "narracao": para,
             "legenda_overlay": para[:100],
+            "image_prompt": para[:100],
+            "mood": "calm",
+            "transition_in": "fade",
+            "transition_out": "fade",
         })
 
     return {
