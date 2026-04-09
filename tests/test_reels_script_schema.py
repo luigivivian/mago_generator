@@ -10,16 +10,22 @@ from __future__ import annotations
 
 import pytest
 
+from src.reels_pipeline.script_gen import ROTEIRO_SCHEMA
+
 
 # ---------------------------------------------------------------------------
 # SCRIPT-01 -- character_card present in ROTEIRO_SCHEMA
 # Bound to: 24-02 Plan (Wave 1), ROTEIRO_SCHEMA extension
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 stub", strict=True)
 def test_01_character_card_in_schema():
     """SCRIPT-01: character_card present in schema with description and style_seed."""
-    pytest.fail("Wave 1 will implement")
+    props = ROTEIRO_SCHEMA["properties"]
+    assert "character_card" in props
+    cc_props = props["character_card"]["properties"]
+    assert "description" in cc_props
+    assert "style_seed" in cc_props
+    assert "character_card" not in ROTEIRO_SCHEMA["required"]
 
 
 # ---------------------------------------------------------------------------
@@ -27,10 +33,12 @@ def test_01_character_card_in_schema():
 # Bound to: 24-02 Plan (Wave 1), ROTEIRO_SCHEMA cenas.items extension
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 stub", strict=True)
 def test_02_image_prompt_per_cena():
     """SCRIPT-02: image_prompt of type STRING in cenas.items and required."""
-    pytest.fail("Wave 1 will implement")
+    cena_props = ROTEIRO_SCHEMA["properties"]["cenas"]["items"]["properties"]
+    assert "image_prompt" in cena_props
+    assert cena_props["image_prompt"]["type"] == "STRING"
+    assert "image_prompt" in ROTEIRO_SCHEMA["properties"]["cenas"]["items"]["required"]
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +46,12 @@ def test_02_image_prompt_per_cena():
 # Bound to: 24-02 Plan (Wave 1), ROTEIRO_SCHEMA cenas.items extension
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 stub", strict=True)
 def test_03_mood_enum():
     """SCRIPT-03: mood enum with exactly 7 values in cenas.items."""
-    pytest.fail("Wave 1 will implement")
+    cena_props = ROTEIRO_SCHEMA["properties"]["cenas"]["items"]["properties"]
+    assert "mood" in cena_props
+    assert cena_props["mood"]["type"] == "STRING"
+    assert cena_props["mood"]["enum"] == ["mysterious", "dramatic", "hopeful", "tense", "calm", "sad", "epic"]
 
 
 # ---------------------------------------------------------------------------
@@ -49,10 +59,14 @@ def test_03_mood_enum():
 # Bound to: 24-02 Plan (Wave 1), ROTEIRO_SCHEMA cenas.items extension
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 stub", strict=True)
 def test_04_transitions_enum():
     """SCRIPT-04: transition_in and transition_out enums with 4 values each, both required."""
-    pytest.fail("Wave 1 will implement")
+    cena_props = ROTEIRO_SCHEMA["properties"]["cenas"]["items"]["properties"]
+    cena_required = ROTEIRO_SCHEMA["properties"]["cenas"]["items"]["required"]
+    assert cena_props["transition_in"]["enum"] == ["fade", "cut", "dissolve", "slide"]
+    assert cena_props["transition_out"]["enum"] == ["fade", "cut", "dissolve", "slide"]
+    assert "transition_in" in cena_required
+    assert "transition_out" in cena_required
 
 
 # ---------------------------------------------------------------------------
@@ -104,10 +118,10 @@ def test_08_manual_bible_script_has_v2_fields():
 # Bound to: 24-02 Plan (Wave 1), ROTEIRO_SCHEMA extension
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 1 stub", strict=True)
 def test_09_schema_character_card_optional():
     """Extra: character_card is NOT in ROTEIRO_SCHEMA required list."""
-    pytest.fail("Wave 1 will implement")
+    assert "character_card" not in ROTEIRO_SCHEMA["required"]
+    assert "character_card" in ROTEIRO_SCHEMA["properties"]
 
 
 # ---------------------------------------------------------------------------
