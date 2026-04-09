@@ -34,14 +34,38 @@ ROTEIRO_SCHEMA = {
                     "duracao_segundos": {"type": "NUMBER"},
                     "narracao": {"type": "STRING"},
                     "legenda_overlay": {"type": "STRING"},
+                    "image_prompt": {"type": "STRING"},
+                    "mood": {
+                        "type": "STRING",
+                        "enum": ["mysterious", "dramatic", "hopeful", "tense", "calm", "sad", "epic"],
+                    },
+                    "transition_in": {
+                        "type": "STRING",
+                        "enum": ["fade", "cut", "dissolve", "slide"],
+                    },
+                    "transition_out": {
+                        "type": "STRING",
+                        "enum": ["fade", "cut", "dissolve", "slide"],
+                    },
                 },
-                "required": ["imagem_index", "duracao_segundos", "narracao", "legenda_overlay"],
+                "required": [
+                    "imagem_index", "duracao_segundos", "narracao", "legenda_overlay",
+                    "image_prompt", "mood", "transition_in", "transition_out",
+                ],
             },
         },
         "cta": {"type": "STRING"},
         "frase_loop": {"type": "STRING"},
         "hashtags": {"type": "ARRAY", "items": {"type": "STRING"}},
         "caption_instagram": {"type": "STRING"},
+        "character_card": {
+            "type": "OBJECT",
+            "properties": {
+                "description": {"type": "STRING"},
+                "style_seed": {"type": "STRING"},
+            },
+            "required": ["description", "style_seed"],
+        },
     },
     "required": [
         "titulo", "gancho", "narracao_completa", "cenas",

@@ -14,6 +14,16 @@ class CenaSchema(BaseModel):
     duracao_segundos: float = Field(..., description="Duration in seconds for this scene")
     narracao: str = Field(..., description="Narration text for this scene")
     legenda_overlay: str = Field(..., description="Short overlay text for subtitle display")
+    image_prompt: Optional[str] = Field(default=None, description="English 4-layer image generation prompt (subject, environment, style, camera)")
+    mood: Optional[str] = Field(default="calm", description="Scene mood: mysterious, dramatic, hopeful, tense, calm, sad, epic")
+    transition_in: Optional[str] = Field(default="fade", description="Incoming transition: fade, cut, dissolve, slide")
+    transition_out: Optional[str] = Field(default="fade", description="Outgoing transition: fade, cut, dissolve, slide")
+
+
+class CharacterCardSchema(BaseModel):
+    """Character visual identity card for consistent image generation."""
+    description: str = Field(..., description="Character physical description")
+    style_seed: str = Field(..., description="Visual style seed for image consistency")
 
 
 class RoteiroSchema(BaseModel):
@@ -25,6 +35,7 @@ class RoteiroSchema(BaseModel):
     cta: str = Field(default="salve esse post", description="Call to action")
     hashtags: list[str] = Field(default_factory=list, description="Hashtags for the reel")
     caption_instagram: str = Field(default="", description="Instagram caption text")
+    character_card: Optional[CharacterCardSchema] = Field(default=None, description="Character visual identity (present when tenant has recurring character)")
 
 
 # ===== API Request/Response Models =====
