@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import pytest
 
+from src.reels_pipeline.timing import build_scene_timings_from_cenas
+
 
 # --------------------------------------------------------------------
 # TIMING-02 — build_scene_timings_from_cenas emits the same shape as
@@ -35,7 +37,6 @@ import pytest
 # Bound to: 23-02 Plan, src/reels_pipeline/timing.py
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (23-02) pending — build_scene_timings_shape_matches_legacy")
 def test_build_scene_timings_shape_matches_legacy(tmp_path):
     """TIMING-02: Output dicts have exactly the keys {index, start, end, duration, narracao}.
 
@@ -43,7 +44,29 @@ def test_build_scene_timings_shape_matches_legacy(tmp_path):
     (scene_splitter.py:48) working without modification. Any shape drift
     breaks the splitter and the concat_clips_with_audio trim loop.
     """
-    pytest.fail("Stub — implement when 23-02 lands")
+    cenas = [
+        {"index": 0, "narracao": "Primeira cena", "path": "a.wav", "duration": 2.0, "status": "complete"},
+        {"index": 1, "narracao": "Segunda cena", "path": "b.wav", "duration": 3.5, "status": "complete"},
+        {"index": 2, "narracao": "Terceira cena", "path": "c.wav", "duration": 1.75, "status": "complete"},
+    ]
+    result = build_scene_timings_from_cenas(cenas)
+
+    assert len(result) == 3
+    expected_keys = {"index", "start", "end", "duration", "narracao"}
+    for i, entry in enumerate(result):
+        assert set(entry.keys()) == expected_keys, (
+            f"scene_timings[{i}] has keys {set(entry.keys())}, expected {expected_keys}"
+        )
+        assert isinstance(entry["index"], int)
+        assert isinstance(entry["start"], float)
+        assert isinstance(entry["end"], float)
+        assert isinstance(entry["duration"], float)
+        assert isinstance(entry["narracao"], str)
+
+    # Content check
+    assert result[0] == {"index": 0, "start": 0.0, "end": 2.0, "duration": 2.0, "narracao": "Primeira cena"}
+    assert result[1] == {"index": 1, "start": 2.0, "end": 5.5, "duration": 3.5, "narracao": "Segunda cena"}
+    assert result[2] == {"index": 2, "start": 5.5, "end": 7.25, "duration": 1.75, "narracao": "Terceira cena"}
 
 
 # --------------------------------------------------------------------
@@ -52,7 +75,6 @@ def test_build_scene_timings_shape_matches_legacy(tmp_path):
 # Bound to: 23-02 Plan, src/reels_pipeline/timing.py
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (23-02) pending — build_scene_timings_sums_to_total")
 def test_build_scene_timings_sums_to_total(tmp_path):
     """TIMING-02: scene_timings[-1].end == round(sum(cenas[i].duration)*1000)/1000.
 
@@ -60,7 +82,31 @@ def test_build_scene_timings_sums_to_total(tmp_path):
     and duration field is re-derived from rounded bounds
     (duration == round(end - start, 3)).
     """
-    pytest.fail("Stub — implement when 23-02 lands")
+    durations = [1.2, 2.3, 3.4, 4.5, 5.6]
+    cenas = [
+        {"index": i, "narracao": f"cena {i}", "path": f"c{i}.wav", "duration": d, "status": "complete"}
+        for i, d in enumerate(durations)
+    ]
+    result = build_scene_timings_from_cenas(cenas)
+
+    # Sum check: final cursor equals rounded sum of inputs
+    expected_total = round(sum(durations) * 1000) / 1000
+    assert result[-1]["end"] == expected_total, (
+        f"final end {result[-1]['end']} != rounded sum {expected_total}"
+    )
+
+    # Monotonicity: no gaps, no overlaps
+    assert result[0]["start"] == 0.0
+    for i in range(1, len(result)):
+        assert result[i]["start"] == result[i - 1]["end"], (
+            f"gap/overlap at i={i}: start={result[i]['start']}, prev_end={result[i - 1]['end']}"
+        )
+
+    # duration re-derived from rounded bounds (C in the 4 rounding points)
+    for i, entry in enumerate(result):
+        assert entry["duration"] == round(entry["end"] - entry["start"], 3), (
+            f"duration mismatch at i={i}: duration={entry['duration']}, end-start={entry['end'] - entry['start']}"
+        )
 
 
 # --------------------------------------------------------------------
@@ -69,16 +115,44 @@ def test_build_scene_timings_sums_to_total(tmp_path):
 # Ref: pipeline-historia-narracao-imagem.md §9 — "Cenas desalinhadas após a terceira"
 # --------------------------------------------------------------------
 
-@pytest.mark.xfail(strict=False, reason="Wave 1 (23-02) pending — float_drift_across_many_cenas")
 def test_float_drift_across_many_cenas(tmp_path):
     """TIMING-05: With 50 cenas of drift-prone durations, final cursor matches
     round(sum*1000)/1000 exactly and no scene_timings[i].start drifts off
     scene_timings[i-1].end by more than 0.001s.
 
-    Drift-prone input: durations like [3.333, 3.777, 3.111, 2.987, 4.123, ...]
-    chosen so a naive `cursor += dur` accumulates IEEE 754 error past ms precision.
+    Drift-prone input: durations like [3.333, 3.777, 3.111, 2.987, 4.123]
+    repeated 10 times, chosen so a naive `cursor += dur` accumulates
+    IEEE 754 error past ms precision.
     """
-    pytest.fail("Stub — implement when 23-02 lands")
+    drift_prone = [3.333, 3.777, 3.111, 2.987, 4.123] * 10  # 50 cenas
+    assert len(drift_prone) == 50
+
+    cenas = [
+        {"index": i, "narracao": f"cena {i}", "path": f"c{i}.wav", "duration": d, "status": "complete"}
+        for i, d in enumerate(drift_prone)
+    ]
+    result = build_scene_timings_from_cenas(cenas)
+
+    assert len(result) == 50
+
+    # No gaps or overlaps anywhere
+    assert result[0]["start"] == 0.0
+    for i in range(1, 50):
+        gap = abs(result[i]["start"] - result[i - 1]["end"])
+        assert gap < 1e-9, f"drift at i={i}: gap={gap}s (> 1ns)"
+
+    # Final cursor exactly matches rounded total
+    expected_total = round(sum(drift_prone) * 1000) / 1000
+    assert result[-1]["end"] == expected_total, (
+        f"final cursor {result[-1]['end']} drifted from rounded sum {expected_total}"
+    )
+
+    # Sanity: naive sum would drift — confirm drift-prone values were chosen well
+    naive_cursor = 0.0
+    for d in drift_prone:
+        naive_cursor += d
+    # Document expected drift direction (not asserted — just diagnostic):
+    # naive_cursor may differ from expected_total by ~1e-12 on IEEE 754.
 
 
 # --------------------------------------------------------------------
