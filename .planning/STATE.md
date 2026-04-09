@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
 status: Ready to plan
-stopped_at: Completed 22-05-PLAN.md
-last_updated: "2026-04-09T00:20:59.374Z"
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-04-09T16:36:03Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 22 — per-cena-tts-anchoring
+**Current focus:** Phase 25 — structured-image-generation
 
 ## Current Position
 
-Phase: 999.15
-Plan: Not started
+Phase: 25
+Plan: 2 of 2 (complete)
 
 ## Progress
 
@@ -41,7 +41,7 @@ Plan: Not started
 | 22 | Per-Cena TTS Anchoring | 6 | Complete (pending verify) |
 | 23 | Audio-Anchored Timing Propagation | 5 | Not started |
 | 24 | Script Schema v2 | 6 | Not started |
-| 25 | Structured Image Generation | 4 | Not started |
+| 25 | Structured Image Generation | 4 | Complete (pending verify) |
 | 26 | Mood-Driven Ken Burns | 5 | Not started |
 
 ## Performance Metrics
@@ -74,6 +74,8 @@ Plan: Not started
 | Phase 22 P03 | 9min | 3 tasks | 4 files |
 | Phase 22 P04 | 4min | 3 tasks | 2 files |
 | Phase 22 P05 | 2min | 1 tasks | 2 files |
+
+| Phase 25 P02 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -120,6 +122,11 @@ Plan: Not started
 - [Phase 25-01]: PIL-generated 1x1 JPEG for fake image response (reliable across platforms vs hardcoded bytes)
 - [Phase 25-01]: Dual monkeypatch pattern (src.llm_client + src.reels_pipeline.image_gen) consistent with Phase 22 TTS fixture
 
+- [Phase 25-02]: Composable _build_per_cena_prompt replaces 3-branch if/elif/else -- single function handles all modes via parts array
+- [Phase 25-02]: character_card passed as explicit param (not via config_override) -- cleaner API, matches script top-level field
+- [Phase 25-02]: Legacy narracao+overlay fallback preserved for cenas without image_prompt -- migration compat
+- [Phase 25-02]: Phase 25 validation suite at 4/4 GREEN -- closure ready for /gsd:verify-work
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
@@ -145,6 +152,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T00:15:28.237Z
-Stopped at: Completed 22-05-PLAN.md
+Last session: 2026-04-09T16:36:03Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None

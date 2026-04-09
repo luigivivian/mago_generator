@@ -37,10 +37,10 @@
 
 ### Image Generation (prompts estruturados)
 
-- [ ] **IMAGE-01**: `generate_reel_images_per_cena` usa `cena.image_prompt` como prompt primário (não mais `narracao + legenda_overlay`)
-- [ ] **IMAGE-02**: Quando `character_card` está presente no roteiro, seu `style_seed` é prepended a cada prompt per-cena automaticamente
-- [ ] **IMAGE-03**: `BIBLE_STYLE_DNA` continua funcionando mas é combinado com o `image_prompt` per-cena (style DNA global + prompt específico), não sobrepõe
-- [ ] **IMAGE-04**: Aspect ratio (`9:16`, `16:9`, etc.) é sempre explícito no prompt final enviado ao Gemini Image
+- [x] **IMAGE-01**: `generate_reel_images_per_cena` usa `cena.image_prompt` como prompt primário (não mais `narracao + legenda_overlay`)
+- [x] **IMAGE-02**: Quando `character_card` está presente no roteiro, seu `style_seed` é prepended a cada prompt per-cena automaticamente
+- [x] **IMAGE-03**: `BIBLE_STYLE_DNA` continua funcionando mas é combinado com o `image_prompt` per-cena (style DNA global + prompt específico), não sobrepõe
+- [x] **IMAGE-04**: Aspect ratio (`9:16`, `16:9`, etc.) é sempre explícito no prompt final enviado ao Gemini Image
 
 ### Mood-Driven Ken Burns
 
@@ -95,10 +95,10 @@
 | SCRIPT-04 | Phase 24 | Complete |
 | SCRIPT-05 | Phase 24 | Complete |
 | SCRIPT-06 | Phase 24 | Complete |
-| IMAGE-01 | Phase 25 | Pending |
-| IMAGE-02 | Phase 25 | Pending |
-| IMAGE-03 | Phase 25 | Pending |
-| IMAGE-04 | Phase 25 | Pending |
+| IMAGE-01 | Phase 25 | Complete |
+| IMAGE-02 | Phase 25 | Complete |
+| IMAGE-03 | Phase 25 | Complete |
+| IMAGE-04 | Phase 25 | Complete |
 | MOTION-01 | Phase 26 | Pending |
 | MOTION-02 | Phase 26 | Pending |
 | MOTION-03 | Phase 26 | Pending |
