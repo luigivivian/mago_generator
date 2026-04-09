@@ -74,10 +74,23 @@ def test_04_transitions_enum():
 # Bound to: 24-03 Plan (Wave 2), prompt template updates
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 stub", strict=True)
 def test_05_system_prompts_updated():
     """SCRIPT-05: all 7 prompt templates contain image_prompt and mood instructions."""
-    pytest.fail("Wave 2 will implement")
+    from src.reels_pipeline.script_gen import (
+        _SYSTEM_PROMPTS, _BIBLE_SYSTEM_PROMPTS, _SYSTEM_PROMPT_FALLBACK,
+    )
+    # All 3 regular prompts have v2 instructions
+    for lang, tmpl in _SYSTEM_PROMPTS.items():
+        assert "image_prompt" in tmpl, f"_SYSTEM_PROMPTS[{lang}] missing image_prompt"
+        assert "mood" in tmpl, f"_SYSTEM_PROMPTS[{lang}] missing mood"
+        assert "transition_in" in tmpl, f"_SYSTEM_PROMPTS[{lang}] missing transition_in"
+    # All 3 bible prompts have v2 instructions
+    for lang, tmpl in _BIBLE_SYSTEM_PROMPTS.items():
+        assert "image_prompt" in tmpl, f"_BIBLE_SYSTEM_PROMPTS[{lang}] missing image_prompt"
+        assert "mood" in tmpl, f"_BIBLE_SYSTEM_PROMPTS[{lang}] missing mood"
+    # Fallback has v2 instructions
+    assert "image_prompt" in _SYSTEM_PROMPT_FALLBACK
+    assert "mood" in _SYSTEM_PROMPT_FALLBACK
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +142,13 @@ def test_09_schema_character_card_optional():
 # Bound to: 24-03 Plan (Wave 2), prompt template updates
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 2 stub", strict=True)
 def test_10_image_prompt_distinct_from_overlay():
     """Extra: system prompts distinguish image_prompt from legenda_overlay."""
-    pytest.fail("Wave 2 will implement")
+    from src.reels_pipeline.script_gen import _SYSTEM_PROMPTS
+    # Each prompt distinguishes image_prompt from legenda_overlay
+    for lang, tmpl in _SYSTEM_PROMPTS.items():
+        assert "image_prompt" in tmpl and "legenda_overlay" in tmpl, \
+            f"_SYSTEM_PROMPTS[{lang}] should mention both fields"
+        # The old instruction treating legenda_overlay as image prompt should be gone
+        assert "Sera usado como prompt para gerar a imagem" not in tmpl or lang != "pt-BR", \
+            "pt-BR prompt still has old legenda_overlay-as-image-prompt instruction"
