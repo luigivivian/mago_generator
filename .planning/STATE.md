@@ -117,6 +117,9 @@ Plan: Not started
 - [Phase 22-05]: Manual editor smoke test (load regenerated reel + check waveform) explicitly NOT automated -- documented in 22-VALIDATION.md as a /gsd:verify-work human gate
 - [Phase 22-05]: Phase 22 validation suite at 11/11 GREEN -- closure ready for /gsd:verify-work
 
+- [Phase 25-01]: PIL-generated 1x1 JPEG for fake image response (reliable across platforms vs hardcoded bytes)
+- [Phase 25-01]: Dual monkeypatch pattern (src.llm_client + src.reels_pipeline.image_gen) consistent with Phase 22 TTS fixture
+
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
 ### Pending Todos
