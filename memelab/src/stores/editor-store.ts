@@ -327,17 +327,56 @@ export const useEditorStore = create<EditorState>()(
             return sub;
           });
 
-          // Remap audio items similarly
-          const audioItems = state.audioItems.map((a) => {
+          // Remap audio items: split any that span multiple scenes, then
+          // relocate each segment to match its owning scene's new position.
+          const audioItems: EditorAudioItem[] = [];
+          for (const a of state.audioItems) {
+            const aEnd = a.from + a.durationInFrames;
+            const sourceOff = a.startFrom ?? 0;
+            // Collect segments: one per scene the audio overlaps
+            const segments: { sceneId: string; from: number; dur: number; startFrom: number }[] = [];
             for (const s of oldScenes) {
               const oldR = oldOffsets[s.id];
-              if (a.from >= oldR.start && a.from < oldR.end) {
-                const newR = newOffsets[s.id];
-                return { ...a, from: a.from + (newR.start - oldR.start) };
+              const segStart = Math.max(a.from, oldR.start);
+              const segEnd = Math.min(aEnd, oldR.end);
+              if (segEnd > segStart) {
+                segments.push({
+                  sceneId: s.id,
+                  from: segStart,
+                  dur: segEnd - segStart,
+                  startFrom: sourceOff + (segStart - a.from),
+                });
               }
             }
-            return a;
-          });
+            if (segments.length === 0) {
+              audioItems.push(a);
+            } else if (segments.length === 1) {
+              // Common case (post-split): audio fits in one scene
+              const seg = segments[0];
+              const newR = newOffsets[seg.sceneId];
+              const intraOffset = seg.from - oldOffsets[seg.sceneId].start;
+              audioItems.push({
+                ...a,
+                from: newR.start + intraOffset,
+                durationInFrames: seg.dur,
+                startFrom: seg.startFrom,
+              });
+            } else {
+              // Audio spans multiple scenes — split into per-scene segments
+              for (let i = 0; i < segments.length; i++) {
+                const seg = segments[i];
+                const newR = newOffsets[seg.sceneId];
+                const intraOffset = seg.from - oldOffsets[seg.sceneId].start;
+                audioItems.push({
+                  ...a,
+                  id: i === 0 ? a.id : genId("audio"),
+                  from: newR.start + intraOffset,
+                  durationInFrames: seg.dur,
+                  startFrom: seg.startFrom,
+                });
+              }
+            }
+          }
 
           return { scenes: reindexScenes(newScenes), subtitles, audioItems };
         });
