@@ -1453,11 +1453,13 @@ async def _regenerate_single_image_task(
             regen_config = {}
             if "bible_config" in job_config:
                 regen_config["bible_config"] = job_config["bible_config"]
+            character_card = script_json.get("character_card")
             new_paths = await generate_reel_images_per_cena(
                 cenas=[single_cena],
                 character_id=job.character_id,
                 output_dir=images_dir,
                 config_override=regen_config or None,
+                character_card=character_card,
             )
 
             if not new_paths:

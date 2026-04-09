@@ -266,11 +266,13 @@ class ReelsPipeline:
 
         # Generate only non-reused cenas
         if cenas_to_generate:
+            character_card = script.get("character_card")
             generated_paths = await generate_reel_images_per_cena(
                 cenas=cenas_to_generate,
                 character_id=character_id,
                 output_dir=images_dir,
                 config_override=self.config,
+                character_card=character_card,
             )
             # Move generated images to their correct cena positions
             for gen_idx, orig_idx in enumerate(cena_index_map):
