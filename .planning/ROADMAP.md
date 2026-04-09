@@ -16,7 +16,7 @@
 
 ### Phases
 
-- [ ] **Phase 22: Per-Cena TTS Anchoring** — Refactor `run_step_tts` to generate one Gemini TTS file per cena, measured via ffprobe, persisted as ground truth in `step_state.tts.cenas[i].duration`
+- [x] **Phase 22: Per-Cena TTS Anchoring** — Refactor `run_step_tts` to generate one Gemini TTS file per cena, measured via ffprobe, persisted as ground truth in `step_state.tts.cenas[i].duration` (completed 2026-04-09)
 - [ ] **Phase 23: Audio-Anchored Timing Propagation** — Clip trimming, SRT generation, and editor audio items consume per-cena durations directly, eliminating char-offset approximations
 - [ ] **Phase 24: Script Schema v2** — Canonical roteiro schema with `character_card`, `image_prompt`, `mood`, `transition_in/out` per cena, plus legacy defaults migration
 - [ ] **Phase 25: Structured Image Generation** — Per-cena image generation consumes `cena.image_prompt` (4-layer subject/env/style/camera) with `character_card.style_seed` prepended and explicit aspect ratio
@@ -87,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. Per-Cena TTS Anchoring | 4/5 | In Progress|  |
+| 22. Per-Cena TTS Anchoring | 5/5 | Complete   | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 0/TBD | Not started | - |
 | 24. Script Schema v2 | 0/TBD | Not started | - |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
@@ -109,7 +109,7 @@
 - Autosave writes editor edits back to `script.cenas[i]` / `clips.scenes[i]`, OR downstream steps read from `editor.scenes` directly
 - Auto-init `editor.scenes` when `script.cenas` grows past `clips.scenes` (prevents staleness that bug 1 in the same debug session exhibited)
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 **Estimate:** ~1-2 days backend + frontend
 **Priority:** medium (current workaround: regen first, re-edit manually)
 

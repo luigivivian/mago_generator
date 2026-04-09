@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: Executing Phase 22
-stopped_at: Completed 22-04-PLAN.md
-last_updated: "2026-04-09T00:10:07.125Z"
+status: Ready to execute
+stopped_at: Completed 22-05-PLAN.md
+last_updated: "2026-04-09T00:15:28.241Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -24,21 +24,21 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 
 ## Current Position
 
-Phase: 22 (per-cena-tts-anchoring) — EXECUTING
-Plan: 2 of 5
+Phase: 22 (per-cena-tts-anchoring) — COMPLETE (ready for /gsd:verify-work)
+Plan: 5 of 5 (all plans landed)
 
 ## Progress
 
 ```
-[                    ] 0/5 phases
-[████████████████░░░░] 4/5 plans (Phase 22)
+[████░░░░░░░░░░░░░░░░] 1/5 phases
+[████████████████████] 5/5 plans (Phase 22)
 ```
 
 **Phases:**
 
 | # | Phase | Reqs | Status |
 |---|-------|------|--------|
-| 22 | Per-Cena TTS Anchoring | 6 | Not started |
+| 22 | Per-Cena TTS Anchoring | 6 | Complete (pending verify) |
 | 23 | Audio-Anchored Timing Propagation | 5 | Not started |
 | 24 | Script Schema v2 | 6 | Not started |
 | 25 | Structured Image Generation | 4 | Not started |
@@ -73,6 +73,7 @@ Plan: 2 of 5
 | Phase 22 P02 | 4min | 2 tasks | 2 files |
 | Phase 22 P03 | 9min | 3 tasks | 4 files |
 | Phase 22 P04 | 4min | 3 tasks | 2 files |
+| Phase 22 P05 | 2min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Plan: 2 of 5
 - [Phase 22-04]: cena_indices threaded via config_override (no new _execute_step_task signature) -- keeps step-specific params in one place
 - [Phase 22-04]: cena_indices=[] normalized to None (regen all) inside tts branch -- avoids surprising no-op
 - [Phase 22-04]: validation only at route layer (non-negative ints, 400) -- upper-bound deferred to pipeline since route lacks script context
+- [Phase 22-05]: Editor compat regression test built as direct run_step_tts call + manual step_data assembly (no FastAPI test client) -- isolates pipeline contract from DB/HTTP plumbing, runs in <1.1s
+- [Phase 22-05]: Manual editor smoke test (load regenerated reel + check waveform) explicitly NOT automated -- documented in 22-VALIDATION.md as a /gsd:verify-work human gate
+- [Phase 22-05]: Phase 22 validation suite at 11/11 GREEN -- closure ready for /gsd:verify-work
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -138,6 +142,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T00:10:07.122Z
-Stopped at: Completed 22-04-PLAN.md
+Last session: 2026-04-09T00:15:28.237Z
+Stopped at: Completed 22-05-PLAN.md
 Resume file: None
