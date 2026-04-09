@@ -87,7 +87,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 22. Per-Cena TTS Anchoring | 5/5 | Complete   | 2026-04-09 |
+| 22. Per-Cena TTS Anchoring | 5/5 | Complete    | 2026-04-09 |
 | 23. Audio-Anchored Timing Propagation | 0/TBD | Not started | - |
 | 24. Script Schema v2 | 0/TBD | Not started | - |
 | 25. Structured Image Generation | 0/TBD | Not started | - |
