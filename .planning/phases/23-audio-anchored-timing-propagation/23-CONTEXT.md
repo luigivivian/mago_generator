@@ -37,8 +37,9 @@ Every downstream timing consumer (clip trimming in `concat_clips_with_audio`, SR
 - **Success criterion #5 verification** — Unit test uses `unittest.mock.patch` on `align_srt_with_script` and asserts `assert_not_called()` when run with a Phase-22-style job (has `tts.cenas`). Grep-based lint is not used — mock-based is more precise.
 
 ### Editor + Float Drift
-- **`audioItems[0].total_duration` source** — Backend writes `sum(tts.cenas[i].duration)` into `step_state.editor.audioItems[0].total_duration` during the clips step (or wherever editor state is assembled). Single source of truth. Frontend does NOT recompute.
-- **Bug 7 regression lock** — New backend test `test_editor_audio_items_total_duration_matches_per_cena_sum` asserts `step_state.editor.audioItems[0].total_duration == sum(tts.cenas[i].duration)` (within 1ms tolerance for float concat).
+- **TIMING-04 interpretation (Option C — regression lock only)** — Research discovered frontend `editor-store.ts:164-217` reads `stepState.tts?.duration` directly, NOT `audioItems[0].total_duration`. Phase 22 already populates `stepState.tts.duration` correctly via ffprobe. So TIMING-04 is reframed as a **regression lock**: zero frontend change, zero new backend field. Add backend test `test_stepstate_tts_duration_equals_cena_sum` asserting `step_state.tts.duration == sum(tts.cenas[i].duration)` (within 1ms for ffmpeg concat tolerance).
+- **`run_step_srt` duration source** — Replace file-size estimate at `main.py:680-684` with `sum(tts.cenas[i].duration)` when `tts.cenas` is present. Keep file-size heuristic as legacy fallback. 2-line change.
+- **Failed cena handling** — New helper emits a zero-duration slot `{start: prev_end, end: prev_end, duration: 0, narracao: ...}` to preserve index alignment with `script.cenas`. Downstream consumers that care about failed cenas read `tts.cenas[i].failed`.
 - **Cursor rounding scope** — Apply `round(cursor * 1000) / 1000` at EVERY cumulative step (accumulation AND emission). Belt-and-suspenders to fully eliminate the drift described in ref doc section 9.
 - **`concat_clips_with_audio` trimming** — When `scene_timings` is passed (built from `tts.cenas`), it is used as authoritative. Current code at `video_builder.py:850` already prefers `scene_timings` over proportional fallback. **No signature change.** Only the construction site changes.
 
