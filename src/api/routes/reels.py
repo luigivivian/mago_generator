@@ -1003,10 +1003,16 @@ async def execute_step(
     job_id: str,
     step_name: str,
     background_tasks: BackgroundTasks,
+    body: dict | None = Body(default=None),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(db_session),
 ):
-    """Execute a specific pipeline step. Runs in background for heavy steps."""
+    """Execute a specific pipeline step. Runs in background for heavy steps.
+
+    Phase 22: Optional body for the tts step:
+        {"cena_indices": [int, ...]}  # selective retry per D-06
+        empty/absent = regenerate all cenas
+    """
     from src.database.session import get_session_factory
     from src.reels_pipeline.main import ReelsPipeline
 
@@ -1085,6 +1091,20 @@ async def execute_step(
     job.step_state = step_state
     flag_modified(job, "step_state")
     await db.commit()
+
+    # Phase 22 D-06: thread optional cena_indices (selective retry) into
+    # config_override so the background task's tts branch can read it.
+    if step_name == "tts" and body and isinstance(body, dict):
+        raw_indices = body.get("cena_indices")
+        if raw_indices is not None:
+            if not isinstance(raw_indices, list) or not all(
+                isinstance(x, int) and x >= 0 for x in raw_indices
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="cena_indices must be a list of non-negative ints",
+                )
+            config_override["cena_indices"] = raw_indices
 
     session_factory = get_session_factory()
     background_tasks.add_task(
