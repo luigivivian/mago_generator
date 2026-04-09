@@ -565,7 +565,12 @@ class ReelsPipeline:
         return audio_path, total_duration, cost_usd, cenas_meta
 
     async def run_step_srt(
-        self, audio_path: str, job_dir: str, script: dict | None = None
+        self,
+        audio_path: str,
+        job_dir: str,
+        script: dict | None = None,
+        *,
+        tts_cenas: list[dict] | None = None,
     ) -> tuple[str, float, list[dict] | None, dict | None]:
         """Step 5: Transcribe audio to SRT subtitles.
 
@@ -575,6 +580,14 @@ class ReelsPipeline:
             script: Optional script dict with cenas. When provided,
                     post-processes SRT to use script narrations instead
                     of raw transcription text.
+            tts_cenas: Phase 23 — optional per-cena meta list from
+                       step_state.tts.cenas (Phase 22 output). When
+                       provided AND script has cenas, scene_timings
+                       is built via build_scene_timings_from_cenas
+                       (audio-anchored, ffprobe-measured ground truth).
+                       When None/empty, falls back to the legacy
+                       char-offset align_srt_with_script path for
+                       pre-Phase-22 jobs.
 
         Returns:
             Tuple of (srt_path, cost_usd, scene_timings, expanded_script).
@@ -642,12 +655,30 @@ class ReelsPipeline:
                 )
                 script = repaired
                 expanded_script = repaired  # caller will persist
-            with open(srt_path, "r", encoding="utf-8") as f:
-                srt_text = f.read()
-            aligned, scene_timings = align_srt_with_script(srt_text, script)
-            with open(srt_path, "w", encoding="utf-8") as f:
-                f.write(aligned)
-            logger.info("SRT aligned with script narrations")
+
+            if tts_cenas:
+                # Phase 23 (TIMING-02/03/05): audio-anchored path — scene_timings
+                # is derived from ffprobe-measured per-cena durations landed in
+                # Phase 22. Gemini raw SRT stays byte-for-byte untouched (it
+                # already does since quick-260407-2cj), so we skip the
+                # open/read/write cycle entirely.
+                from src.reels_pipeline.timing import build_scene_timings_from_cenas
+                scene_timings = build_scene_timings_from_cenas(tts_cenas)
+                logger.info(
+                    "SRT scene_timings built from tts.cenas "
+                    f"({len(scene_timings)} cenas, audio-anchored)"
+                )
+            else:
+                # Legacy fallback (pre-Phase-22 jobs): char-offset alignment.
+                # align_srt_with_script returns the raw SRT verbatim so the
+                # read-then-write is a no-op today, but preserved as a safety
+                # net in case a future change reintroduces in-place rewriting.
+                with open(srt_path, "r", encoding="utf-8") as f:
+                    srt_text = f.read()
+                aligned, scene_timings = align_srt_with_script(srt_text, script)
+                with open(srt_path, "w", encoding="utf-8") as f:
+                    f.write(aligned)
+                logger.info("SRT aligned with script narrations (legacy path)")
 
             # Visual rhythm splitter: any cena longer than SCENE_MAX_DURATION
             # gets split into N sub-cenas of ~3s each. The expanded script has
@@ -676,12 +707,19 @@ class ReelsPipeline:
                     f"{len(expanded_script['cenas'])} cenas"
                 )
 
-        # Estimate duration from audio file size (~48kB/s for 24kHz 16-bit mono)
-        try:
-            audio_size = os.path.getsize(audio_path)
-            est_duration_s = max(audio_size / 48000, 10)
-        except OSError:
-            est_duration_s = 30
+        # Phase 23: when scene_timings comes from tts.cenas (audio-anchored),
+        # use the final cursor as the step duration. Otherwise fall back to
+        # the file-size heuristic for legacy jobs. Either way the route
+        # handler writes this into step_data["duration"] which the editor
+        # reads via stepState.srt.duration in editor-store.ts:199.
+        if tts_cenas and scene_timings:
+            est_duration_s = float(scene_timings[-1]["end"])
+        else:
+            try:
+                audio_size = os.path.getsize(audio_path)
+                est_duration_s = max(audio_size / 48000, 10)
+            except OSError:
+                est_duration_s = 30
         cost_usd = estimate_transcription_cost(est_duration_s)
         return srt_path, cost_usd, scene_timings, expanded_script
 
@@ -1263,15 +1301,17 @@ class ReelsPipeline:
 
         # Step 4 - TTS (40-60%)
         # Phase 22: per-cena TTS -- pass the full script, not narracao_completa
-        audio_path, _tts_dur, tts_cost, _cenas_meta = await self.run_step_tts(
+        audio_path, _tts_dur, tts_cost, cenas_meta = await self.run_step_tts(
             script, job_dir
         )
         cost_usd += tts_cost
         _progress("tts", 60)
 
         # Step 5 - Transcription (60-75%)
+        # Phase 23: thread cenas_meta so run_step_srt uses audio-anchored
+        # scene_timings instead of char-offset fallback.
         srt_path, srt_cost, _scene_timings, _expanded_script = await self.run_step_srt(
-            audio_path, job_dir, script=script,
+            audio_path, job_dir, script=script, tts_cenas=cenas_meta,
         )
         cost_usd += srt_cost
         _progress("transcription", 75)
