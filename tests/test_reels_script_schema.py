@@ -8,8 +8,6 @@ DO NOT rename a test without updating 24-VALIDATION.md.
 
 from __future__ import annotations
 
-import pytest
-
 from src.reels_pipeline.script_gen import ROTEIRO_SCHEMA
 
 
@@ -98,10 +96,25 @@ def test_05_system_prompts_updated():
 # Bound to: 24-04 Plan (Wave 3), migrate_legacy_roteiro()
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 3 stub", strict=True)
 def test_06_legacy_migration():
     """SCRIPT-06: migrate_legacy_roteiro adds mood, transitions, and image_prompt defaults."""
-    pytest.fail("Wave 3 will implement")
+    from src.reels_pipeline.script_migration import migrate_legacy_roteiro
+    legacy = {
+        "titulo": "test",
+        "cenas": [
+            {"imagem_index": 0, "duracao_segundos": 3.0, "narracao": "narr", "legenda_overlay": "overlay text"},
+            {"imagem_index": 1, "duracao_segundos": 4.0, "narracao": "narr2", "legenda_overlay": "overlay two"},
+        ],
+    }
+    result = migrate_legacy_roteiro(legacy)
+    for cena in result["cenas"]:
+        assert cena["mood"] == "calm", f"mood should be calm, got {cena['mood']}"
+        assert cena["transition_in"] == "fade"
+        assert cena["transition_out"] == "fade"
+        assert "image_prompt" in cena
+    assert result["cenas"][0]["image_prompt"] == "overlay text"
+    assert result["cenas"][1]["image_prompt"] == "overlay two"
+    assert "character_card" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -109,10 +122,19 @@ def test_06_legacy_migration():
 # Bound to: 24-04 Plan (Wave 3), migrate_legacy_roteiro()
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 3 stub", strict=True)
 def test_07_migration_idempotent():
     """Extra: running migrate_legacy_roteiro twice produces same result."""
-    pytest.fail("Wave 3 will implement")
+    from src.reels_pipeline.script_migration import migrate_legacy_roteiro
+    legacy = {
+        "cenas": [
+            {"imagem_index": 0, "duracao_segundos": 3.0, "narracao": "n", "legenda_overlay": "ov"},
+        ],
+    }
+    first_pass = migrate_legacy_roteiro(legacy)
+    first_pass["cenas"][0]["mood"] = "dramatic"
+    second_pass = migrate_legacy_roteiro(first_pass)
+    assert second_pass["cenas"][0]["mood"] == "dramatic", "Idempotency broken: mood overwritten"
+    assert second_pass["cenas"][0]["image_prompt"] == "ov", "Idempotency broken: image_prompt overwritten"
 
 
 # ---------------------------------------------------------------------------
@@ -120,10 +142,17 @@ def test_07_migration_idempotent():
 # Bound to: 24-04 Plan (Wave 3), parse_manual_script() update
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 3 stub", strict=True)
 def test_08_manual_bible_script_has_v2_fields():
     """Extra: parse_manual_script output cenas contain v2 fields."""
-    pytest.fail("Wave 3 will implement")
+    from src.reels_pipeline.bible_stories import parse_manual_script
+    result = parse_manual_script("First scene text.\n\nSecond scene text.", 30)
+    assert len(result["cenas"]) == 2
+    for cena in result["cenas"]:
+        assert "image_prompt" in cena, "manual bible cena missing image_prompt"
+        assert "mood" in cena, "manual bible cena missing mood"
+        assert cena["mood"] == "calm"
+        assert cena["transition_in"] == "fade"
+        assert cena["transition_out"] == "fade"
 
 
 # ---------------------------------------------------------------------------
