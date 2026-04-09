@@ -10,6 +10,7 @@ from google.genai import types
 
 from src.llm_client import _get_client
 from src.reels_pipeline.config import (
+    REELS_IMAGE_ASPECT_RATIO,
     REELS_IMAGE_COUNT,
     REELS_IMAGE_HEIGHT,
     REELS_IMAGE_WIDTH,
@@ -39,6 +40,74 @@ BIBLE_STYLE_DNA = (
     "- Keep all imagery family-friendly, suitable for all ages.\n"
     "- Prefer symbolic and abstract representations over literal depictions of sensitive scenes."
 )
+
+
+def _build_per_cena_prompt(
+    cena: dict,
+    i: int,
+    n: int,
+    is_bible_mode: bool,
+    character_card: dict | None,
+    char_ctx: dict | None,
+    aspect_ratio: str,
+) -> str:
+    """Build layered prompt for a single cena image. Phase 25 composable builder."""
+    parts = []
+
+    # Hook prefix for first frame (scene 0 only)
+    if i == 0:
+        parts.append(
+            "FIRST FRAME — HOOK IMAGE (must grab attention instantly):\n"
+            "This is the opening frame. It must be immediately eye-catching: "
+            "high contrast, bold subject placement, dramatic lighting or composition. "
+            "The viewer decides to stay or scroll in under 1 second based on this image.\n"
+        )
+
+    # No-text rule (always present)
+    parts.append(
+        "CRITICAL: Do NOT render ANY text, words, letters, captions, subtitles, "
+        "titles, watermarks, or written language in the image. "
+        "The image must be PURELY VISUAL — no text of any kind.\n"
+    )
+
+    # Style seed from character_card (IMAGE-02)
+    if character_card and character_card.get("style_seed"):
+        parts.append(f"CHARACTER STYLE:\n{character_card['style_seed']}\n")
+
+    # Bible style DNA (IMAGE-03) — combined as layer, not override
+    if is_bible_mode:
+        parts.append(f"STYLE:\n{BIBLE_STYLE_DNA}\n")
+
+    # Legacy character DNA fallback (when no character_card in script but char loaded from DB)
+    if not is_bible_mode and not character_card and char_ctx and char_ctx.get("character_dna"):
+        parts.append(f"CHARACTER STYLE:\n{char_ctx['character_dna']}\n")
+        if char_ctx.get("composition"):
+            parts.append(f"COMPOSITION: {char_ctx['composition']}\n")
+        if char_ctx.get("negative_traits"):
+            parts.append(f"AVOID: {char_ctx['negative_traits']} — and any text/words in the image.\n")
+
+    # Primary prompt (IMAGE-01): use image_prompt when available, fall back to narracao+overlay for legacy
+    image_prompt = cena.get("image_prompt", "")
+    if image_prompt:
+        parts.append(f"IMAGE PROMPT:\n{image_prompt}\n")
+    else:
+        # Legacy cenas without proper image_prompt — fall back to old approach
+        narracao = cena.get("narracao", "")
+        overlay = cena.get("legenda_overlay", "")
+        parts.append(
+            f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
+            f"{narracao}\n\n"
+            f"VISUAL DIRECTION:\n{overlay}\n"
+        )
+
+    # Aspect ratio enforcement (IMAGE-04) — append if not already in image_prompt
+    if aspect_ratio and aspect_ratio not in (image_prompt or ""):
+        parts.append(f"Aspect ratio: {aspect_ratio}\n")
+
+    # Scene counter
+    parts.append(f"Scene {i+1} of {n}. Cinematic lighting, professional quality.")
+
+    return "\n".join(parts)
 
 
 def _scale_and_pad(img: PIL.Image.Image, width: int, height: int) -> PIL.Image.Image:
@@ -209,12 +278,23 @@ async def generate_reel_images_per_cena(
     character_id: int | None,
     output_dir: str,
     config_override: dict | None = None,
+    character_card: dict | None = None,
 ) -> list[str]:
     """Generate one image per cena using script context. Per REELV2-02.
 
-    Each image prompt includes character DNA + cena narracao + legenda_overlay + position.
-    When bible_config present in config_override, uses BIBLE_STYLE_DNA instead.
-    Generates exactly len(cenas) images (1 per cena).
+    Uses cena.image_prompt as primary prompt (Phase 25), with character_card.style_seed
+    prepended and BIBLE_STYLE_DNA combined as layers. Falls back to narracao+legenda_overlay
+    for legacy cenas without image_prompt.
+
+    Args:
+        cenas: List of cena dicts with image_prompt (v2) or narracao/legenda_overlay (legacy).
+        character_id: Optional character ID for loading DB refs/DNA.
+        output_dir: Directory to save generated images.
+        config_override: Optional config dict; bible_config triggers bible mode.
+        character_card: Optional character card dict with style_seed for prompt layering.
+
+    Returns:
+        List of saved image file paths (1080x1920 JPEG).
     """
     cfg = config_override or {}
     bible_config = cfg.get("bible_config")
@@ -238,68 +318,18 @@ async def generate_reel_images_per_cena(
             await asyncio.sleep(_PAUSE_BETWEEN_GENERATIONS)
 
         image_path = str(Path(output_dir) / f"image_{i:02d}.jpg")
-        narracao = cena.get("narracao", "")
-        overlay = cena.get("legenda_overlay", "")
 
-        # First-frame hook: prepend attention-grabbing instruction for scene 0
-        hook_prefix = ""
-        if i == 0:
-            hook_prefix = (
-                "FIRST FRAME — HOOK IMAGE (must grab attention instantly):\n"
-                "This is the opening frame. It must be immediately eye-catching: "
-                "high contrast, bold subject placement, dramatic lighting or composition. "
-                "The viewer decides to stay or scroll in under 1 second based on this image.\n\n"
-            )
-
-        # NO TEXT rule: Gemini renders text in images if narration is quoted directly
-        no_text_rule = (
-            "CRITICAL: Do NOT render ANY text, words, letters, captions, subtitles, "
-            "titles, watermarks, or written language in the image. "
-            "The image must be PURELY VISUAL — no text of any kind.\n\n"
+        prompt = _build_per_cena_prompt(
+            cena=cena,
+            i=i,
+            n=n,
+            is_bible_mode=is_bible_mode,
+            character_card=character_card,
+            char_ctx=char_ctx,
+            aspect_ratio=REELS_IMAGE_ASPECT_RATIO,
         )
 
-        if is_bible_mode:
-            prompt = (
-                f"{hook_prefix}"
-                f"{no_text_rule}"
-                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
-                f"{narracao}\n\n"
-                f"VISUAL DIRECTION:\n"
-                f"{overlay}\n\n"
-                f"STYLE:\n{BIBLE_STYLE_DNA}\n\n"
-                f"Scene {i+1} of {n}. Cinematic lighting, reverent composition."
-            )
-        elif char_ctx and char_ctx.get("character_dna"):
-            prompt = (
-                f"{hook_prefix}"
-                f"{no_text_rule}"
-                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
-                f"{narracao}\n\n"
-                f"VISUAL DIRECTION (depict this visually WITHOUT any text):\n"
-                f"{overlay}\n\n"
-                f"Illustrate the KEY CONCEPT through actions, objects, emotion, and environment. "
-                f"Do NOT just show the character standing — illustrate the MESSAGE visually.\n\n"
-                f"CHARACTER STYLE:\n"
-                f"{char_ctx['character_dna']}\n\n"
-                f"FORMAT: Instagram Reels vertical 9:16 (1080x1920). Scene {i+1} of {n}.\n"
-                f"{char_ctx.get('composition', '')}\n"
-                f"AVOID: {char_ctx.get('negative_traits', '')} — and any text/words in the image.\n"
-                f"Cinematic lighting, high detail, professional illustration."
-            )
-        else:
-            prompt = (
-                f"{hook_prefix}"
-                f"{no_text_rule}"
-                f"SCENE CONTEXT (for visual reference only, do NOT write this text in the image):\n"
-                f"{narracao}\n\n"
-                f"VISUAL DIRECTION:\n"
-                f"{overlay}\n\n"
-                f"Show the specific action, objects, and environment visually. "
-                f"Instagram Reels vertical 9:16 (1080x1920). Scene {i+1} of {n}.\n"
-                f"High quality, photographic, vibrant colors, cinematic lighting."
-            )
-
-        img = await _generate_single_image(client, prompt, ref_images=ref_images)
+        img = await _generate_single_image(client, prompt, ref_images=ref_images, aspect_ratio=REELS_IMAGE_ASPECT_RATIO)
         if img is None:
             logger.error(f"Failed to generate per-cena image {i}, skipping")
             continue
@@ -317,6 +347,7 @@ async def generate_reel_images_per_cena(
 
 async def _generate_single_image(
     client, prompt: str, ref_images: list[PIL.Image.Image] | None = None,
+    aspect_ratio: str = "9:16",
 ) -> PIL.Image.Image | None:
     """Generate a single image with retry on 429. Optionally includes ref images for character consistency."""
     from io import BytesIO
@@ -338,7 +369,7 @@ async def _generate_single_image(
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
                     image_config=types.ImageConfig(
-                        aspect_ratio="9:16",
+                        aspect_ratio=aspect_ratio,
                     ),
                 ),
             )
