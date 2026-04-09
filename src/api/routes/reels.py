@@ -217,14 +217,79 @@ async def _execute_step_task(
 
             elif step_name == "tts":
                 script_json = step_state.get("script", {}).get("json", {})
-                narration = script_json.get("narracao_completa", "")
-                audio_path, duration = await pipeline.run_step_tts(
-                    narration_text=narration,
+                if not script_json or not script_json.get("cenas"):
+                    raise RuntimeError(
+                        "tts step requires a script with cenas; run /step/script first"
+                    )
+
+                # Phase 22 D-06: selective retry via optional cena_indices
+                # threaded through config_override. Empty/None = regen all.
+                cena_indices = config_override.get("cena_indices")
+                if cena_indices == []:
+                    cena_indices = None
+
+                # Phase 22 D-03: per-cena status callback using independent
+                # session (mirrors _scene_update / on_scene_update for clips
+                # at reels.py:276-298). The asyncio.Lock is REQUIRED — without
+                # it two concurrent commits corrupt step_state (see
+                # 22-RESEARCH.md Common Pitfalls #7).
+                _cena_lock = asyncio.Lock()
+
+                async def _cena_update(cenas_list):
+                    from src.database.session import get_session_factory
+                    async with _cena_lock:
+                        try:
+                            sf = get_session_factory()
+                            async with sf() as s:
+                                result = await s.execute(
+                                    select(ReelsJob).where(
+                                        ReelsJob.job_id == job_id
+                                    )
+                                )
+                                j = result.scalar_one_or_none()
+                                if j and j.step_state:
+                                    tts_step = j.step_state.setdefault("tts", {})
+                                    tts_step["cenas"] = cenas_list
+                                    flag_modified(j, "step_state")
+                                    await s.commit()
+                        except Exception as e:
+                            logger.warning(
+                                "TTS cena update commit failed (non-fatal): %s", e
+                            )
+
+                def on_cena_update(cenas_list):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(_cena_update(cenas_list))
+                    except RuntimeError:
+                        pass
+
+                audio_path, total_duration, cost_usd, cenas_meta = await pipeline.run_step_tts(
+                    script=script_json,
                     job_dir=job_dir,
+                    cena_indices=cena_indices,
+                    on_cena_update=on_cena_update,
                 )
+
+                # D-07: step_data top-level fields stay additive for editor compat
+                # (memelab/src/stores/editor-store.ts:167 reads tts.path;
+                #  editor-store.ts:198 reads tts.duration)
                 step_data["path"] = audio_path
-                step_data["duration"] = duration
-                step_data["status"] = "complete"
+                step_data["duration"] = total_duration
+                step_data["cenas"] = cenas_meta
+                step_data["total_duration_source"] = "ffprobe_concat"
+                step_data["cost_usd"] = cost_usd
+
+                # D-05: status convention
+                n_failed = sum(1 for c in cenas_meta if c.get("failed"))
+                n_total = len(cenas_meta)
+                if n_failed == 0:
+                    step_data["status"] = "complete"
+                elif n_failed < n_total:
+                    step_data["status"] = "complete_with_failures"
+                else:
+                    step_data["status"] = "failed"
+
                 job.audio_path = audio_path
 
             elif step_name == "srt":
