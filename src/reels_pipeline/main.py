@@ -72,22 +72,16 @@ def _pick_scene_duration(cena: dict, target_duration: int) -> int:
     return 10 if complexity_score >= 2 else 6
 
 
-def _build_scene_motion_prompt(overlay: str, narracao: str, scene_idx: int, total: int) -> str:
+def _build_scene_motion_prompt(overlay: str, narracao: str, scene_idx: int, total: int, mood: str = "calm") -> str:
     """Build a Hailuo motion prompt directly from the scene description.
 
     Unlike VideoPromptBuilder (designed for single-image meme videos with
     generic wizard themes), this creates scene-specific animation prompts
     that match the actual visual content of each reel scene.
+    Uses MOOD_CAMERA_MAP for mood-driven camera direction instead of index-based alternation.
     """
-    # Camera movement varies by scene position for visual rhythm
-    if scene_idx == 0:
-        camera = "Slow push-in from medium shot"
-    elif scene_idx == total - 1:
-        camera = "Gentle pull-back to wide shot"
-    elif scene_idx % 2 == 0:
-        camera = "Subtle dolly sideways"
-    else:
-        camera = "Slow push-in with slight tilt"
+    from src.reels_pipeline.ken_burns import MOOD_CAMERA_MAP
+    camera = MOOD_CAMERA_MAP.get(mood, "Slow push-in from medium shot")
 
     return (
         f"{camera}. "
@@ -760,6 +754,16 @@ class ReelsPipeline:
                 c.get("duracao_segundos", 0) for c in script["cenas"]
             )
 
+        # Extract per-scene moods and timings for Ken Burns
+        scene_timings_for_video = None
+        moods_for_video = None
+        if script and "cenas" in script:
+            moods_for_video = [c.get("mood", "calm") for c in script["cenas"]]
+            tts_cenas = self.step_state.get("tts", {}).get("cenas", []) if hasattr(self, 'step_state') else []
+            if tts_cenas and len(tts_cenas) == len(script["cenas"]):
+                from src.reels_pipeline.timing import build_scene_timings_from_cenas
+                scene_timings_for_video = build_scene_timings_from_cenas(tts_cenas)
+
         if total_duration > REELS_SEGMENT_MAX_DURATION and script:
             from src.reels_pipeline.video_builder import (
                 build_segment_videos,
@@ -787,6 +791,8 @@ class ReelsPipeline:
                 srt_path=srt_path,
                 job_dir=job_dir,
                 config_override=self.config,
+                all_scene_timings=scene_timings_for_video,
+                all_moods=moods_for_video,
             )
             concat_segments(
                 segment_paths,
@@ -800,6 +806,8 @@ class ReelsPipeline:
                 srt_path=srt_path,
                 output_path=video_path,
                 config_override=self.config,
+                scene_timings=scene_timings_for_video,
+                moods=moods_for_video,
             )
 
         return video_path
@@ -893,14 +901,26 @@ class ReelsPipeline:
             if on_scene_update:
                 on_scene_update(scenes)
 
-        def _make_static(img_path: str, clip_path: str, duration: int):
-            subprocess.run([
-                "ffmpeg", "-y", "-loop", "1", "-t", str(duration),
-                "-i", img_path,
-                "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
-                clip_path,
-            ], capture_output=True, timeout=60)
+        def _make_static(img_path: str, clip_path: str, duration: int, mood: str = "calm"):
+            from src.reels_pipeline.ken_burns import get_kb_filter
+            from src.reels_pipeline.config import REELS_KENBURNS_ENABLED
+            kb_filter = get_kb_filter(mood, float(duration), 30) if REELS_KENBURNS_ENABLED else ""
+            if kb_filter:
+                subprocess.run([
+                    "ffmpeg", "-y", "-loop", "1", "-t", str(duration),
+                    "-i", img_path,
+                    "-vf", kb_filter,
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                    clip_path,
+                ], capture_output=True, timeout=60)
+            else:
+                subprocess.run([
+                    "ffmpeg", "-y", "-loop", "1", "-t", str(duration),
+                    "-i", img_path,
+                    "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "30",
+                    clip_path,
+                ], capture_output=True, timeout=60)
 
         # Phase 999.14: economic mode short-circuit. Produce static clips
         # for every scene and skip the entire upload+create+poll loop. The
@@ -915,7 +935,8 @@ class ReelsPipeline:
                 cena = cenas[i] if i < len(cenas) else {}
                 clip_dur = _pick_scene_duration(cena, target_duration)
                 clip_path = os.path.join(clips_dir, f"clip_{i:02d}.mp4")
-                _make_static(img_path, clip_path, clip_dur)
+                mood = cena.get("mood", "calm")
+                _make_static(img_path, clip_path, clip_dur, mood=mood)
                 _update_scene(i, {
                     "status": "success",
                     "clip_path": clip_path,
@@ -970,11 +991,12 @@ class ReelsPipeline:
             narracao = cena.get("narracao", "")
             overlay = cena.get("legenda_overlay", "")
             clip_duration = _pick_scene_duration(cena, target_duration)
-            motion = _build_scene_motion_prompt(overlay, narracao, i, n)
+            mood = cena.get("mood", "calm")
+            motion = _build_scene_motion_prompt(overlay, narracao, i, n, mood=mood)
 
             tasks_info.append({
                 "index": i, "url": public_url, "motion": motion,
-                "img_path": img_path, "duration": clip_duration,
+                "img_path": img_path, "duration": clip_duration, "mood": mood,
             })
             _update_scene(i, {
                 "status": "uploading", "prompt": motion,
@@ -990,6 +1012,7 @@ class ReelsPipeline:
             img_path = info["img_path"]
             clip_dur = info["duration"]
             prompt = info["motion"]
+            scene_mood = info.get("mood", "calm")
             clip_path = os.path.join(clips_dir, f"clip_{idx:02d}.mp4")
 
             # Asset reuse check for video clips (exclude current job to prevent self-matching)
@@ -1027,7 +1050,7 @@ class ReelsPipeline:
                         await _cs.commit()
                 except InsufficientCreditsError:
                     _update_scene(idx, {"status": "blocked", "error": "Insufficient credits"})
-                    _make_static(img_path, clip_path, clip_dur)
+                    _make_static(img_path, clip_path, clip_dur, mood=scene_mood)
                     return clip_path
 
             for attempt in range(3):
@@ -1046,7 +1069,7 @@ class ReelsPipeline:
                                 await _cs.commit()
                         except Exception as ref_err:
                             logger.warning(f"Scene {idx}: credit refund failed: {ref_err}")
-                    _make_static(img_path, clip_path, clip_dur)
+                    _make_static(img_path, clip_path, clip_dur, mood=scene_mood)
                     _update_scene(idx, {
                         "status": "static_fallback", "clip_path": clip_path,
                         "error": "All Kie.ai attempts failed, using static image",
@@ -1125,7 +1148,7 @@ class ReelsPipeline:
                         await _cs.commit()
                 except Exception:
                     pass
-            _make_static(img_path, clip_path, clip_dur)
+            _make_static(img_path, clip_path, clip_dur, mood=scene_mood)
             _update_scene(idx, {"status": "static_fallback", "clip_path": clip_path})
             return clip_path
 

@@ -164,6 +164,8 @@ def build_reel_video(
     srt_path: str,
     output_path: str,
     config_override: dict | None = None,
+    scene_timings: list[dict] | None = None,
+    moods: list[str] | None = None,
 ) -> str:
     """Assemble images + audio + SRT subtitles into a Reel MP4 via FFmpeg xfade.
 
@@ -199,48 +201,51 @@ def build_reel_video(
     # Build FFmpeg command
     cmd = ["ffmpeg", "-y"]
 
-    # 1. Inputs: each image as looping input + audio
-    for img_path in image_paths:
-        cmd += ["-loop", "1", "-t", str(image_duration), "-framerate", str(fps), "-i", img_path]
+    # 1. Inputs: each image as looping input + audio (per-scene duration when available)
+    for idx, img_path in enumerate(image_paths):
+        dur = scene_timings[idx]["duration"] if scene_timings and idx < len(scene_timings) else image_duration
+        cmd += ["-loop", "1", "-t", str(dur), "-framerate", str(fps), "-i", img_path]
     audio_index = len(image_paths)
     cmd += ["-i", audio_path]
 
     # 2. Build filter_complex
     n = len(image_paths)
 
-    # Scale filters: force all images to 1080x1920, with optional ken-burns effect
+    # Scale filters: force all images to 1080x1920, with mood-driven ken-burns effect
+    from src.reels_pipeline.ken_burns import get_kb_filter
+
     scale_filters = []
     for i in range(n):
         if REELS_KENBURNS_ENABLED:
-            # Ken-burns (zoom-pan) effect for visual dynamism on static images
-            if i % 2 == 0:
-                # Zoom in: start at 100%, end at 115%
-                zoom = "min(zoom+0.0008,1.15)"
+            scene_dur = scene_timings[i]["duration"] if scene_timings and i < len(scene_timings) else image_duration
+            mood = moods[i] if moods and i < len(moods) else "calm"
+            kb_filter = get_kb_filter(mood, scene_dur, fps)
+            if kb_filter:
+                scale_filters.append(f"[{i}]{kb_filter}[s{i}]")
             else:
-                # Zoom out: start at 115%, end at 100%
-                zoom = "if(eq(on\\,1)\\,1.15\\,max(zoom-0.0008\\,1.0))"
-
-            frames = int(image_duration * fps)
-            scale_filters.append(
-                f"[{i}]scale=1920:-1,zoompan=z='{zoom}'"
-                f":d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-                f":s=1080x1920:fps={fps}[s{i}]"
-            )
+                scale_filters.append(
+                    f"[{i}]scale=1080:1920:force_original_aspect_ratio=decrease,"
+                    f"pad=1080:1920:-1:-1:color=black[s{i}]"
+                )
         else:
             scale_filters.append(
                 f"[{i}]scale=1080:1920:force_original_aspect_ratio=decrease,"
                 f"pad=1080:1920:-1:-1:color=black[s{i}]"
             )
 
-    # 3. xfade chain
+    # 3. xfade chain (cumulative per-scene durations when available)
     xfade_filters = []
     if n == 1:
         # Single image: no xfade, just copy
         xfade_filters.append("[s0]copy[vout]")
     else:
         prev = "s0"
+        cumulative = 0.0
         for i in range(1, n):
-            offset = i * image_duration - i * transition_duration
+            dur_prev = scene_timings[i - 1]["duration"] if scene_timings and (i - 1) < len(scene_timings) else image_duration
+            cumulative += dur_prev
+            offset = cumulative - i * transition_duration
+            offset = max(offset, 0)
             out = f"f{i}" if i < n - 1 else "vout"
             xfade_filters.append(
                 f"[{prev}][s{i}]xfade=transition={transition_type}"
@@ -647,6 +652,8 @@ def build_segment_videos(
     srt_path: str,
     job_dir: str,
     config_override: dict | None = None,
+    all_scene_timings: list[dict] | None = None,
+    all_moods: list[str] | None = None,
 ) -> list[str]:
     """Build individual video segments from sliced audio/SRT.
 
@@ -657,12 +664,15 @@ def build_segment_videos(
         srt_path: Full SRT file path.
         job_dir: Job working directory for temp files.
         config_override: Optional config overrides.
+        all_scene_timings: Per-scene timing dicts for Ken Burns duration.
+        all_moods: Per-scene mood strings for Ken Burns preset selection.
 
     Returns:
         List of segment video file paths.
     """
     segment_paths = []
     cumulative_start = 0.0
+    scene_offset = 0
 
     for i, seg in enumerate(segments):
         seg_duration = seg["duration"]
@@ -688,10 +698,14 @@ def build_segment_videos(
         # Build segment video
         seg_video = os.path.join(job_dir, f"segment_{i}.mp4")
         images = image_paths_by_segment[i] if i < len(image_paths_by_segment) else []
+        n_seg_scenes = len(seg.get("cenas", []))
         if not images:
             logger.warning(f"No images for segment {i}, skipping")
             cumulative_start = seg_end
+            scene_offset += n_seg_scenes
             continue
+        seg_timings = all_scene_timings[scene_offset:scene_offset + n_seg_scenes] if all_scene_timings else None
+        seg_moods = all_moods[scene_offset:scene_offset + n_seg_scenes] if all_moods else None
 
         build_reel_video(
             image_paths=images,
@@ -699,9 +713,12 @@ def build_segment_videos(
             srt_path=seg_srt,
             output_path=seg_video,
             config_override=config_override,
+            scene_timings=seg_timings,
+            moods=seg_moods,
         )
         segment_paths.append(seg_video)
         cumulative_start = seg_end
+        scene_offset += n_seg_scenes
 
     return segment_paths
 
