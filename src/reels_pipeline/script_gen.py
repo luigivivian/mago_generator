@@ -88,7 +88,7 @@ Regras:
 - Gancho rapido nos primeiros 1-2 segundos (curto e impactante)
 - Cada cena deve ter entre 2-4 segundos de duracao
 - Narracao de cada cena: 5-12 palavras maximo (curto, ritmo TikTok)
-- legenda_overlay de cada cena: descricao visual detalhada do cenario (15-30 palavras, ex: 'mago idoso meditando no topo de montanha com neblina ao amanhecer'). Sera usado como prompt para gerar a imagem da cena
+- legenda_overlay de cada cena: texto curto de legenda para exibir na tela (5-15 palavras, no idioma do roteiro)
 - CTA final claro e direto
 - NUNCA use termos de Star Wars (padawan, jedi, force). Para se dirigir ao espectador use expressoes de mago/feiticeiro: "meu jovem bruxo", "jovem feiticeiro", "meu caro aprendiz", "nobre aventureiro", "jovem mago"
 - Linguagem PT-BR coloquial, tom {tom}
@@ -115,6 +115,23 @@ SEO DE VOZ (OBRIGATÓRIO):
 Fale as palavras-chave principais do tema em voz alta na narração, especialmente nos primeiros 5 segundos. TikTok e YouTube indexam o áudio falado — keywords ditas em voz alta melhoram a descoberta orgânica.
 
 {hook_type_instruction}{image_instruction}
+
+CAMPOS V2 OBRIGATORIOS POR CENA:
+- image_prompt: prompt em INGLES para geracao de imagem AI. Formato 4 camadas:
+  "sujeito realizando acao, ambiente com detalhes, estilo visual, angulo de camera, 9:16, no text, no watermark"
+  Exemplo: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  DEVE ser em ingles independente do idioma do roteiro. NUNCA copie legenda_overlay para image_prompt.
+- mood: estado emocional da cena. Um de: mysterious, dramatic, hopeful, tense, calm, sad, epic
+  Escolha baseado no tom narrativo da cena.
+- transition_in: transicao de entrada da cena. Um de: fade, cut, dissolve, slide
+- transition_out: transicao de saida da cena. Um de: fade, cut, dissolve, slide
+  Use "cut" para cortes rapidos, "fade" para momentos lentos, "dissolve" para transicoes suaves.
+
+IMPORTANTE - legenda_overlay MUDOU DE FUNCAO:
+- legenda_overlay agora e APENAS o texto curto de legenda que aparece NA TELA (5-15 palavras, no idioma do roteiro)
+- NAO coloque descricao visual detalhada em legenda_overlay. Use image_prompt para isso.
+- legenda_overlay e para o ESPECTADOR ler. image_prompt e para o GERADOR DE IMAGEM.
+
 Crie um roteiro que:
 1. {cena_instruction}
 2. Distribua a narracao entre as cenas de forma natural
@@ -135,7 +152,7 @@ Rules:
 - Quick hook in the first 1-2 seconds (short and impactful)
 - Each scene should be 2-4 seconds long
 - Narration per scene: 5-12 words MAX (short, TikTok pace)
-- legenda_overlay for each scene: detailed visual description of the setting (15-30 words, e.g. 'old wizard meditating on mountaintop with fog at sunrise'). This will be used as a prompt to generate the scene image
+- legenda_overlay for each scene: short subtitle text shown on screen (5-15 words, in the script's language)
 - Clear and direct final CTA
 - Casual {tom} tone
 - Target duration: {duracao}s
@@ -161,6 +178,23 @@ VOICE SEO (MANDATORY):
 Speak the main keywords of the topic out loud in the narration, especially in the first 5 seconds.
 
 {hook_type_instruction}{image_instruction}
+
+MANDATORY V2 FIELDS PER SCENE:
+- image_prompt: English prompt for AI image generation. 4-layer format:
+  "subject doing action, environment with details, visual style, camera angle, 9:16, no text, no watermark"
+  Example: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  MUST be in English. NEVER copy legenda_overlay into image_prompt.
+- mood: emotional state of the scene. One of: mysterious, dramatic, hopeful, tense, calm, sad, epic
+  Choose based on the narrative tone of the scene.
+- transition_in: scene entry transition. One of: fade, cut, dissolve, slide
+- transition_out: scene exit transition. One of: fade, cut, dissolve, slide
+  Use "cut" for fast cuts, "fade" for slow moments, "dissolve" for smooth transitions.
+
+IMPORTANT - legenda_overlay HAS CHANGED:
+- legenda_overlay is now ONLY the short subtitle text shown ON SCREEN (5-15 words, in the script's language)
+- Do NOT put detailed visual descriptions in legenda_overlay. Use image_prompt for that.
+- legenda_overlay is for the VIEWER to read. image_prompt is for the IMAGE GENERATOR.
+
 Create a script that:
 1. {cena_instruction}
 2. Distributes narration naturally across scenes
@@ -181,7 +215,7 @@ Reglas:
 - Gancho rapido en los primeros 1-2 segundos (corto e impactante)
 - Cada escena debe durar entre 2-4 segundos
 - Narracion por escena: 5-12 palabras MAXIMO (corto, ritmo TikTok)
-- legenda_overlay de cada escena: descripcion visual detallada del escenario (15-30 palabras, ej: 'mago anciano meditando en la cima de una montana con niebla al amanecer'). Se usara como prompt para generar la imagen de la escena
+- legenda_overlay de cada escena: texto corto de subtitulo para mostrar en pantalla (5-15 palabras, en el idioma del guion)
 - CTA final claro y directo
 - Lenguaje coloquial, tono {tom}
 - Duracion objetivo: {duracao}s
@@ -207,6 +241,20 @@ SEO DE VOZ (OBRIGATÓRIO):
 Fale as palavras-chave principais do tema em voz alta na narração, especialmente nos primeiros 5 segundos. TikTok e YouTube indexam o áudio falado — keywords ditas em voz alta melhoram a descoberta orgânica.
 
 {hook_type_instruction}{image_instruction}
+
+CAMPOS V2 OBLIGATORIOS POR ESCENA:
+- image_prompt: prompt en INGLES para generacion de imagen AI. Formato 4 capas:
+  "sujeto realizando accion, ambiente con detalles, estilo visual, angulo de camara, 9:16, no text, no watermark"
+  Ejemplo: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  DEBE ser en ingles independiente del idioma del guion. NUNCA copies legenda_overlay a image_prompt.
+- mood: estado emocional de la escena. Uno de: mysterious, dramatic, hopeful, tense, calm, sad, epic
+- transition_in: transicion de entrada. Uno de: fade, cut, dissolve, slide
+- transition_out: transicion de salida. Uno de: fade, cut, dissolve, slide
+
+IMPORTANTE - legenda_overlay CAMBIO DE FUNCION:
+- legenda_overlay ahora es SOLO el texto corto de subtitulo que aparece EN PANTALLA (5-15 palabras, en el idioma del guion)
+- NO pongas descripcion visual detallada en legenda_overlay. Usa image_prompt para eso.
+
 Crea un guion que:
 1. {cena_instruction}
 2. Distribuya la narracion entre las escenas de forma natural
@@ -230,7 +278,7 @@ Rules:
 - Quick hook in the first 1-2 seconds (short and impactful)
 - Each scene should be 2-4 seconds long
 - Narration per scene: 5-12 words MAX (short, TikTok pace)
-- legenda_overlay for each scene: detailed visual description of the setting (15-30 words). This will be used as a prompt to generate the scene image. Write legenda_overlay in English regardless of output language.
+- legenda_overlay for each scene: short subtitle text shown on screen (5-15 words, in the script's language)
 - Clear and direct final CTA
 - Casual {tom} tone
 - Target duration: {duracao}s
@@ -256,6 +304,23 @@ VOICE SEO (MANDATORY):
 Speak the main keywords of the topic out loud in the narration, especially in the first 5 seconds.
 
 {hook_type_instruction}{image_instruction}
+
+MANDATORY V2 FIELDS PER SCENE:
+- image_prompt: English prompt for AI image generation. 4-layer format:
+  "subject doing action, environment with details, visual style, camera angle, 9:16, no text, no watermark"
+  Example: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  MUST be in English. NEVER copy legenda_overlay into image_prompt.
+- mood: emotional state of the scene. One of: mysterious, dramatic, hopeful, tense, calm, sad, epic
+  Choose based on the narrative tone of the scene.
+- transition_in: scene entry transition. One of: fade, cut, dissolve, slide
+- transition_out: scene exit transition. One of: fade, cut, dissolve, slide
+  Use "cut" for fast cuts, "fade" for slow moments, "dissolve" for smooth transitions.
+
+IMPORTANT - legenda_overlay HAS CHANGED:
+- legenda_overlay is now ONLY the short subtitle text shown ON SCREEN (5-15 words, in the script's language)
+- Do NOT put detailed visual descriptions in legenda_overlay. Use image_prompt for that.
+- legenda_overlay is for the VIEWER to read. image_prompt is for the IMAGE GENERATOR.
+
 Create a script that:
 1. {cena_instruction}
 2. Distributes narration naturally across scenes
@@ -319,10 +384,26 @@ Idioma: pt-BR
 Duracao alvo: {duracao}s
 Numero de cenas: ~{n_cenas}
 
+CAMPOS V2 OBRIGATORIOS POR CENA:
+- image_prompt: prompt em INGLES para geracao de imagem AI. Formato 4 camadas:
+  "sujeito realizando acao, ambiente com detalhes, estilo visual, angulo de camera, 9:16, no text, no watermark"
+  Exemplo: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  DEVE ser em ingles independente do idioma do roteiro. NUNCA copie legenda_overlay para image_prompt.
+- mood: estado emocional da cena. Um de: mysterious, dramatic, hopeful, tense, calm, sad, epic
+  Escolha baseado no tom narrativo da cena.
+- transition_in: transicao de entrada da cena. Um de: fade, cut, dissolve, slide
+- transition_out: transicao de saida da cena. Um de: fade, cut, dissolve, slide
+  Use "cut" para cortes rapidos, "fade" para momentos lentos, "dissolve" para transicoes suaves.
+
+IMPORTANTE - legenda_overlay MUDOU DE FUNCAO:
+- legenda_overlay agora e APENAS o texto curto de legenda que aparece NA TELA (5-15 palavras, no idioma do roteiro)
+- NAO coloque descricao visual detalhada em legenda_overlay. Use image_prompt para isso.
+- legenda_overlay e para o ESPECTADOR ler. image_prompt e para o GERADOR DE IMAGEM.
+
 Crie um roteiro que:
 1. {cena_instruction}
 2. Distribua a narracao entre as cenas contando a historia com FIDELIDADE e RIQUEZA narrativa
-3. Cada cena tenha em legenda_overlay uma descricao visual detalhada e cinematografica do cenario biblico
+3. Cada cena tenha em legenda_overlay texto curto de legenda para exibir na tela
 4. NAO inclua referencias de versiculo na narracao — conte a historia naturalmente
 5. Gere hashtags relevantes e caption para Instagram
 6. Faca o ouvinte sentir que PRECISA ouvir ate o final""",
@@ -371,10 +452,26 @@ Language: en-US
 Target duration: {duracao}s
 Number of scenes: ~{n_cenas}
 
+MANDATORY V2 FIELDS PER SCENE:
+- image_prompt: English prompt for AI image generation. 4-layer format:
+  "subject doing action, environment with details, visual style, camera angle, 9:16, no text, no watermark"
+  Example: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  MUST be in English. NEVER copy legenda_overlay into image_prompt.
+- mood: emotional state of the scene. One of: mysterious, dramatic, hopeful, tense, calm, sad, epic
+  Choose based on the narrative tone of the scene.
+- transition_in: scene entry transition. One of: fade, cut, dissolve, slide
+- transition_out: scene exit transition. One of: fade, cut, dissolve, slide
+  Use "cut" for fast cuts, "fade" for slow moments, "dissolve" for smooth transitions.
+
+IMPORTANT - legenda_overlay HAS CHANGED:
+- legenda_overlay is now ONLY the short subtitle text shown ON SCREEN (5-15 words, in the script's language)
+- Do NOT put detailed visual descriptions in legenda_overlay. Use image_prompt for that.
+- legenda_overlay is for the VIEWER to read. image_prompt is for the IMAGE GENERATOR.
+
 Create a script that:
 1. {cena_instruction}
 2. Distributes narration naturally and dramatically across scenes
-3. Each scene has a detailed visual description of the biblical setting in legenda_overlay
+3. Each scene has a short subtitle text in legenda_overlay for on-screen display
 4. Does NOT include verse references in narration — tell the story naturally
 5. Generates relevant hashtags and an Instagram caption""",
 
@@ -422,10 +519,23 @@ Idioma: es-ES
 Duracion objetivo: {duracao}s
 Numero de escenas: ~{n_cenas}
 
+CAMPOS V2 OBLIGATORIOS POR ESCENA:
+- image_prompt: prompt en INGLES para generacion de imagen AI. Formato 4 capas:
+  "sujeto realizando accion, ambiente con detalles, estilo visual, angulo de camara, 9:16, no text, no watermark"
+  Ejemplo: "old wizard meditating on misty mountaintop at dawn, atmospheric fog, soft cel-shading cartoon style, low angle wide shot, 9:16, no text, no watermark"
+  DEBE ser en ingles independiente del idioma del guion. NUNCA copies legenda_overlay a image_prompt.
+- mood: estado emocional de la escena. Uno de: mysterious, dramatic, hopeful, tense, calm, sad, epic
+- transition_in: transicion de entrada. Uno de: fade, cut, dissolve, slide
+- transition_out: transicion de salida. Uno de: fade, cut, dissolve, slide
+
+IMPORTANTE - legenda_overlay CAMBIO DE FUNCION:
+- legenda_overlay ahora es SOLO el texto corto de subtitulo que aparece EN PANTALLA (5-15 palabras, en el idioma del guion)
+- NO pongas descripcion visual detallada en legenda_overlay. Usa image_prompt para eso.
+
 Crea un guion que:
 1. {cena_instruction}
 2. Distribuya la narracion entre las escenas de forma natural y dramatica
-3. Cada escena tenga en legenda_overlay una descripcion visual detallada del escenario biblico
+3. Cada escena tenga en legenda_overlay texto corto de subtitulo para mostrar en pantalla
 4. NO incluya referencias de versiculo en la narracion — cuente la historia naturalmente
 5. Genere hashtags relevantes y caption para Instagram""",
 }
@@ -681,11 +791,8 @@ async def generate_script(
             f"Tema do Reel: {tema}\n"
             f"Idioma: {language}\n"
             f"Crie o roteiro completo para este Reel.\n"
-            f"IMPORTANTE: Em cada cena, o campo 'legenda_overlay' deve descrever detalhadamente "
-            f"o cenario visual, objetos, acoes e ambiente da cena (ex: 'personagem meditando em montanha ao amanhecer', "
-            f"'pessoa servindo cafe em cozinha moderna', 'close no rosto com expressao de surpresa'). "
-            f"Esse campo sera usado diretamente como prompt para gerar a imagem da cena. "
-            f"Quanto mais descritivo e visual, melhor a imagem gerada."
+            f"IMPORTANTE: Em cada cena, use 'image_prompt' para a descricao visual detalhada em INGLES "
+            f"(4 camadas: sujeito, ambiente, estilo, camera) e 'legenda_overlay' para o texto curto de legenda na tela."
         )
     parts.append(user_prompt)
 
@@ -702,6 +809,16 @@ async def generate_script(
     )
 
     script = json.loads(response.text)
+
+    # Inject character_card from character_context (v2 schema)
+    if character_context and character_context.get("character_dna"):
+        script["character_card"] = {
+            "description": character_context.get("character_dna", ""),
+            "style_seed": (
+                character_context.get("character_dna", "")[:200]
+                + (f", {character_context.get('composition', '')}" if character_context.get("composition") else "")
+            ).strip().rstrip(","),
+        }
 
     # Append frase_loop to narracao_completa so TTS includes it at the end
     frase_loop = script.get("frase_loop", "")
