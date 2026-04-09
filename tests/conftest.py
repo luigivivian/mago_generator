@@ -3,15 +3,20 @@
 Phase 22 Wave 0: TTS test infrastructure. Adds fake-Gemini monkeypatch
 and a real-PCM-WAV factory used by tests/test_reels_tts.py to validate
 the per-cena TTS refactor without hitting the real Gemini API.
+
+Phase 25 Wave 0: Image generation test infrastructure. Adds
+FakeGeminiImageClient that returns image bytes (not PCM TTS data).
 """
 
 from __future__ import annotations
 
+import io
 import os
 import wave
 from pathlib import Path
 from typing import Callable
 
+import PIL.Image
 import pytest
 
 
@@ -120,3 +125,66 @@ def make_fake_tts_wavs(tmp_path) -> Callable[[list[int]], list[str]]:
         return paths
 
     return _factory
+
+
+# ---------------------------------------------------------------------------
+# Phase 25: Gemini Image generation fakes
+# ---------------------------------------------------------------------------
+
+
+def _make_1x1_jpeg_bytes() -> bytes:
+    """Create a minimal valid 1x1 red JPEG as bytes."""
+    img = PIL.Image.new("RGB", (1, 1), color=(255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+class FakeGeminiImageResponse:
+    """Mimics google.genai response shape for image generation.
+
+    Real shape: response.candidates[0].content.parts[0].inline_data
+      -> .mime_type (str, e.g. "image/jpeg")
+      -> .data (bytes)
+    """
+
+    def __init__(self, image_bytes: bytes | None = None):
+        data = image_bytes or _make_1x1_jpeg_bytes()
+        inline = type("InlineData", (), {"mime_type": "image/jpeg", "data": data})()
+        part = type("Part", (), {"inline_data": inline})()
+        content = type("Content", (), {"parts": [part]})()
+        candidate = type("Candidate", (), {"content": content})()
+        self.candidates = [candidate]
+
+
+class FakeGeminiImageClient:
+    """Drop-in for _get_client() in image generation tests.
+
+    Same interface as FakeGeminiClient but returns image data
+    instead of PCM TTS data.
+    """
+
+    def __init__(self):
+        self.calls: list[dict] = []
+        self.models = self
+
+    def generate_content(self, *, model: str, contents, config):
+        self.calls.append({
+            "model": model,
+            "contents": contents,
+            "config": config,
+        })
+        return FakeGeminiImageResponse()
+
+
+@pytest.fixture
+def fake_gemini_image_client(monkeypatch):
+    """Replaces _get_client with a FakeGeminiImageClient for image gen tests.
+
+    Monkeypatches both the source module and the from-import local binding
+    in image_gen.py (same pattern as fake_gemini_tts_client).
+    """
+    fake = FakeGeminiImageClient()
+    monkeypatch.setattr("src.llm_client._get_client", lambda: fake)
+    monkeypatch.setattr("src.reels_pipeline.image_gen._get_client", lambda: fake)
+    return fake

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
-status: Phase complete — ready for verification
-stopped_at: Completed 24-04-PLAN.md
-last_updated: "2026-04-09T15:09:53.943Z"
+status: Ready to plan
+stopped_at: Completed 22-05-PLAN.md
+last_updated: "2026-04-09T00:20:59.374Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-08)
 
 **Core value:** Pipeline compoe e publica memes automaticamente — simples, rapido, sem depender de APIs caras de geracao de imagem
-**Current focus:** Phase 24 — script-schema-v2
+**Current focus:** Phase 22 — per-cena-tts-anchoring
 
 ## Current Position
 
-Phase: 24 (script-schema-v2) — EXECUTING
-Plan: 4 of 4
+Phase: 999.15
+Plan: Not started
 
 ## Progress
 
@@ -74,14 +74,6 @@ Plan: 4 of 4
 | Phase 22 P03 | 9min | 3 tasks | 4 files |
 | Phase 22 P04 | 4min | 3 tasks | 2 files |
 | Phase 22 P05 | 2min | 1 tasks | 2 files |
-| Phase 23 P01 | 3min | 1 tasks | 1 files |
-| Phase 23 P02 | 4min | 2 tasks | 2 files |
-| Phase 23 P03 | 28min | 3 tasks | 3 files |
-| Phase 23 P04 | 8min | 2 tasks | 1 files |
-| Phase 24 P01 | 1min | 1 tasks | 1 files |
-| Phase 24 P02 | 3min | 2 tasks | 4 files |
-| Phase 24 P03 | 3min | 2 tasks | 2 files |
-| Phase 24 P04 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -125,20 +117,8 @@ Plan: 4 of 4
 - [Phase 22-05]: Manual editor smoke test (load regenerated reel + check waveform) explicitly NOT automated -- documented in 22-VALIDATION.md as a /gsd:verify-work human gate
 - [Phase 22-05]: Phase 22 validation suite at 11/11 GREEN -- closure ready for /gsd:verify-work
 
-- [Phase 24-02]: character_card Optional at both Gemini schema and Pydantic level -- no-character jobs (generic, bible) remain valid
-- [Phase 24-02]: v2 cena fields required in Gemini response_schema but Optional with defaults in Pydantic -- existing CenaSchema constructors continue working
-- [Phase 24-02]: migrate_legacy_roteiro copies legenda_overlay as-is for image_prompt default -- no LLM translation in migration (pure function constraint)
-- [Phase 23-01]: Wave 0 xfail stubs -- 7 tests installed at tests/test_reels_timing.py mirroring Phase 22 pattern; later waves grep test names verbatim and flip xfail markers
-- [Phase 23-01]: TIMING-04 implemented as regression lock (Option C) -- frontend reads stepState.tts.duration directly, no new backend field needed
-- [Phase 23-02]: Dedicated src/reels_pipeline/timing.py module with a single pure helper build_scene_timings_from_cenas -- keeps Phase 23 single-source-of-truth concept isolated, clean imports in Waves 2/3
-- [Phase 23-02]: Cursor reuse via `cursor = end` (point D) instead of re-rounding cursor+dur -- end already rounded at point B, so reusing guarantees byte-exact start[i+1]==end[i] with no double-rounding drift
-- [Phase 23-02]: Failed cena emits zero-duration slot at prev_end without advancing cursor -- preserves index alignment with script.cenas so splitter and trim loop stay balanced
-
-- [Phase 24-01]: Wave 0 xfail stubs -- all 10 tests created as xfail/strict, later waves flip to active as features land
-- [Phase 24-01]: Test naming mirrors requirement IDs (test_01 -> SCRIPT-01, etc.) for traceability
-
-- [Phase 24-04]: Migration applied at both write and load points in reels.py for belt-and-suspenders coverage
-- [Phase 24-04]: scene_splitter needs no code changes -- dict(orig_cena) already copies all v2 fields; only clarifying comments added
+- [Phase 25-01]: PIL-generated 1x1 JPEG for fake image response (reliable across platforms vs hardcoded bytes)
+- [Phase 25-01]: Dual monkeypatch pattern (src.llm_client + src.reels_pipeline.image_gen) consistent with Phase 22 TTS fixture
 
 Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0 milestone archive.
 
@@ -165,6 +145,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T15:09:53.939Z
-Stopped at: Completed 24-04-PLAN.md
+Last session: 2026-04-09T00:15:28.237Z
+Stopped at: Completed 22-05-PLAN.md
 Resume file: None
