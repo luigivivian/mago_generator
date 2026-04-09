@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.deps import get_current_user, db_session
-from src.api.models import EditorStatePayload
+from src.api.models import EditorStatePayload, EditorConfigPayload
 from src.database.models import ReelsConfig, ReelsJob, SceneAsset
 from src.reels_pipeline.script_migration import migrate_legacy_roteiro
 from src.reels_pipeline.models import (
@@ -903,6 +903,33 @@ async def patch_editor_state(
     job = await _get_user_job(job_id, current_user.id, db)
     step_state = dict(job.step_state or {})
     step_state["editor"] = payload.model_dump()
+    job.step_state = step_state
+    flag_modified(job, "step_state")
+    await db.commit()
+    return {"job_id": job_id, "saved": True}
+
+
+@router.patch("/{job_id}/scene-config", summary="Persist per-scene editor config (Phase 01)")
+async def patch_scene_config(
+    job_id: str,
+    payload: EditorConfigPayload,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(db_session),
+):
+    """Save per-scene voice/speed/trim/freeze overrides to step_state.editor_config.
+
+    Unlike step_state.editor, this key survives TTS/SRT/script regeneration.
+    Merges incoming cenas into existing editor_config.cenas (dict merge).
+    """
+    job = await _get_user_job(job_id, current_user.id, db)
+    step_state = dict(job.step_state or {})
+    existing_config = step_state.get("editor_config", {})
+    existing_cenas = dict(existing_config.get("cenas", {}))
+    for idx, scene_cfg in payload.cenas.items():
+        patch = {k: v for k, v in scene_cfg.model_dump().items() if v is not None}
+        if patch:
+            existing_cenas[idx] = {**existing_cenas.get(idx, {}), **patch}
+    step_state["editor_config"] = {"cenas": existing_cenas}
     job.step_state = step_state
     flag_modified(job, "step_state")
     await db.commit()

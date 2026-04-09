@@ -343,3 +343,19 @@ class EditorStatePayload(BaseModel):
     subtitles: list[dict] = []
     transitions: list[dict] = []
     audioItems: list[dict] = []
+
+
+# ===== Per-Scene Config (Phase 01) =====
+
+class SceneCenaConfig(BaseModel):
+    """Per-scene voice/speed/trim overrides. All fields optional (partial override)."""
+    voice: str | None = None
+    speed: float | None = None
+    trim_from: int | None = None
+    freeze_frames: int | None = None
+    duration_override: int | None = None
+
+
+class EditorConfigPayload(BaseModel):
+    """Payload for persisting per-scene editor config to step_state.editor_config."""
+    cenas: dict[str, SceneCenaConfig] = {}
