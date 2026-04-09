@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: — Pipeline Fidelity Refactor
 status: Ready to execute
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-04-09T14:51:54.796Z"
+stopped_at: Completed 24-02-PLAN.md
+last_updated: "2026-04-09T14:57:50.543Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 24 (script-schema-v2) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Progress
 
@@ -79,6 +79,7 @@ Plan: 2 of 4
 | Phase 23 P03 | 28min | 3 tasks | 3 files |
 | Phase 23 P04 | 8min | 2 tasks | 1 files |
 | Phase 24 P01 | 1min | 1 tasks | 1 files |
+| Phase 24 P02 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,10 @@ Plan: 2 of 4
 - [Phase 22-05]: Editor compat regression test built as direct run_step_tts call + manual step_data assembly (no FastAPI test client) -- isolates pipeline contract from DB/HTTP plumbing, runs in <1.1s
 - [Phase 22-05]: Manual editor smoke test (load regenerated reel + check waveform) explicitly NOT automated -- documented in 22-VALIDATION.md as a /gsd:verify-work human gate
 - [Phase 22-05]: Phase 22 validation suite at 11/11 GREEN -- closure ready for /gsd:verify-work
+
+- [Phase 24-02]: character_card Optional at both Gemini schema and Pydantic level -- no-character jobs (generic, bible) remain valid
+- [Phase 24-02]: v2 cena fields required in Gemini response_schema but Optional with defaults in Pydantic -- existing CenaSchema constructors continue working
+- [Phase 24-02]: migrate_legacy_roteiro copies legenda_overlay as-is for image_prompt default -- no LLM translation in migration (pure function constraint)
 - [Phase 23-01]: Wave 0 xfail stubs -- 7 tests installed at tests/test_reels_timing.py mirroring Phase 22 pattern; later waves grep test names verbatim and flip xfail markers
 - [Phase 23-01]: TIMING-04 implemented as regression lock (Option C) -- frontend reads stepState.tts.duration directly, no new backend field needed
 - [Phase 23-02]: Dedicated src/reels_pipeline/timing.py module with a single pure helper build_scene_timings_from_cenas -- keeps Phase 23 single-source-of-truth concept isolated, clean imports in Waves 2/3
@@ -155,6 +160,6 @@ Decisions from v3.0 are preserved in PROJECT.md Key Decisions table and the v3.0
 ## Session Continuity
 
 Last activity: 2026-04-09
-Last session: 2026-04-09T14:51:54.793Z
-Stopped at: Completed 24-01-PLAN.md
+Last session: 2026-04-09T14:57:50.540Z
+Stopped at: Completed 24-02-PLAN.md
 Resume file: None
