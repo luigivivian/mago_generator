@@ -3,6 +3,8 @@
 Each test is marked xfail until its corresponding plan implements the feature.
 As plans land, the xfail decorator is removed one at a time so tests flip to green.
 """
+import os
+
 import pytest
 
 
@@ -15,10 +17,20 @@ def test_01_multi_image_upload():
     AdCreateRequestV2(product_name="Test", image_urls=[])  # should raise
 
 
-@pytest.mark.xfail(reason="REQ-PS2-02: image treatment not yet implemented", strict=True)
-def test_02_image_treatment():
-    from src.product_studio.scene_composer import normalize_for_kling  # noqa: F401
-    assert False, "normalize_for_kling not implemented"
+def test_02_image_treatment(tmp_path):
+    from PIL import Image
+
+    from src.product_studio.scene_composer import normalize_for_kling
+
+    small_img = tmp_path / "small.png"
+    Image.new("RGB", (100, 100), color="red").save(str(small_img))
+    out = tmp_path / "normalized.jpg"
+    result = normalize_for_kling(str(small_img), str(out))
+    assert os.path.exists(result)
+    normalized = Image.open(result)
+    assert normalized.size[0] >= 300
+    assert normalized.size[1] >= 300
+    assert os.path.getsize(result) <= 10 * 1024 * 1024
 
 
 @pytest.mark.xfail(reason="REQ-PS2-03: scene generation not yet implemented", strict=True)

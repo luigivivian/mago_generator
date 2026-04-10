@@ -9,6 +9,7 @@ RULE: The product is SACRED. Never modify it. Only change the background.
 import asyncio
 import json
 import logging
+import os
 from io import BytesIO
 from pathlib import Path
 
@@ -111,3 +112,39 @@ async def analyze_product(image_path: str) -> dict:
     if text.startswith("```"):
         text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
     return json.loads(text)
+
+
+# Kling element requirements (REQ-PS2-02)
+KLING_MIN_PX = 300
+KLING_MAX_BYTES = 10 * 1024 * 1024  # 10MB
+
+
+def normalize_for_kling(input_path: str, output_path: str) -> str:
+    """Resize and compress image to meet Kling element requirements.
+
+    Requirements: min 300x300, max 10MB, JPEG format.
+    Uses Pillow LANCZOS resampling (same as existing scene_composer pattern).
+
+    Returns output_path on success.
+    """
+    img = Image.open(input_path).convert("RGB")
+    w, h = img.size
+
+    # Enforce minimum dimension
+    if w < KLING_MIN_PX or h < KLING_MIN_PX:
+        scale = max(KLING_MIN_PX / w, KLING_MIN_PX / h)
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+    # Save as JPEG, reduce quality until under 10MB
+    quality = 95
+    while quality >= 50:
+        img.save(output_path, "JPEG", quality=quality)
+        if os.path.getsize(output_path) <= KLING_MAX_BYTES:
+            return output_path
+        quality -= 10
+
+    # Last resort: resize to 50% and save at q=85
+    w2, h2 = img.size
+    img = img.resize((w2 // 2, h2 // 2), Image.LANCZOS)
+    img.save(output_path, "JPEG", quality=85)
+    return output_path
