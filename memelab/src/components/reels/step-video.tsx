@@ -33,7 +33,7 @@ import { PLATFORM_COLORS, PLATFORM_LABELS } from "@/lib/constants";
 const FEEDBACK_STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   generated: { color: "bg-amber-500/20 text-amber-400 border-amber-500/30", label: "Gerado" },
   approved: { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", label: "Aprovado" },
-  posted: { color: "bg-purple-500/20 text-purple-400 border-purple-500/30", label: "Postado" },
+  posted: { color: "bg-primary/20 text-primary border-primary/30", label: "Postado" },
 };
 
 const ALL_PLATFORMS = ["instagram", "youtube_shorts", "tiktok", "facebook"] as const;
@@ -135,7 +135,7 @@ export function StepVideo({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Montando video final...</p>
         </CardContent>
       </Card>
@@ -179,7 +179,7 @@ export function StepVideo({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Play className="h-4 w-4 text-purple-400" />
+          <Play className="h-4 w-4 text-primary" />
           Video Final
           {statusCfg && (
             <Badge variant="outline" className={statusCfg.color}>
@@ -249,7 +249,7 @@ export function StepVideo({
 
             {/* Platform selection — shown when approved but not yet posted */}
             {feedbackStatus === "approved" && (
-              <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-4 space-y-3">
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                 <p className="text-sm font-medium">Marcar como postado</p>
                 <div className="flex gap-2 flex-wrap">
                   {ALL_PLATFORMS.map((p) => {
@@ -273,7 +273,7 @@ export function StepVideo({
                 </div>
                 <Button
                   size="sm"
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className="bg-primary hover:bg-primary/90 text-white"
                   onClick={handleMarkPosted}
                   disabled={posting || selectedPlatforms.length === 0}
                 >
@@ -287,7 +287,7 @@ export function StepVideo({
           <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
             <p className="text-sm text-muted-foreground">Video ainda nao renderizado. Use o editor para revisar e exportar.</p>
             <Link href={`/reels/${jobId}/edit`}>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-white">
                 <Pencil className="mr-2 h-3 w-3" />
                 Abrir Editor
               </Button>
@@ -307,7 +307,7 @@ export function StepVideo({
                   onClick={() => setActivePlatform(p)}
                   className={`px-3 py-1 text-xs rounded-full transition-all ${
                     activePlatform === p
-                      ? "bg-purple-500 text-white"
+                      ? "bg-primary text-white"
                       : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
                 >
@@ -343,7 +343,7 @@ export function StepVideo({
                   <div>
                     <label className="text-xs text-muted-foreground">Hashtags</label>
                     <div className="flex items-start gap-2">
-                      <p className="text-sm flex-1 text-purple-300">{platformOutputs[activePlatform].hashtags!.join(" ")}</p>
+                      <p className="text-sm flex-1 text-primary/80">{platformOutputs[activePlatform].hashtags!.join(" ")}</p>
                       <button type="button" onClick={() => handleCopy(platformOutputs[activePlatform].hashtags!.join(" "), `${activePlatform}-hashtags`)} className="shrink-0">
                         {copiedField === `${activePlatform}-hashtags` ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />}
                       </button>

@@ -106,7 +106,7 @@ export function StepSubtitles({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Gerando legendas...</p>
         </CardContent>
       </Card>

@@ -105,7 +105,7 @@ export function StepImages({ jobId, stepState, mutate, onApprove }: { jobId: str
                   <div className="relative group">
                     {isThisGenerating ? (
                       <div className="w-full aspect-[4/5] flex items-center justify-center bg-secondary">
-                        <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       </div>
                     ) : (
                       <img

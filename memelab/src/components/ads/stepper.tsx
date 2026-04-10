@@ -102,11 +102,11 @@ export function AdStepper({
                 <div
                   className={`flex items-center justify-center w-7 h-7 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-300 ${
                     isViewing
-                      ? "border-purple-500 text-purple-400 bg-purple-500/10 ring-2 ring-purple-500/30"
+                      ? "border-primary text-primary bg-primary/10 ring-2 ring-primary/30"
                       : status === "completed"
                         ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
                         : status === "active"
-                          ? "border-purple-500 text-purple-400 bg-purple-500/10"
+                          ? "border-primary text-primary bg-primary/10"
                           : status === "generating"
                             ? "border-amber-500 text-amber-400 bg-amber-500/10"
                             : status === "failed"
@@ -125,9 +125,9 @@ export function AdStepper({
                 <span
                   className={`text-[9px] sm:text-xs hidden sm:block transition-colors ${
                     isViewing
-                      ? "text-purple-400 font-bold"
+                      ? "text-primary font-bold"
                       : status === "active" || status === "generating"
-                        ? "text-purple-400 font-medium"
+                        ? "text-primary font-medium"
                         : status === "completed"
                           ? "text-emerald-400"
                           : "text-muted-foreground"

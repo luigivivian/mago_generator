@@ -163,8 +163,8 @@ export function StepScene({ stepState, onApprove, onRegenerate, onExecute, jobId
                   onClick={() => setSceneMode(mode.value)}
                   className={`text-left rounded-lg border p-3 transition-all duration-150 ${
                     sceneMode === mode.value
-                      ? "border-purple-500 bg-purple-500/10 shadow-sm shadow-purple-500/20"
-                      : "border-border hover:border-purple-500/50"
+                      ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                      : "border-border hover:border-primary/50"
                   }`}
                 >
                   <p className="text-sm font-medium">{mode.label}</p>
@@ -204,7 +204,7 @@ export function StepScene({ stepState, onApprove, onRegenerate, onExecute, jobId
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Compondo cenario...</p>
           <p className="text-xs text-muted-foreground/60">Removendo fundo e criando composicao</p>
         </CardContent>

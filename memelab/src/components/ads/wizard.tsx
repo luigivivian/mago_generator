@@ -66,12 +66,12 @@ function Section({
           className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-bold transition-colors ${
             filled
               ? "bg-emerald-500/20 text-emerald-400"
-              : "bg-purple-500/20 text-purple-400"
+              : "bg-primary/20 text-primary"
           }`}
         >
           {filled ? <CheckCircle2 className="h-4 w-4" /> : step}
         </span>
-        <Icon className="h-5 w-5 text-purple-400" />
+        <Icon className="h-5 w-5 text-primary" />
         <span className="font-medium flex-1">{title}</span>
         {filled && !open && (
           <Badge
@@ -132,8 +132,8 @@ function ImageDropzone({
         onDrop={handleDrop}
         className={`relative rounded-lg border-2 border-dashed p-4 text-center transition-colors cursor-pointer ${
           dragOver
-            ? "border-purple-500 bg-purple-500/5"
-            : "border-border hover:border-purple-500/50"
+            ? "border-primary bg-primary/5"
+            : "border-border hover:border-primary/50"
         }`}
         onClick={() => {
           const input = document.createElement("input");
@@ -148,7 +148,7 @@ function ImageDropzone({
       >
         {uploading ? (
           <div className="flex items-center justify-center gap-2 py-2">
-            <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-sm text-muted-foreground">
               Enviando imagem...
             </span>
@@ -241,8 +241,8 @@ function SubmitOverlay({ step }: { step: string }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-card border shadow-2xl">
         <div className="relative">
-          <Loader2 className="h-10 w-10 animate-spin text-purple-400" />
-          <div className="absolute inset-0 h-10 w-10 rounded-full bg-purple-500/10 animate-ping" />
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <div className="absolute inset-0 h-10 w-10 rounded-full bg-primary/10 animate-ping" />
         </div>
         <div className="text-center">
           <p className="font-medium">{step}</p>
@@ -405,7 +405,7 @@ export function AdWizard() {
         <div className="flex items-center gap-2 mb-1">
           <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
+              className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
               style={{ width: `${(completedSections / 4) * 100}%` }}
             />
           </div>
@@ -550,8 +550,8 @@ export function AdWizard() {
                   onClick={() => setStyle(s.value)}
                   className={`text-left rounded-lg border p-3 transition-all duration-150 ${
                     style === s.value
-                      ? "border-purple-500 bg-purple-500/10 shadow-sm shadow-purple-500/20"
-                      : "border-border hover:border-purple-500/50"
+                      ? "border-primary bg-primary/10 shadow-sm shadow-primary/20"
+                      : "border-border hover:border-primary/50"
                   }`}
                 >
                   <p className="text-sm font-medium">{s.label}</p>
@@ -579,7 +579,7 @@ export function AdWizard() {
                 type="checkbox"
                 checked={withHuman}
                 onChange={(e) => setWithHuman(e.target.checked)}
-                className="accent-purple-500"
+                className="accent-primary"
               />
               Incluir pessoa no video
             </label>
@@ -640,8 +640,8 @@ export function AdWizard() {
                   onClick={() => toggleFormat(fmt)}
                   className={`px-3 py-1.5 rounded-md border text-sm transition-all duration-150 ${
                     formats.includes(fmt)
-                      ? "border-purple-500 bg-purple-500/10 text-purple-400 shadow-sm shadow-purple-500/20"
-                      : "border-border text-muted-foreground hover:border-purple-500/50"
+                      ? "border-primary bg-primary/10 text-primary shadow-sm shadow-primary/20"
+                      : "border-border text-muted-foreground hover:border-primary/50"
                   }`}
                 >
                   {fmt}
@@ -686,7 +686,7 @@ export function AdWizard() {
               <span className="text-sm text-muted-foreground">
                 Custo estimado:
               </span>
-              <span className="text-sm font-medium text-purple-400">
+              <span className="text-sm font-medium text-primary">
                 R$ {estimatedCost.toFixed(2).replace(".", ",")}
               </span>
             </div>

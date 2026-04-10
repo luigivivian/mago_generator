@@ -112,8 +112,8 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
           <div className="relative">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-            <div className="absolute inset-0 h-8 w-8 rounded-full bg-purple-500/10 animate-ping" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="absolute inset-0 h-8 w-8 rounded-full bg-primary/10 animate-ping" />
           </div>
           <p className="text-sm text-muted-foreground">Gerando video...</p>
           <p className="text-xs text-muted-foreground/60">Isso pode levar 1-3 minutos dependendo do modelo</p>

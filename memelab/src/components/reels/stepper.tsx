@@ -65,11 +65,11 @@ export function StepperHeader({
               <div
                 className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 transition-all ${
                   isViewing && status !== "active"
-                    ? "border-purple-500 ring-2 ring-purple-500/30 bg-emerald-500/20 text-emerald-400"
+                    ? "border-primary ring-2 ring-primary/30 bg-emerald-500/20 text-emerald-400"
                     : status === "completed"
                       ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
                       : status === "active"
-                        ? "border-purple-500 text-purple-400 bg-purple-500/10"
+                        ? "border-primary text-primary bg-primary/10"
                         : "border-muted text-muted-foreground"
                 } ${isClickable ? "group-hover:scale-110 group-hover:ring-2 group-hover:ring-emerald-500/30" : ""}`}
               >
@@ -82,9 +82,9 @@ export function StepperHeader({
               <span
                 className={`text-[10px] sm:text-xs hidden sm:block transition-colors ${
                   isViewing
-                    ? "text-purple-400 font-medium"
+                    ? "text-primary font-medium"
                     : status === "active"
-                      ? "text-purple-400 font-medium"
+                      ? "text-primary font-medium"
                       : "text-muted-foreground"
                 } ${isClickable ? "group-hover:text-emerald-400" : ""}`}
               >

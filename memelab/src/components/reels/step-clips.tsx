@@ -189,7 +189,7 @@ function SceneCard({
                 type="button"
                 onClick={() => handleUseClip(s.asset_id)}
                 disabled={usingClip}
-                className="shrink-0 rounded-md border bg-secondary/50 hover:border-purple-500 transition-colors overflow-hidden w-20"
+                className="shrink-0 rounded-md border bg-secondary/50 hover:border-primary transition-colors overflow-hidden w-20"
               >
                 <div className="aspect-9/16 relative">
                   <img src={`/api/reels/asset-thumb/${s.asset_id}`} alt="" className="w-full h-full object-cover" />
@@ -227,7 +227,7 @@ function SceneCard({
 
           <Button
             size="sm"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            className="w-full bg-primary hover:bg-primary/90 text-white"
             onClick={handleGenerate}
             disabled={retrying || settingStatic}
           >
@@ -399,7 +399,7 @@ export function StepClips({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Film className="h-4 w-4 text-purple-400" />
+            <Film className="h-4 w-4 text-primary" />
             Clips
             <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
           </CardTitle>
@@ -441,7 +441,7 @@ export function StepClips({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Gerando clips com Kie.ai...</p>
           <p className="text-xs text-muted-foreground">Isso pode levar alguns minutos por cena</p>
         </CardContent>
@@ -485,7 +485,7 @@ export function StepClips({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Film className="h-4 w-4 text-purple-400" />
+          <Film className="h-4 w-4 text-primary" />
           Clips por Cena
           {isGenerating && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
         </CardTitle>
@@ -502,7 +502,7 @@ export function StepClips({
                   <>
                     <Button
                       size="sm"
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-primary hover:bg-primary/90 text-white"
                       onClick={handleGenerateAllPending}
                       disabled={generatingAll || loading}
                     >

@@ -23,7 +23,7 @@ interface TimelineBlockProps {
 }
 
 const TRACK_COLORS = {
-  video: "bg-purple-500/20 border-purple-500/40 hover:bg-purple-500/30",
+  video: "bg-primary/20 border-primary/40 hover:bg-primary/30",
   audio: "bg-blue-500/20 border-blue-500/40 hover:bg-blue-500/30",
   subtitle: "bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30",
 };
@@ -192,7 +192,7 @@ function VideoBlock({
   return (
     <div
       style={{ position: "absolute", left, width, top: 0, bottom: 0 }}
-      className={`relative border rounded-sm flex items-center ${TRACK_COLORS.video} ${selected ? "ring-2 ring-purple-500" : ""}`}
+      className={`relative border rounded-sm flex items-center ${TRACK_COLORS.video} ${selected ? "ring-2 ring-primary" : ""}`}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(e);
@@ -208,7 +208,7 @@ function VideoBlock({
 
       {/* Left trim handle */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-l-sm"
+        className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-primary/60 hover:bg-primary z-10 rounded-l-sm"
         onPointerDown={(e) => handleTrimPointerDown(e, "left")}
       />
 
@@ -224,12 +224,12 @@ function VideoBlock({
             className="h-8 w-8 rounded object-cover shrink-0"
           />
         ) : (
-          <span className="text-xs font-medium text-purple-300 shrink-0">
+          <span className="text-xs font-medium text-primary/80 shrink-0">
             {item.index + 1}
           </span>
         )}
         {width > 60 && (
-          <span className="text-[10px] text-zinc-400 truncate">
+          <span className="text-[10px] text-[#8888a0] truncate">
             {(item.durationInFrames / 30).toFixed(1)}s
           </span>
         )}
@@ -237,14 +237,14 @@ function VideoBlock({
 
       {/* Right trim handle */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-r-sm"
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-primary/60 hover:bg-primary z-10 rounded-r-sm"
         onPointerDown={(e) => handleTrimPointerDown(e, "right")}
       />
 
       {/* Regenerating overlay */}
       {item.status === "regenerating" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-sm">
-          <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
         </div>
       )}
     </div>

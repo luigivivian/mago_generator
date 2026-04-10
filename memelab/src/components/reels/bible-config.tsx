@@ -80,7 +80,7 @@ export function BibleConfig({ language, onConfigChange, onStorySelect }: BibleCo
           onClick={() => setScriptMode("ai")}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all duration-200 ${
             scriptMode === "ai"
-              ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+              ? "bg-primary/20 text-primary/80 border-primary/40"
               : "bg-secondary text-muted-foreground border-border"
           }`}
         >
@@ -91,7 +91,7 @@ export function BibleConfig({ language, onConfigChange, onStorySelect }: BibleCo
           onClick={() => setScriptMode("manual")}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all duration-200 ${
             scriptMode === "manual"
-              ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+              ? "bg-primary/20 text-primary/80 border-primary/40"
               : "bg-secondary text-muted-foreground border-border"
           }`}
         >
@@ -160,7 +160,7 @@ export function BibleConfig({ language, onConfigChange, onStorySelect }: BibleCo
           type="checkbox"
           checked={includeReflection}
           onChange={(e) => setIncludeReflection(e.target.checked)}
-          className="accent-purple-500 h-4 w-4 mt-0.5"
+          className="accent-primary h-4 w-4 mt-0.5"
         />
         <div>
           <span className="text-sm">Incluir reflexao moderna</span>
