@@ -1,18 +1,6 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { useEditorStore } from "@/stores/editor-store";
 import { useTotalDuration } from "@/hooks/use-editor";
 import { useTimelineZoom } from "@/hooks/use-timeline-zoom";
@@ -56,6 +44,7 @@ export function Timeline({ playerRef }: TimelineProps) {
   const toggleTrackSolo = useEditorStore((s) => s.toggleTrackSolo);
   const setPlayheadFrame = useEditorStore((s) => s.setPlayheadFrame);
   const trimScene = useEditorStore((s) => s.trimScene);
+  const moveScene = useEditorStore((s) => s.moveScene);
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
   const moveSubtitle = useEditorStore((s) => s.moveSubtitle);
   const trimSceneLeft = useEditorStore((s) => s.trimSceneLeft);
@@ -99,23 +88,6 @@ export function Timeline({ playerRef }: TimelineProps) {
       else replaceSelection("audio", id);
     },
     [toggleSelection, replaceSelection],
-  );
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      const oldIndex = scenes.findIndex((s) => s.id === active.id);
-      const newIndex = scenes.findIndex((s) => s.id === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderScenes(oldIndex, newIndex);
-      }
-    },
-    [scenes, reorderScenes],
   );
 
   const handleSeek = useCallback(
@@ -172,17 +144,23 @@ export function Timeline({ playerRef }: TimelineProps) {
     return () => window.removeEventListener("timeline:fit", handler);
   }, [fitToView, totalFrames]);
 
-  // 999.12 D-04: snap targets — playhead frame + every scene start/end
+  // Snap targets: playhead + every scene/audio/subtitle edge
   const snapTargets = useMemo<SnapTarget[]>(() => {
     const targets: SnapTarget[] = [{ frame: playheadFrame, label: "playhead" }];
-    let off = 0;
     for (const s of scenes) {
-      targets.push({ frame: off, label: `scene-${s.index}-start` });
-      off += s.durationInFrames;
-      targets.push({ frame: off, label: `scene-${s.index}-end` });
+      targets.push({ frame: s.from, label: `scene-${s.index}-start` });
+      targets.push({ frame: s.from + s.durationInFrames, label: `scene-${s.index}-end` });
+    }
+    for (const a of audioItems) {
+      targets.push({ frame: a.from, label: `audio-start` });
+      targets.push({ frame: a.from + a.durationInFrames, label: `audio-end` });
+    }
+    for (const sub of subtitles) {
+      targets.push({ frame: sub.startFrame, label: `sub-start` });
+      targets.push({ frame: sub.endFrame, label: `sub-end` });
     }
     return targets;
-  }, [scenes, playheadFrame]);
+  }, [scenes, audioItems, subtitles, playheadFrame]);
 
   // 999.12 D-02, D-06, D-07: keyboard shortcuts for bulk ops + nudge.
   // Skip when focus is in a text input/textarea/contenteditable so the
@@ -237,16 +215,12 @@ export function Timeline({ playerRef }: TimelineProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [selection, bulkDeleteSelected, bulkDuplicateSelected]);
 
-  const sceneIds = scenes.map((s) => s.id);
-
   // Compute context target based on current selection
   const getContextTarget = useCallback((): ContextTarget => {
     if (selectedSceneId) {
       const idx = scenes.findIndex((s) => s.id === selectedSceneId);
       if (idx !== -1) {
-        let start = 0;
-        for (let i = 0; i < idx; i++) start += scenes[i].durationInFrames;
-        return { type: "scene", sceneId: selectedSceneId, startFrame: start, durationFrames: scenes[idx].durationInFrames };
+        return { type: "scene", sceneId: selectedSceneId, startFrame: scenes[idx].from, durationFrames: scenes[idx].durationInFrames };
       }
     }
     if (selectedSubtitleId) return { type: "subtitle", subtitleId: selectedSubtitleId };
@@ -351,30 +325,20 @@ export function Timeline({ playerRef }: TimelineProps) {
               <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 -translate-x-1/2" />
             </div>
 
-            {/* Video track (sortable) */}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={sceneIds}
-                strategy={horizontalListSortingStrategy}
-              >
-                <TimelineTrack
-                  type="video"
-                  items={scenes}
-                  pixelsPerFrame={pixelsPerFrame}
-                  selectedId={selectedSceneId}
-                  selectedIds={selectedSceneIds}
-                  onSelect={handleSceneSelect}
-                  onEmptyClick={clearSelection}
-                  onTrim={(id, dur) => trimScene(id, dur)}
-                  onTrimStart={(id, newTrimFrom) => trimSceneLeft(id, newTrimFrom)}
-                  snapTargets={snapTargets}
-                />
-              </SortableContext>
-            </DndContext>
+            {/* Video track */}
+            <TimelineTrack
+              type="video"
+              items={scenes}
+              pixelsPerFrame={pixelsPerFrame}
+              selectedId={selectedSceneId}
+              selectedIds={selectedSceneIds}
+              onSelect={handleSceneSelect}
+              onEmptyClick={clearSelection}
+              onTrim={(id, dur) => trimScene(id, dur)}
+              onTrimStart={(id, newTrimFrom) => trimSceneLeft(id, newTrimFrom)}
+              onMove={(id, newFrom) => moveScene(id, newFrom)}
+              snapTargets={snapTargets}
+            />
 
             {/* Audio track */}
             <TimelineTrack

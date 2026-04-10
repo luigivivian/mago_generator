@@ -227,16 +227,6 @@ function ScenePanel({ jobId }: { jobId: string }) {
 
       <Section title="Clip">
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground">Invertido</label>
-            <button
-              type="button"
-              onClick={() => useEditorStore.getState().toggleReversed(scene.id)}
-              className={`px-2 py-1 text-xs rounded border ${scene.reversed ? "bg-purple-600 border-purple-500 text-white" : "bg-background border-input text-foreground"}`}
-            >
-              {scene.reversed ? "Sim" : "Nao"}
-            </button>
-          </div>
           <SliderField
             label="Velocidade"
             value={scene.playbackRate ?? 1}

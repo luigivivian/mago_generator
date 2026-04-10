@@ -70,32 +70,24 @@ export function TimelineTrack({
     >
       {type === "video" ? (
         <div
-          className="flex h-full items-center gap-px"
+          className="relative h-full"
           onPointerDown={handleBackgroundPointerDown}
         >
-          {(() => {
-            // Compute cumulative absolute start frame for each scene so video
-            // blocks can self-snap excluding their own edges (999.12 D-04).
-            let cursor = 0;
-            return (items as EditorScene[]).map((item) => {
-              const startFrame = cursor;
-              cursor += item.durationInFrames;
-              return (
-                <TimelineBlock
-                  key={item.id}
-                  item={item}
-                  pixelsPerFrame={pixelsPerFrame}
-                  selected={isSelected(item.id)}
-                  onSelect={(e) => onSelect(item.id, e)}
-                  onTrim={onTrim ? (dur) => onTrim(item.id, dur) : undefined}
-                  onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
-                  trackType="video"
-                  snapTargets={snapTargets}
-                  blockStartFrame={startFrame}
-                />
-              );
-            });
-          })()}
+          {(items as EditorScene[]).map((item) => (
+            <TimelineBlock
+              key={item.id}
+              item={item}
+              pixelsPerFrame={pixelsPerFrame}
+              selected={isSelected(item.id)}
+              onSelect={(e) => onSelect(item.id, e)}
+              onTrim={onTrim ? (dur) => onTrim(item.id, dur) : undefined}
+              onTrimStart={onTrimStart ? (v) => onTrimStart(item.id, v) : undefined}
+              onMove={onMove ? (from) => onMove(item.id, from) : undefined}
+              trackType="video"
+              snapTargets={snapTargets}
+              blockStartFrame={item.from}
+            />
+          ))}
         </div>
       ) : (
         <div className="relative h-full" onPointerDown={handleBackgroundPointerDown}>

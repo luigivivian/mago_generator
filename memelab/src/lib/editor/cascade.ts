@@ -1,9 +1,8 @@
 import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/editor-types";
 
 export function getSceneTimeRange(scenes: EditorScene[], sceneIndex: number): { start: number; end: number } {
-  let start = 0;
-  for (let i = 0; i < sceneIndex; i++) start += scenes[i].durationInFrames;
-  return { start, end: start + scenes[sceneIndex].durationInFrames };
+  const s = scenes[sceneIndex];
+  return { start: s.from, end: s.from + s.durationInFrames };
 }
 
 export function shiftSubtitles(subs: EditorSubtitle[], afterFrame: number, delta: number): EditorSubtitle[] {

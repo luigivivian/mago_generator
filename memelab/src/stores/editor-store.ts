@@ -74,9 +74,10 @@ interface EditorState {
   trimSceneLeft: (sceneId: string, newTrimFrom: number) => void;
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
   setTransition: (sceneId: string, type: EditorScene["transition"]["type"], durationFrames: number) => void;
-  toggleReversed: (sceneId: string) => void;
   setPlaybackRate: (sceneId: string, rate: number) => void;
-  duplicateReversed: (sceneId: string) => void;
+  resetClipStart: (sceneId: string) => void;
+  moveScene: (sceneId: string, newFrom: number) => void;
+  resetAudio: (jobId: string, stepState: Record<string, unknown>) => void;
   // Selection
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
@@ -145,18 +146,23 @@ export const useEditorStore = create<EditorState>()(
         const conventionImg = (i: number) => `images/cena_${pad2(i)}.jpg`;
         const conventionClip = (i: number) => `clips/new_clip_${pad2(i)}_trimmed.mp4`;
 
+        let fromCursor = 0;
         const scenes: EditorScene[] = Array.from({ length: sourceCount }, (_, i) => {
           const ss = sceneStatuses[i];
           const sceneTiming = sceneTimings?.find((t) => t.index === i);
           const durationSec = sceneTiming?.duration ?? ss?.duration ?? 5;
           const imgPath = ss?.img_path ?? imagePaths[i] ?? conventionImg(i);
           const clipPath = ss?.clip_path ?? conventionClip(i);
+          const dur = Math.round(durationSec * fps);
+          const sceneFrom = fromCursor;
+          fromCursor += dur;
           return {
             id: genId(),
             index: i,
+            from: sceneFrom,
             clipUrl: reelFileUrl(jobId, clipPath),
             imgUrl: reelFileUrl(jobId, imgPath),
-            durationInFrames: Math.round(durationSec * fps),
+            durationInFrames: dur,
             narration: sceneTiming?.narracao ?? ss?.prompt ?? "",
             voiceConfig: { ...DEFAULT_VOICE_CONFIG },
             transition: { type: "none" as const, durationFrames: 0 },
@@ -280,8 +286,19 @@ export const useEditorStore = create<EditorState>()(
       },
 
       loadFromEditorState: (editorState) => {
+        // Backward compat: assign `from` if missing (old saved states)
+        let cursor = 0;
+        const scenes = editorState.scenes.map((s) => {
+          if (s.from != null) {
+            cursor = s.from + s.durationInFrames;
+            return s;
+          }
+          const withFrom = { ...s, from: cursor };
+          cursor += s.durationInFrames;
+          return withFrom;
+        });
         set({
-          scenes: editorState.scenes,
+          scenes,
           subtitles: editorState.subtitles,
           transitions: editorState.transitions,
           audioItems: editorState.audioItems,
@@ -403,49 +420,25 @@ export const useEditorStore = create<EditorState>()(
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
           const original = state.scenes[idx];
-          const range = getSceneTimeRange(state.scenes, idx);
-          const duration = original.durationInFrames;
 
-          const duplicate: EditorScene = { ...original, id: genId(), index: idx + 1 };
+          const duplicate: EditorScene = {
+            ...original,
+            id: genId(),
+            index: idx + 1,
+            from: original.from + original.durationInFrames,
+          };
           const scenes = [...state.scenes];
           scenes.splice(idx + 1, 0, duplicate);
 
-          // Clone subtitles within this scene's range, shifted to the duplicate position
-          const clonedSubs = subsInRange(state.subtitles, range.start, range.end).map((s) => ({
-            ...s,
-            id: genId("sub"),
-            startFrame: s.startFrame + duration,
-            endFrame: s.endFrame + duration,
-          }));
-          // Shift existing subtitles after the insertion point forward
-          const shifted = shiftSubtitles(state.subtitles, range.end, duration);
-          const subtitles = [...shifted, ...clonedSubs].sort((a, b) => a.startFrame - b.startFrame);
-
-          const audioItems = shiftAudio(state.audioItems, range.end, duration);
-
-          return { scenes: reindexScenes(scenes), subtitles, audioItems };
+          return { scenes: reindexScenes(scenes) };
         });
       },
 
       deleteScene: (sceneId) => {
-        set((state) => {
-          const idx = state.scenes.findIndex((s) => s.id === sceneId);
-          if (idx === -1) return state;
-          const range = getSceneTimeRange(state.scenes, idx);
-          const duration = range.end - range.start;
-          // Remove subtitles entirely within the scene, shift later ones back
-          const subsAfterRemove = state.subtitles.filter(
-            (s) => !(s.startFrame >= range.start && s.endFrame <= range.end),
-          );
-          const subtitles = shiftSubtitles(subsAfterRemove, range.start, -duration);
-          const audioItems = shiftAudio(state.audioItems, range.start, -duration);
-          return {
-            scenes: reindexScenes(state.scenes.filter((s) => s.id !== sceneId)),
-            subtitles,
-            audioItems,
-            selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
-          };
-        });
+        set((state) => ({
+          scenes: reindexScenes(state.scenes.filter((s) => s.id !== sceneId)),
+          selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
+        }));
       },
 
       splitScene: (sceneId, frameOffset) => {
@@ -461,46 +454,13 @@ export const useEditorStore = create<EditorState>()(
           const secondHalf: EditorScene = {
             ...original,
             id: genId(),
+            from: original.from + frameOffset,
             durationInFrames: original.durationInFrames - frameOffset,
           };
           const scenes = [...state.scenes];
           scenes.splice(idx, 1, firstHalf, secondHalf);
 
-          // Split subtitles that span the split point
-          const subtitles: EditorSubtitle[] = [];
-          for (const sub of state.subtitles) {
-            if (sub.startFrame < splitFrame && sub.endFrame > splitFrame) {
-              subtitles.push({ ...sub, endFrame: splitFrame });
-              subtitles.push({
-                ...sub,
-                id: genId("sub"),
-                startFrame: splitFrame,
-              });
-            } else {
-              subtitles.push(sub);
-            }
-          }
-
-          // Split audio items that span the split point
-          const audioItems: EditorAudioItem[] = [];
-          for (const a of state.audioItems) {
-            const aEnd = a.from + a.durationInFrames;
-            if (a.from < splitFrame && aEnd > splitFrame) {
-              const sourceOffset = a.startFrom ?? 0;
-              audioItems.push({ ...a, durationInFrames: splitFrame - a.from });
-              audioItems.push({
-                ...a,
-                id: genId("audio"),
-                from: splitFrame,
-                durationInFrames: aEnd - splitFrame,
-                startFrom: sourceOffset + (splitFrame - a.from),
-              });
-            } else {
-              audioItems.push(a);
-            }
-          }
-
-          return { scenes: reindexScenes(scenes), subtitles, audioItems };
+          return { scenes: reindexScenes(scenes) };
         });
       },
 
@@ -601,17 +561,18 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
-      trimSceneLeft: (sceneId, newTrimFrom) => {
+      trimSceneLeft: (sceneId, newFrom) => {
         set((state) => {
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
           const scene = state.scenes[idx];
-          const delta = (scene.trimFrom ?? 0) - newTrimFrom;
-          const clampedDuration = Math.max(15, scene.durationInFrames + delta);
-          if (clampedDuration === scene.durationInFrames) return state;
+          const sceneEnd = scene.from + scene.durationInFrames;
+          const clampedFrom = Math.max(0, Math.min(newFrom, sceneEnd - 15));
+          const newDuration = sceneEnd - clampedFrom;
+          if (clampedFrom === scene.from) return state;
           const scenes = state.scenes.map((s) =>
             s.id === sceneId
-              ? { ...s, trimFrom: newTrimFrom, durationInFrames: clampedDuration }
+              ? { ...s, from: clampedFrom, durationInFrames: newDuration }
               : s,
           );
           return { scenes };
@@ -622,15 +583,12 @@ export const useEditorStore = create<EditorState>()(
         set((state) => {
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
-          const range = getSceneTimeRange(state.scenes, idx);
           const scenes = state.scenes.map((s) =>
             s.id === sceneId
               ? { ...s, durationInFrames: s.durationInFrames + framesToFreeze }
               : s,
           );
-          const subtitles = shiftSubtitles(state.subtitles, range.end, framesToFreeze);
-          const audioItems = shiftAudio(state.audioItems, range.end, framesToFreeze);
-          return { scenes, subtitles, audioItems };
+          return { scenes };
         });
       },
 
@@ -638,14 +596,6 @@ export const useEditorStore = create<EditorState>()(
         set((state) => ({
           scenes: state.scenes.map((s) =>
             s.id === sceneId ? { ...s, transition: { ...s.transition, type, durationFrames } } : s,
-          ),
-        }));
-      },
-
-      toggleReversed: (sceneId) => {
-        set((state) => ({
-          scenes: state.scenes.map((s) =>
-            s.id === sceneId ? { ...s, reversed: !s.reversed } : s,
           ),
         }));
       },
@@ -658,23 +608,45 @@ export const useEditorStore = create<EditorState>()(
         }));
       },
 
-      duplicateReversed: (sceneId) => {
-        set((state) => {
-          const idx = state.scenes.findIndex((s) => s.id === sceneId);
-          if (idx === -1) return state;
-          const original = state.scenes[idx];
-          const duplicate: EditorScene = {
-            ...original,
-            id: genId(),
-            index: idx + 1,
-            reversed: !original.reversed,
-          };
-          const scenes = [...state.scenes];
-          scenes.splice(idx + 1, 0, duplicate);
-          const range = getSceneTimeRange(state.scenes, idx);
-          const subtitles = shiftSubtitles(state.subtitles, range.end, original.durationInFrames);
-          const audioItems = shiftAudio(state.audioItems, range.end, original.durationInFrames);
-          return { scenes: reindexScenes(scenes), subtitles, audioItems };
+      resetClipStart: (sceneId) => {
+        set((state) => ({
+          scenes: state.scenes.map((s) =>
+            s.id === sceneId ? { ...s, trimFrom: 0 } : s,
+          ),
+        }));
+      },
+
+      moveScene: (sceneId, newFrom) => {
+        set((state) => ({
+          scenes: state.scenes.map((s) =>
+            s.id === sceneId ? { ...s, from: Math.max(0, newFrom) } : s,
+          ),
+        }));
+      },
+
+      resetAudio: (jobId, stepState) => {
+        const fps = EDITOR_FPS;
+        const ttsPath = (stepState.tts as Record<string, unknown> | undefined)?.path as string | undefined ?? "audio.wav";
+        if (!ttsPath) return;
+        const sceneTimings = ((stepState.srt as Record<string, unknown> | undefined)?.scene_timings ?? []) as Array<{ end?: number }>;
+        const isSane = (n: unknown): n is number => typeof n === "number" && n >= 0.5 && n <= 600;
+        const lastTimingEnd = sceneTimings.length > 0 ? sceneTimings[sceneTimings.length - 1].end : null;
+        const realAudioSeconds =
+          (isSane((stepState.tts as Record<string, unknown> | undefined)?.duration) && (stepState.tts as Record<string, unknown>).duration as number) ||
+          (isSane((stepState.srt as Record<string, unknown> | undefined)?.duration) && (stepState.srt as Record<string, unknown>).duration as number) ||
+          (isSane(lastTimingEnd) && lastTimingEnd) ||
+          null;
+        const state = get();
+        const sceneTotalFrames = state.scenes.reduce((max, s) => Math.max(max, s.from + s.durationInFrames), 0);
+        const audioFrames = realAudioSeconds ? Math.round(realAudioSeconds * fps) : sceneTotalFrames;
+        set({
+          audioItems: [{
+            id: genId("audio"),
+            audioUrl: reelFileUrl(jobId, ttsPath),
+            from: 0,
+            durationInFrames: audioFrames,
+            sourceVersion: realAudioSeconds != null ? String(realAudioSeconds) : undefined,
+          }],
         });
       },
 
@@ -751,28 +723,22 @@ export const useEditorStore = create<EditorState>()(
             });
           }
 
-          // 2. Scenes: walk accumulating offsets, drop scenes entirely
-          //    before the cut, trim the spanning scene, keep the rest.
+          // 2. Scenes: drop scenes entirely before the cut, trim the
+          //    spanning scene, shift everything left by `cut` frames.
           const scenes: EditorScene[] = [];
-          let cursor = 0;
           for (const s of state.scenes) {
-            const sStart = cursor;
-            const sEnd = cursor + s.durationInFrames;
-            cursor = sEnd;
-            if (sEnd <= cut) {
-              // Entirely inside cut region — drop it.
+            const sEnd = s.from + s.durationInFrames;
+            if (sEnd <= cut) continue; // entirely before cut — drop
+            if (s.from >= cut) {
+              // Entirely after cut — shift left
+              scenes.push({ ...s, from: s.from - cut });
               continue;
             }
-            if (sStart >= cut) {
-              // Entirely after cut — keep as-is (no offset needed since
-              // scenes are sequential without absolute positioning).
-              scenes.push(s);
-              continue;
-            }
-            // Spans the cut: trim the leading portion. Keep the right half.
-            const shaved = cut - sStart;
+            // Spans the cut: trim the leading portion
+            const shaved = cut - s.from;
             scenes.push({
               ...s,
+              from: 0,
               durationInFrames: s.durationInFrames - shaved,
               trimFrom: (s.trimFrom ?? 0) + shaved,
             });
@@ -827,18 +793,15 @@ export const useEditorStore = create<EditorState>()(
           }
 
           const scenes: EditorScene[] = [];
-          let cursor = 0;
           for (const s of state.scenes) {
-            const sStart = cursor;
-            const sEnd = cursor + s.durationInFrames;
-            cursor = sEnd;
-            if (sStart >= cut) continue; // entirely after — drop
+            const sEnd = s.from + s.durationInFrames;
+            if (s.from >= cut) continue; // entirely after — drop
             if (sEnd <= cut) {
               scenes.push(s); // entirely before — keep
               continue;
             }
             // spans the cut: trim the trailing portion
-            scenes.push({ ...s, durationInFrames: cut - sStart });
+            scenes.push({ ...s, durationInFrames: cut - s.from });
           }
 
           const subtitles: EditorSubtitle[] = [];
@@ -1121,9 +1084,10 @@ export const useEditorStore = create<EditorState>()(
 
       totalDuration: () => {
         const state = get();
-        const sceneDuration = state.scenes.reduce((sum, s) => sum + s.durationInFrames, 0);
-        const transitionDuration = state.scenes.reduce((sum, s) => sum + s.transition.durationFrames, 0);
-        return sceneDuration - transitionDuration;
+        const sceneEnd = state.scenes.reduce((max, s) => Math.max(max, s.from + s.durationInFrames), 0);
+        const audioEnd = state.audioItems.reduce((max, a) => Math.max(max, a.from + a.durationInFrames), 0);
+        const subEnd = state.subtitles.reduce((max, s) => Math.max(max, s.endFrame), 0);
+        return Math.max(sceneEnd, audioEnd, subEnd);
       },
 
       toEditorPersistState: (): EditorPersistState => {

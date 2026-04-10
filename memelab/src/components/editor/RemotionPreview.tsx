@@ -84,6 +84,7 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
         inputProps={inputProps}
         acknowledgeRemotionLicense
         style={{ width: "100%", height: "100%" }}
+        pauseWhenBuffering
       />
     </div>
   );

@@ -35,9 +35,9 @@ export function useTimelineZoom() {
             Math.max(prev / ZOOM_FACTOR, MIN_PIXELS_PER_FRAME),
           );
         }
-      } else {
-        setScrollLeft((prev) => Math.max(0, prev + e.deltaX + e.deltaY));
       }
+      // Normal scroll is handled by the browser's native overflow-x-auto.
+      // Don't interfere — just sync state from the DOM scroll event.
     },
     [],
   );

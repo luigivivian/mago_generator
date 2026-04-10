@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer, Volume2, Subtitles, ArrowLeftRight, Gauge, CopyPlus } from "lucide-react";
+import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer, Volume2, Subtitles, Gauge, SkipBack, RotateCcw } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
@@ -112,8 +112,6 @@ function SceneMenu({
   const freezeFrame = useEditorStore((s) => s.freezeFrame);
   const trimScene = useEditorStore((s) => s.trimScene);
   const splitSubtitle = useEditorStore((s) => s.splitSubtitle);
-  const toggleReversed = useEditorStore((s) => s.toggleReversed);
-  const duplicateReversed = useEditorStore((s) => s.duplicateReversed);
   const setPlaybackRate = useEditorStore((s) => s.setPlaybackRate);
   const scenes = useEditorStore((s) => s.scenes);
   const subtitles = useEditorStore((s) => s.subtitles);
@@ -121,10 +119,8 @@ function SceneMenu({
   const scene = scenes.find((s) => s.id === target.sceneId);
   const canDelete = scenes.length > 1;
 
-  // Recompute startFrame from live store state (D-10: avoids stale snapshot)
   const sceneIdx = scenes.findIndex((s) => s.id === target.sceneId);
-  let liveStartFrame = 0;
-  for (let i = 0; i < sceneIdx; i++) liveStartFrame += scenes[i].durationInFrames;
+  const liveStartFrame = sceneIdx !== -1 ? scenes[sceneIdx].from : target.startFrame;
   const liveDurationFrames = sceneIdx !== -1 ? scenes[sceneIdx].durationInFrames : target.durationFrames;
   const frameOffset = playheadFrame - liveStartFrame;
   const canSplit = frameOffset > 0 && frameOffset < liveDurationFrames;
@@ -202,7 +198,6 @@ function SceneMenu({
   return (
     <>
       <MenuItem icon={Copy} label="Duplicar Cena" onClick={() => { duplicateScene(target.sceneId); close(); }} />
-      <MenuItem icon={CopyPlus} label="Duplicar Invertido" onClick={() => { duplicateReversed(target.sceneId); close(); }} />
       <MenuItem icon={Trash2} label="Deletar Cena" onClick={() => { deleteScene(target.sceneId); close(); }} disabled={!canDelete} destructive />
       <div className="h-px bg-border my-1" />
       <MenuItem icon={Scissors} label="Dividir no Playhead" onClick={() => { splitScene(target.sceneId, frameOffset); close(); }} disabled={!canSplit} />
@@ -210,7 +205,8 @@ function SceneMenu({
         <MenuItem icon={Subtitles} label="Cortar Legenda no Playhead" onClick={() => { splitSubtitle(activeSubtitle!.id, playheadFrame); close(); }} />
       )}
       <div className="h-px bg-border my-1" />
-      <MenuItem icon={ArrowLeftRight} label={scene?.reversed ? "Desinverter Clip" : "Inverter Clip"} onClick={() => { toggleReversed(target.sceneId); close(); }} />
+      <MenuItem icon={SkipBack} label="Mover para inicio" onClick={() => { useEditorStore.getState().moveScene(target.sceneId, 0); close(); }} />
+      <MenuItem icon={RotateCcw} label="Resetar clip (tocar do inicio)" onClick={() => { useEditorStore.getState().resetClipStart(target.sceneId); close(); }} />
       <MenuItem icon={Snowflake} label="Congelar Frame (+1s)" onClick={() => { freezeFrame(target.sceneId, EDITOR_FPS); close(); }} />
       <MenuItem icon={Timer} label="Estender (+1s)" onClick={() => { trimScene(target.sceneId, liveDurationFrames + EDITOR_FPS); close(); }} />
       <div className="h-px bg-border my-1" />

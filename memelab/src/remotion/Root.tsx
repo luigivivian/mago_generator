@@ -11,19 +11,15 @@ const calculateMetadata: CalculateMetadataFunction<ReelProps> = ({
   props,
 }) => {
   const videoTrack = props.tracks.find((t) => t.type === "video");
+  const audioTrack = props.tracks.find((t) => t.type === "audio");
   const scenes = (videoTrack?.items ?? []) as EditorScene[];
+  const audioItems = (audioTrack?.items ?? []) as { from: number; durationInFrames: number }[];
 
-  const sceneDuration = scenes.reduce(
-    (sum, s) => sum + s.durationInFrames,
-    0,
-  );
-  const transitionOverlap = scenes.reduce(
-    (sum, s) => sum + s.transition.durationFrames,
-    0,
-  );
+  const sceneEnd = scenes.reduce((max, s) => Math.max(max, (s.from ?? 0) + s.durationInFrames), 0);
+  const audioEnd = audioItems.reduce((max, a) => Math.max(max, a.from + a.durationInFrames), 0);
 
   return {
-    durationInFrames: Math.max(1, sceneDuration - transitionOverlap),
+    durationInFrames: Math.max(1, sceneEnd, audioEnd),
   };
 };
 

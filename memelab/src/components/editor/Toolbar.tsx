@@ -25,6 +25,7 @@ import {
   RotateCcw,
   ChevronsLeft,
   ChevronsRight,
+  Volume2,
 } from "lucide-react";
 import type { SafePlatform } from "./SafeZoneOverlay";
 import { useUndoRedo } from "@/hooks/use-editor";
@@ -58,13 +59,11 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
     } else if (store.selectedAudioId) {
       store.splitAudioItem(store.selectedAudioId, frame);
     } else if (store.selectedSceneId) {
-      let sceneStart = 0;
-      for (const s of store.scenes) {
-        if (s.id === store.selectedSceneId) break;
-        sceneStart += s.durationInFrames;
+      const scene = store.scenes.find((s) => s.id === store.selectedSceneId);
+      if (scene) {
+        const offset = frame - scene.from;
+        if (offset > 0) store.splitScene(store.selectedSceneId, offset);
       }
-      const offset = frame - sceneStart;
-      if (offset > 0) store.splitScene(store.selectedSceneId, offset);
     }
   }, []);
 
@@ -351,6 +350,22 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
           <RotateCcw className="h-4 w-4" />
         )}
         <span className="text-xs font-medium">Resetar</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (!stepState) return;
+          const ok = window.confirm("Restaurar audio original? Isso substitui todos os blocos de audio atuais.");
+          if (!ok) return;
+          useEditorStore.getState().resetAudio(jobId, stepState);
+        }}
+        disabled={!stepState}
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-100 border border-zinc-700"
+        title="Restaurar audio original da pipeline"
+      >
+        <Volume2 className="h-4 w-4" />
+        <span className="text-xs font-medium">Restaurar Audio</span>
       </button>
 
       <div className="h-5 w-px bg-border" />

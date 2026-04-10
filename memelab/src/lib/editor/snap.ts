@@ -18,7 +18,7 @@ export function snapFrame(
   candidate: number,
   targets: SnapTarget[],
   pixelsPerFrame: number,
-  thresholdPx = 6,
+  thresholdPx = 12,
 ): SnapResult {
   if (targets.length === 0 || pixelsPerFrame <= 0) {
     return { frame: candidate, snapped: false };

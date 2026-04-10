@@ -1,6 +1,7 @@
 export interface EditorScene {
   id: string;
   index: number;
+  from: number; // absolute frame offset on the timeline
   clipUrl?: string;
   imgUrl?: string;
   durationInFrames: number;
@@ -14,7 +15,7 @@ export interface EditorScene {
     type: "fade" | "slide" | "wipe" | "flip" | "iris" | "clock-wipe" | "none";
     durationFrames: number;
   };
-  reversed?: boolean;
+
   playbackRate?: number; // 0.25–4, default 1
   status: "ready" | "regenerating";
 }

@@ -12,9 +12,12 @@ export function useUndoRedo() {
 
 export function useTotalDuration() {
   const scenes = useEditorStore((s) => s.scenes);
-  const sceneDuration = scenes.reduce((sum, s) => sum + s.durationInFrames, 0);
-  const transitionDuration = scenes.reduce((sum, s) => sum + s.transition.durationFrames, 0);
-  return sceneDuration - transitionDuration;
+  const audioItems = useEditorStore((s) => s.audioItems);
+  const subtitles = useEditorStore((s) => s.subtitles);
+  const sceneEnd = scenes.reduce((max, s) => Math.max(max, s.from + s.durationInFrames), 0);
+  const audioEnd = audioItems.reduce((max, a) => Math.max(max, a.from + a.durationInFrames), 0);
+  const subEnd = subtitles.reduce((max, s) => Math.max(max, s.endFrame), 0);
+  return Math.max(sceneEnd, audioEnd, subEnd);
 }
 
 export function useSelectedScene() {

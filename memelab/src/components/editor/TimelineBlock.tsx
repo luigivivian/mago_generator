@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { EditorScene, EditorSubtitle, EditorAudioItem } from "@/stores/editor-types";
 import { EDITOR_FPS } from "@/stores/editor-types";
@@ -51,6 +49,7 @@ function VideoBlock({
   onSelect,
   onTrim,
   onTrimStart,
+  onMove,
   snapTargets,
   blockStartFrame,
 }: {
@@ -60,19 +59,80 @@ function VideoBlock({
   onSelect: (e: React.MouseEvent) => void;
   onTrim?: (newDurationFrames: number) => void;
   onTrimStart?: (newTrimFrom: number) => void;
+  onMove?: (newFrom: number) => void;
   snapTargets?: SnapTarget[];
-  blockStartFrame: number; // absolute frame where this scene starts (for snap math)
+  blockStartFrame: number;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
-
+  const dragRef = useRef<{ startX: number; startFrom: number } | null>(null);
   const trimStartRef = useRef<{ startX: number; startDuration: number; startTrimFrom: number; side: "left" | "right" } | null>(null);
+  const [snapSide, setSnapSide] = useState<"left" | "right" | null>(null);
+  const snapTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const handleMovePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!onMove) return;
+      e.stopPropagation();
+      dragRef.current = { startX: e.clientX, startFrom: item.from };
+
+      const handlePointerMove = (ev: PointerEvent) => {
+        if (!dragRef.current) return;
+        const deltaX = ev.clientX - dragRef.current.startX;
+        const deltaFrames = Math.round(deltaX / pixelsPerFrame);
+        const rawFrom = Math.max(0, dragRef.current.startFrom + deltaFrames);
+        if (ev.altKey) {
+          onMove(rawFrom);
+          return;
+        }
+        // Exclude own edges from snap targets
+        const filtered = (snapTargets ?? []).filter(
+          (t) => t.frame !== blockStartFrame && t.frame !== blockStartFrame + item.durationInFrames,
+        );
+        // Try snapping left edge
+        const snapLeft = snapFrame(rawFrom, filtered, pixelsPerFrame, 6);
+        // Try snapping right edge to other clip starts/ends
+        const snapRight = snapFrame(rawFrom + item.durationInFrames, filtered, pixelsPerFrame, 6);
+        // Use whichever snap is closer (in pixels)
+        let snapped = false;
+        let side: "left" | "right" | null = null;
+        if (snapLeft.snapped && snapRight.snapped) {
+          const leftDist = Math.abs(snapLeft.frame - rawFrom) * pixelsPerFrame;
+          const rightDist = Math.abs(snapRight.frame - (rawFrom + item.durationInFrames)) * pixelsPerFrame;
+          if (leftDist <= rightDist) {
+            onMove(snapLeft.frame);
+            side = "left";
+          } else {
+            onMove(snapRight.frame - item.durationInFrames);
+            side = "right";
+          }
+          snapped = true;
+        } else if (snapRight.snapped) {
+          onMove(snapRight.frame - item.durationInFrames);
+          snapped = true;
+          side = "right";
+        } else {
+          onMove(snapLeft.frame);
+          snapped = snapLeft.snapped;
+          side = snapLeft.snapped ? "left" : null;
+        }
+        // Show snap indicator
+        if (snapped && side) {
+          setSnapSide(side);
+          clearTimeout(snapTimeoutRef.current);
+          snapTimeoutRef.current = setTimeout(() => setSnapSide(null), 300);
+        }
+      };
+
+      const handlePointerUp = () => {
+        dragRef.current = null;
+        document.removeEventListener("pointermove", handlePointerMove);
+        document.removeEventListener("pointerup", handlePointerUp);
+      };
+
+      document.addEventListener("pointermove", handlePointerMove);
+      document.addEventListener("pointerup", handlePointerUp);
+    },
+    [item.from, item.durationInFrames, pixelsPerFrame, onMove, snapTargets, blockStartFrame],
+  );
 
   const handleTrimPointerDown = useCallback(
     (e: React.PointerEvent, side: "left" | "right") => {
@@ -81,7 +141,7 @@ function VideoBlock({
       trimStartRef.current = {
         startX: e.clientX,
         startDuration: item.durationInFrames,
-        startTrimFrom: item.trimFrom ?? 0,
+        startTrimFrom: item.from,
         side,
       };
 
@@ -90,9 +150,6 @@ function VideoBlock({
         const deltaX = ev.clientX - trimStartRef.current.startX;
         const deltaFrames = Math.round(deltaX / pixelsPerFrame);
         if (trimStartRef.current.side === "right" && onTrim) {
-          // 999.12 D-04: snap right edge to nearest target. The right edge
-          // absolute frame is blockStartFrame + new duration. Excluding own
-          // edges from targets to avoid self-snap.
           const newDurationRaw = trimStartRef.current.startDuration + deltaFrames;
           const candidateAbsoluteEnd = blockStartFrame + newDurationRaw;
           const filtered = (snapTargets ?? []).filter(
@@ -104,8 +161,16 @@ function VideoBlock({
           const newDuration = snap.frame - blockStartFrame;
           onTrim(Math.max(MIN_DURATION_FRAMES, newDuration));
         } else if (trimStartRef.current.side === "left" && onTrimStart) {
-          const newTrimFrom = Math.max(0, trimStartRef.current.startTrimFrom + deltaFrames);
-          onTrimStart(newTrimFrom);
+          // Left trim: move scene start (from), keeping end fixed
+          const candidateFrom = trimStartRef.current.startTrimFrom + deltaFrames;
+          const sceneEnd = trimStartRef.current.startTrimFrom + trimStartRef.current.startDuration;
+          const filtered = (snapTargets ?? []).filter(
+            (t) => t.frame !== blockStartFrame && t.frame !== sceneEnd,
+          );
+          const snap = ev.altKey
+            ? { frame: Math.max(0, candidateFrom), snapped: false }
+            : snapFrame(Math.max(0, candidateFrom), filtered, pixelsPerFrame, 6);
+          onTrimStart(snap.frame);
         }
       };
 
@@ -121,24 +186,26 @@ function VideoBlock({
     [item.durationInFrames, item.trimFrom, pixelsPerFrame, onTrim, onTrimStart, snapTargets, blockStartFrame],
   );
 
+  const left = item.from * pixelsPerFrame;
   const width = item.durationInFrames * pixelsPerFrame;
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    width,
-    opacity: isDragging ? 0.5 : 1,
-  };
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={`relative h-14 border rounded-sm flex items-center shrink-0 ${TRACK_COLORS.video} ${selected ? "ring-2 ring-purple-500" : ""}`}
+      style={{ position: "absolute", left, width, top: 0, bottom: 0 }}
+      className={`relative border rounded-sm flex items-center ${TRACK_COLORS.video} ${selected ? "ring-2 ring-purple-500" : ""}`}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(e);
       }}
     >
+      {/* Snap indicators */}
+      {snapSide === "left" && (
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-green-400 z-20 animate-pulse" />
+      )}
+      {snapSide === "right" && (
+        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-green-400 z-20 animate-pulse" />
+      )}
+
       {/* Left trim handle */}
       <div
         className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-purple-400/60 hover:bg-purple-400 z-10 rounded-l-sm"
@@ -148,8 +215,7 @@ function VideoBlock({
       {/* Drag handle (center area) */}
       <div
         className="flex-1 flex items-center justify-center gap-1 px-2 overflow-hidden cursor-grab active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
+        onPointerDown={handleMovePointerDown}
       >
         {item.imgUrl ? (
           <img
@@ -486,6 +552,7 @@ export function TimelineBlock(props: ExtendedTimelineBlockProps) {
         onSelect={props.onSelect}
         onTrim={props.onTrim}
         onTrimStart={props.onTrimStart}
+        onMove={props.onMove}
         snapTargets={props.snapTargets}
         blockStartFrame={props.blockStartFrame ?? 0}
       />

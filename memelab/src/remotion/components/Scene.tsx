@@ -14,24 +14,22 @@ const KEN_BURNS_PATTERNS: { translateX: number; translateY: number }[] = [
   { translateX: 0, translateY: -5 }, // 3: zoom-up
 ];
 
+
 export const Scene: React.FC<{ scene: EditorScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
 
   if (scene.clipUrl) {
     const rate = scene.playbackRate ?? 1;
-    const videoStyle: React.CSSProperties = {
-      width: "100%",
-      height: "100%",
-      ...(scene.reversed ? { transform: "scaleX(-1)" } : {}),
-    };
     return (
       <AbsoluteFill style={{ backgroundColor: "#000" }}>
         <Video
           src={scene.clipUrl}
           trimBefore={scene.trimFrom ?? 0}
-          style={videoStyle}
+          style={{ width: "100%", height: "100%" }}
           objectFit="cover"
           playbackRate={rate}
+          muted
+          pauseWhenBuffering
         />
       </AbsoluteFill>
     );

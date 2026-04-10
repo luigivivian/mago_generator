@@ -93,15 +93,10 @@ export function useEditorShortcuts(
         } else if (store.selectedAudioId) {
           store.splitAudioItem(store.selectedAudioId, frame);
         } else if (store.selectedSceneId) {
-          // Find frame offset within the selected scene
-          let sceneStart = 0;
-          for (const s of store.scenes) {
-            if (s.id === store.selectedSceneId) break;
-            sceneStart += s.durationInFrames;
-          }
-          const offset = frame - sceneStart;
-          if (offset > 0) {
-            store.splitScene(store.selectedSceneId, offset);
+          const scene = store.scenes.find((s) => s.id === store.selectedSceneId);
+          if (scene) {
+            const offset = frame - scene.from;
+            if (offset > 0) store.splitScene(store.selectedSceneId, offset);
           }
         }
         return;
