@@ -18,7 +18,9 @@ const TRANSITION_TYPES = [
   { value: "fade", label: "Fade" },
   { value: "slide", label: "Slide" },
   { value: "wipe", label: "Wipe" },
-  { value: "flip", label: "Flip" },
+  { value: "flip", label: "Flip 3D" },
+  { value: "iris", label: "Iris" },
+  { value: "clock-wipe", label: "Clock Wipe" },
 ] as const;
 
 const FONT_OPTIONS = ["Inter", "Roboto", "Montserrat", "Open Sans"];
@@ -221,6 +223,30 @@ function ScenePanel({ jobId }: { jobId: string }) {
             onChange={(v) => setTransition(scene.id, scene.transition.type, Math.round(v * EDITOR_FPS))}
           />
         )}
+      </Section>
+
+      <Section title="Clip">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-muted-foreground">Invertido</label>
+            <button
+              type="button"
+              onClick={() => useEditorStore.getState().toggleReversed(scene.id)}
+              className={`px-2 py-1 text-xs rounded border ${scene.reversed ? "bg-purple-600 border-purple-500 text-white" : "bg-background border-input text-foreground"}`}
+            >
+              {scene.reversed ? "Sim" : "Nao"}
+            </button>
+          </div>
+          <SliderField
+            label="Velocidade"
+            value={scene.playbackRate ?? 1}
+            min={0.25}
+            max={4}
+            step={0.25}
+            unit="x"
+            onChange={(v) => useEditorStore.getState().setPlaybackRate(scene.id, v)}
+          />
+        </div>
       </Section>
 
       <Section title="Voz / Narracao">

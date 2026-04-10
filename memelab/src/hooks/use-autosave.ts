@@ -34,13 +34,16 @@ export function useAutosave(jobId: string) {
       abortRef.current = new AbortController();
 
       if (isMountedRef.current) setSaveStatus("saving");
+      const payload = {
+        scenes: scenes as unknown as Record<string, unknown>[],
+        subtitles: subtitles as unknown as Record<string, unknown>[],
+        transitions: transitions as unknown as Record<string, unknown>[],
+        audioItems: audioItems as unknown as Record<string, unknown>[],
+      };
+      console.log("[autosave] saving editor state…", { scenes: scenes.length, subtitles: subtitles.length, audioItems: audioItems.length });
       try {
-        await patchEditorState(jobId, {
-          scenes: scenes as unknown as Record<string, unknown>[],
-          subtitles: subtitles as unknown as Record<string, unknown>[],
-          transitions: transitions as unknown as Record<string, unknown>[],
-          audioItems: audioItems as unknown as Record<string, unknown>[],
-        });
+        await patchEditorState(jobId, payload);
+        console.log("[autosave] saved OK");
         if (isMountedRef.current) {
           setSaveStatus("saved");
           if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -48,7 +51,8 @@ export function useAutosave(jobId: string) {
             if (isMountedRef.current) setSaveStatus("idle");
           }, 1500);
         }
-      } catch {
+      } catch (err) {
+        console.error("[autosave] save FAILED", err);
         if (isMountedRef.current) setSaveStatus("idle");
       }
     }, 2000);

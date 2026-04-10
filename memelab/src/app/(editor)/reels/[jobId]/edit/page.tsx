@@ -103,33 +103,27 @@ export default function EditorPage() {
         (sc) => !sc.clipUrl && !sc.imgUrl,
       );
     const savedHasStaleTimings = savedEditor && savedEditor.scenes.length > 0 && (
-      // Scene count mismatch with source data = stale (user split/deleted during a previous session)
-      (clipSceneCount > 0 && savedSceneCount !== clipSceneCount) ||
-      // Duration mismatch with SRT span timings > 2s = stale
-      (hasSceneTimings && Math.abs(
-        (savedEditor.scenes as Array<{ durationInFrames: number }>).reduce((s, sc) => s + sc.durationInFrames, 0) / 30 -
-        sceneTimings!.reduce((s, t) => s + t.duration, 0)
-      ) > 2) ||
+      // Broken media = rebuild (previous buggy load)
       savedHasBrokenMedia
     );
 
     if (savedEditor && savedEditor.scenes.length > 0 && !savedHasStaleTimings) {
+      console.log("[editor] restoring saved editor state", { scenes: savedEditor.scenes.length });
       store.loadFromEditorState({
         scenes: savedEditor.scenes as never[],
         subtitles: savedEditor.subtitles as never[],
         transitions: savedEditor.transitions as never[],
         audioItems: savedEditor.audioItems as never[],
       });
-      // Always reload subtitles from SRT if editor has none (cleared by regenerate)
       if (!savedEditor.subtitles || savedEditor.subtitles.length === 0) {
         store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
       }
     } else {
+      console.log("[editor] rebuilding from step_state (no saved state or broken media)", { savedSceneCount, savedHasBrokenMedia });
       store.loadFromStepState(stepState, jobId);
     }
-    // Always ensure subtitles are loaded from fresh SRT (convention path
-    // used as fallback when step_state.srt.path is missing).
-    store.loadSubtitlesFromSrt(jobId, stepState.srt?.path ?? "subtitles.srt");
+    // Only load from SRT when rebuilding from scratch (no saved editor state).
+    // When restoring saved editor state, subtitles are already included.
 
     // Phase 01: merge per-scene editor_config back into voiceConfig after load.
     // This ensures voice/speed configured before a regen are visible after reload.

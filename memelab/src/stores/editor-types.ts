@@ -11,9 +11,11 @@ export interface EditorScene {
     speed: number;
   };
   transition: {
-    type: "fade" | "slide" | "wipe" | "flip" | "none";
+    type: "fade" | "slide" | "wipe" | "flip" | "iris" | "clock-wipe" | "none";
     durationFrames: number;
   };
+  reversed?: boolean;
+  playbackRate?: number; // 0.25–4, default 1
   status: "ready" | "regenerating";
 }
 
@@ -34,7 +36,7 @@ export interface EditorSubtitle {
 
 export interface EditorTransition {
   afterSceneId: string;
-  type: "fade" | "slide" | "wipe" | "flip" | "none";
+  type: "fade" | "slide" | "wipe" | "flip" | "iris" | "clock-wipe" | "none";
   durationFrames: number;
   easing: "linear" | "ease-in-out" | "spring";
 }

@@ -74,6 +74,9 @@ interface EditorState {
   trimSceneLeft: (sceneId: string, newTrimFrom: number) => void;
   freezeFrame: (sceneId: string, framesToFreeze: number) => void;
   setTransition: (sceneId: string, type: EditorScene["transition"]["type"], durationFrames: number) => void;
+  toggleReversed: (sceneId: string) => void;
+  setPlaybackRate: (sceneId: string, rate: number) => void;
+  duplicateReversed: (sceneId: string) => void;
   // Selection
   setSelectedScene: (sceneId: string | null) => void;
   setSelectedSubtitle: (subtitleId: string | null) => void;
@@ -386,17 +389,12 @@ export const useEditorStore = create<EditorState>()(
         set((state) => {
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
-          const oldDuration = state.scenes[idx].durationInFrames;
           const clampedDuration = Math.max(15, newDuration);
-          const delta = clampedDuration - oldDuration;
-          if (delta === 0) return state;
-          const range = getSceneTimeRange(state.scenes, idx);
+          if (clampedDuration === state.scenes[idx].durationInFrames) return state;
           const scenes = state.scenes.map((s) =>
             s.id === sceneId ? { ...s, durationInFrames: clampedDuration } : s,
           );
-          const subtitles = shiftSubtitles(state.subtitles, range.end, delta);
-          const audioItems = shiftAudio(state.audioItems, range.end, delta);
-          return { scenes, subtitles, audioItems };
+          return { scenes };
         });
       },
 
@@ -608,20 +606,15 @@ export const useEditorStore = create<EditorState>()(
           const idx = state.scenes.findIndex((s) => s.id === sceneId);
           if (idx === -1) return state;
           const scene = state.scenes[idx];
-          const oldTrimFrom = scene.trimFrom ?? 0;
-          const delta = oldTrimFrom - newTrimFrom; // negative when trimming more from left
+          const delta = (scene.trimFrom ?? 0) - newTrimFrom;
           const clampedDuration = Math.max(15, scene.durationInFrames + delta);
-          const actualDelta = clampedDuration - scene.durationInFrames;
-          if (actualDelta === 0) return state;
-          const range = getSceneTimeRange(state.scenes, idx);
+          if (clampedDuration === scene.durationInFrames) return state;
           const scenes = state.scenes.map((s) =>
             s.id === sceneId
               ? { ...s, trimFrom: newTrimFrom, durationInFrames: clampedDuration }
               : s,
           );
-          const subtitles = shiftSubtitles(state.subtitles, range.end, actualDelta);
-          const audioItems = shiftAudio(state.audioItems, range.end, actualDelta);
-          return { scenes, subtitles, audioItems };
+          return { scenes };
         });
       },
 
@@ -647,6 +640,42 @@ export const useEditorStore = create<EditorState>()(
             s.id === sceneId ? { ...s, transition: { ...s.transition, type, durationFrames } } : s,
           ),
         }));
+      },
+
+      toggleReversed: (sceneId) => {
+        set((state) => ({
+          scenes: state.scenes.map((s) =>
+            s.id === sceneId ? { ...s, reversed: !s.reversed } : s,
+          ),
+        }));
+      },
+
+      setPlaybackRate: (sceneId, rate) => {
+        set((state) => ({
+          scenes: state.scenes.map((s) =>
+            s.id === sceneId ? { ...s, playbackRate: Math.max(0.25, Math.min(4, rate)) } : s,
+          ),
+        }));
+      },
+
+      duplicateReversed: (sceneId) => {
+        set((state) => {
+          const idx = state.scenes.findIndex((s) => s.id === sceneId);
+          if (idx === -1) return state;
+          const original = state.scenes[idx];
+          const duplicate: EditorScene = {
+            ...original,
+            id: genId(),
+            index: idx + 1,
+            reversed: !original.reversed,
+          };
+          const scenes = [...state.scenes];
+          scenes.splice(idx + 1, 0, duplicate);
+          const range = getSceneTimeRange(state.scenes, idx);
+          const subtitles = shiftSubtitles(state.subtitles, range.end, original.durationInFrames);
+          const audioItems = shiftAudio(state.audioItems, range.end, original.durationInFrames);
+          return { scenes: reindexScenes(scenes), subtitles, audioItems };
+        });
       },
 
       moveSubtitle: (subtitleId, newStartFrame) => {

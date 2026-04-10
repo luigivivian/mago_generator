@@ -5,6 +5,8 @@ import { fade } from "@remotion/transitions/fade";
 import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
 import { flip } from "@remotion/transitions/flip";
+import { clockWipe } from "@remotion/transitions/clock-wipe";
+import { iris } from "@remotion/transitions/iris";
 import type {
   EditorTrack,
   EditorScene,
@@ -12,12 +14,13 @@ import type {
   EditorSubtitle,
 } from "../stores/editor-types";
 import { useEditorStore } from "../stores/editor-store";
+import { useVideoConfig } from "remotion";
 import { Scene } from "./components/Scene";
 import { SubtitleOverlay } from "./components/SubtitleOverlay";
 
 type TransitionType = EditorScene["transition"]["type"];
 
-function getPresentation(type: TransitionType) {
+function getPresentation(type: TransitionType, w: number, h: number) {
   switch (type) {
     case "fade":
       return fade();
@@ -27,6 +30,10 @@ function getPresentation(type: TransitionType) {
       return wipe();
     case "flip":
       return flip();
+    case "clock-wipe":
+      return clockWipe({ width: w, height: h });
+    case "iris":
+      return iris({ width: w, height: h });
     default:
       return fade();
   }
@@ -35,6 +42,7 @@ function getPresentation(type: TransitionType) {
 export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
   tracks,
 }) => {
+  const { width, height } = useVideoConfig();
   const videoTrack = tracks.find((t) => t.type === "video");
   const audioTrack = tracks.find((t) => t.type === "audio");
   const subtitleTrack = tracks.find((t) => t.type === "subtitle");
@@ -77,7 +85,7 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
               elements.push(
                 <TransitionSeries.Transition
                   key={`transition-${scene.id}`}
-                  presentation={getPresentation(scene.transition.type)}
+                  presentation={getPresentation(scene.transition.type, width, height)}
                   timing={linearTiming({
                     durationInFrames: scene.transition.durationFrames,
                   })}

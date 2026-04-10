@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer, Volume2, Subtitles } from "lucide-react";
+import { Copy, Trash2, Scissors, Sparkles, Snowflake, Timer, Volume2, Subtitles, ArrowLeftRight, Gauge, CopyPlus } from "lucide-react";
 import { useEditorStore } from "@/stores/editor-store";
 import { EDITOR_FPS } from "@/stores/editor-types";
 import type { EditorScene } from "@/stores/editor-types";
@@ -11,7 +11,9 @@ const TRANSITION_OPTIONS: { value: EditorScene["transition"]["type"]; label: str
   { value: "fade", label: "Fade" },
   { value: "slide", label: "Slide" },
   { value: "wipe", label: "Wipe" },
-  { value: "flip", label: "Flip" },
+  { value: "flip", label: "Flip 3D" },
+  { value: "iris", label: "Iris" },
+  { value: "clock-wipe", label: "Clock Wipe" },
 ];
 
 export type ContextTarget =
@@ -103,12 +105,16 @@ function SceneMenu({
   close: () => void;
 }) {
   const [showTransitions, setShowTransitions] = useState(false);
+  const [showSpeed, setShowSpeed] = useState(false);
   const duplicateScene = useEditorStore((s) => s.duplicateScene);
   const deleteScene = useEditorStore((s) => s.deleteScene);
   const splitScene = useEditorStore((s) => s.splitScene);
   const freezeFrame = useEditorStore((s) => s.freezeFrame);
   const trimScene = useEditorStore((s) => s.trimScene);
   const splitSubtitle = useEditorStore((s) => s.splitSubtitle);
+  const toggleReversed = useEditorStore((s) => s.toggleReversed);
+  const duplicateReversed = useEditorStore((s) => s.duplicateReversed);
+  const setPlaybackRate = useEditorStore((s) => s.setPlaybackRate);
   const scenes = useEditorStore((s) => s.scenes);
   const subtitles = useEditorStore((s) => s.subtitles);
 
@@ -131,6 +137,17 @@ function SceneMenu({
     playheadFrame > activeSubtitle.startFrame &&
     playheadFrame < activeSubtitle.endFrame;
 
+  const SPEED_OPTIONS = [
+    { value: 0.25, label: "0.25x" },
+    { value: 0.5, label: "0.5x" },
+    { value: 0.75, label: "0.75x" },
+    { value: 1, label: "1x (Normal)" },
+    { value: 1.5, label: "1.5x" },
+    { value: 2, label: "2x" },
+    { value: 3, label: "3x" },
+    { value: 4, label: "4x" },
+  ];
+
   if (showTransitions) {
     return (
       <div>
@@ -151,9 +168,41 @@ function SceneMenu({
     );
   }
 
+  if (showSpeed) {
+    const currentRate = scene?.playbackRate ?? 1;
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowSpeed(false)}
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-zinc-800 rounded"
+        >
+          ← Voltar
+        </button>
+        <div className="h-px bg-border my-1" />
+        <div className="py-1">
+          {SPEED_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { setPlaybackRate(target.sceneId, opt.value); close(); }}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-zinc-800 ${
+                currentRate === opt.value ? "text-purple-400" : "text-foreground"
+              }`}
+            >
+              {currentRate === opt.value ? <span className="text-xs">●</span> : <span className="text-xs opacity-0">●</span>}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <MenuItem icon={Copy} label="Duplicar Cena" onClick={() => { duplicateScene(target.sceneId); close(); }} />
+      <MenuItem icon={CopyPlus} label="Duplicar Invertido" onClick={() => { duplicateReversed(target.sceneId); close(); }} />
       <MenuItem icon={Trash2} label="Deletar Cena" onClick={() => { deleteScene(target.sceneId); close(); }} disabled={!canDelete} destructive />
       <div className="h-px bg-border my-1" />
       <MenuItem icon={Scissors} label="Dividir no Playhead" onClick={() => { splitScene(target.sceneId, frameOffset); close(); }} disabled={!canSplit} />
@@ -161,9 +210,18 @@ function SceneMenu({
         <MenuItem icon={Subtitles} label="Cortar Legenda no Playhead" onClick={() => { splitSubtitle(activeSubtitle!.id, playheadFrame); close(); }} />
       )}
       <div className="h-px bg-border my-1" />
+      <MenuItem icon={ArrowLeftRight} label={scene?.reversed ? "Desinverter Clip" : "Inverter Clip"} onClick={() => { toggleReversed(target.sceneId); close(); }} />
       <MenuItem icon={Snowflake} label="Congelar Frame (+1s)" onClick={() => { freezeFrame(target.sceneId, EDITOR_FPS); close(); }} />
       <MenuItem icon={Timer} label="Estender (+1s)" onClick={() => { trimScene(target.sceneId, liveDurationFrames + EDITOR_FPS); close(); }} />
       <div className="h-px bg-border my-1" />
+      <button
+        type="button"
+        onClick={() => setShowSpeed(true)}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-zinc-800 text-foreground"
+      >
+        <span className="flex items-center gap-2"><Gauge className="h-3.5 w-3.5" />Velocidade ({(scene?.playbackRate ?? 1)}x)</span>
+        <span className="text-xs text-muted-foreground">→</span>
+      </button>
       <button
         type="button"
         onClick={() => setShowTransitions(true)}

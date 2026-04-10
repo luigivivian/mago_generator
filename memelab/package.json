@@ -22,6 +22,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@remotion/cli": "^4.0.445",
     "@remotion/media": "4.0.445",
     "@remotion/player": "4.0.445",
     "@remotion/transitions": "4.0.445",
@@ -53,6 +54,7 @@
     "jsdom": "^29.0.1",
     "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
     "typescript": "^5.8.3",
     "vitest": "^4.1.1"
   }

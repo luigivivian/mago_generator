@@ -957,14 +957,70 @@ async def export_remotion(
     if not job_dir:
         raise HTTPException(status_code=400, detail="No job directory found. Run pipeline first.")
 
-    props_path = os.path.join(job_dir, "remotion-props.json")
+    props_path = os.path.abspath(os.path.join(job_dir, "remotion-props.json"))
+    abs_job_dir = os.path.abspath(job_dir)
     os.makedirs(os.path.dirname(props_path), exist_ok=True)
-    with open(props_path, "w") as f:
-        json.dump(editor_state, f)
 
+    # Convert relative API URLs to absolute http:// URLs so Remotion CLI
+    # can fetch them over HTTP from the running FastAPI server.
+    url_prefix = f"/api/reels/{job_id}/file/"
+    backend_origin = "http://127.0.0.1:8000"
+    # Some audioUrl paths are stored with the full job_dir embedded
+    # (e.g. "output/reels/reel_xxx/audio.wav") — strip the job_dir prefix
+    # so the file route resolves correctly relative to job_dir.
+    def to_http_url(url: str | None) -> str | None:
+        if not url or not isinstance(url, str):
+            return url
+        if url.startswith(url_prefix):
+            rel = url[len(url_prefix):]
+            # Strip embedded job_dir prefix to avoid double-nesting
+            if rel.startswith(job_dir + "/"):
+                rel = rel[len(job_dir) + 1:]
+            elif rel.startswith(job_dir):
+                rel = rel[len(job_dir):]
+            return f"{backend_origin}/reels/{job_id}/file/{rel}"
+        return url
+
+    scenes = []
+    for sc in editor_state.get("scenes", []):
+        scenes.append({
+            **sc,
+            "clipUrl": to_http_url(sc.get("clipUrl")),
+            "imgUrl": to_http_url(sc.get("imgUrl")),
+        })
+
+    audio_items = []
+    for ai in editor_state.get("audioItems", []):
+        audio_items.append({
+            **ai,
+            "audioUrl": to_http_url(ai.get("audioUrl")),
+        })
+
+    # Remotion Root.tsx expects { tracks: EditorTrack[] }
+    remotion_props = {
+        "tracks": [
+            {"type": "video", "items": scenes},
+            {"type": "audio", "items": audio_items},
+            {"type": "subtitle", "items": editor_state.get("subtitles", [])},
+        ]
+    }
+    with open(props_path, "w") as f:
+        json.dump(remotion_props, f)
+
+    # Mark as rendering in DB BEFORE starting the background task
+    # so the frontend doesn't see stale "complete" from a prior export.
+    video_data = step_state.get("video", {})
+    video_data["export_status"] = "rendering"
+    video_data.pop("export_error", None)
+    step_state["video"] = video_data
+    job.step_state = step_state
+    flag_modified(job, "step_state")
+    await db.commit()
+
+    abs_job_dir = os.path.abspath(job_dir)
     session_factory = get_session_factory()
     background_tasks.add_task(
-        _export_remotion_task, job_id, props_path, job_dir, session_factory
+        _export_remotion_task, job_id, props_path, abs_job_dir, session_factory
     )
 
     return {"job_id": job_id, "status": "rendering"}
@@ -974,22 +1030,86 @@ async def _export_remotion_task(
     job_id: str, props_path: str, job_dir: str, session_factory
 ):
     """Background task: run Remotion CLI render and update step_state.video."""
+    import asyncio
     output_path = os.path.join(job_dir, "editor-export.mp4")
+    logger.info("export-remotion: props=%s output=%s job_dir=%s", props_path, output_path, job_dir)
     try:
-        result = subprocess.run(
-            [
-                "npx", "remotion", "render",
-                "src/remotion/index.ts", "ReelEditor",
-                output_path,
-                f"--props={props_path}",
-                "--codec=h264",
-                "--crf=18",
-            ],
-            cwd=os.path.join(os.path.dirname(__file__), "..", "..", "..", "memelab"),
-            capture_output=True,
-            text=True,
-            timeout=300,
+        cmd = [
+            "npx", "remotion", "render",
+            "src/remotion/index.ts", "ReelEditor",
+            output_path,
+            f"--props={props_path}",
+            "--codec=h264",
+            "--crf=18",
+            "--timeout=120000",
+            "--disable-web-security",
+            "--browser-executable=/Users/luigivivian/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+        ]
+        memelab_cwd = os.path.join(os.path.dirname(__file__), "..", "..", "..", "memelab")
+        logger.info("export-remotion cmd: %s cwd=%s", " ".join(cmd), memelab_cwd)
+        # Use asyncio.subprocess so the event loop stays free to serve media
+        # file requests from the Remotion renderer (avoids deadlock).
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=memelab_cwd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        # Stream stdout to parse render progress (e.g. "Rendered 50/200")
+        import re
+        stderr_chunks: list[str] = []
+        last_progress_update = 0.0
+        import time as _time
+
+        async def _read_stderr():
+            assert proc.stderr
+            async for line in proc.stderr:
+                stderr_chunks.append(line.decode())
+
+        async def _read_stdout_and_track():
+            nonlocal last_progress_update
+            assert proc.stdout
+            async for raw in proc.stdout:
+                line = raw.decode().strip()
+                # Remotion prints "Rendered X/Y" and "Encoded X/Y"
+                m = re.search(r"(?:Rendered|Encoded)\s+(\d+)/(\d+)", line)
+                if m:
+                    current, total = int(m.group(1)), int(m.group(2))
+                    now = _time.monotonic()
+                    # Update DB at most every 3 seconds to avoid spam
+                    if now - last_progress_update >= 3 and total > 0:
+                        last_progress_update = now
+                        pct = round(current / total * 100)
+                        try:
+                            async with session_factory() as db:
+                                job = (await db.execute(
+                                    select(ReelsJob).where(ReelsJob.job_id == job_id)
+                                )).scalar_one_or_none()
+                                if job:
+                                    ss = dict(job.step_state or {})
+                                    vd = ss.get("video", {})
+                                    vd["export_progress"] = pct
+                                    ss["video"] = vd
+                                    job.step_state = ss
+                                    flag_modified(job, "step_state")
+                                    await db.commit()
+                        except Exception:
+                            pass  # non-critical
+
+        await asyncio.gather(
+            _read_stdout_and_track(),
+            _read_stderr(),
+        )
+        await asyncio.wait_for(proc.wait(), timeout=600)
+
+        class _Result:
+            def __init__(self):
+                self.returncode = proc.returncode
+                self.stdout = ""
+                self.stderr = "".join(stderr_chunks)
+        result = _Result()
+        logger.info("export-remotion finished: returncode=%s stderr=%s", result.returncode, result.stderr[-200:] if result.stderr else "")
+        logger.info("export-remotion: updating DB status...")
         async with session_factory() as db:
             job = (
                 await db.execute(
@@ -1005,10 +1125,12 @@ async def _export_remotion_task(
                 video_data = step_state.get("video", {})
                 video_data["path"] = output_path
                 video_data["export_status"] = "complete"
+                video_data.pop("export_progress", None)
                 step_state["video"] = video_data
             else:
                 video_data = step_state.get("video", {})
                 video_data["export_status"] = "failed"
+                video_data.pop("export_progress", None)
                 video_data["export_error"] = result.stderr[-500:] if result.stderr else "Unknown error"
                 step_state["video"] = video_data
                 logger.error("Remotion render failed for %s: %s", job_id, result.stderr[-200:])
@@ -1016,8 +1138,9 @@ async def _export_remotion_task(
             job.step_state = step_state
             flag_modified(job, "step_state")
             await db.commit()
+            logger.info("export-remotion: DB updated to %s", video_data.get("export_status"))
 
-    except subprocess.TimeoutExpired:
+    except asyncio.TimeoutError:
         logger.error("Remotion render timed out for %s", job_id)
         async with session_factory() as db:
             job = (
@@ -1034,8 +1157,22 @@ async def _export_remotion_task(
                 job.step_state = step_state
                 flag_modified(job, "step_state")
                 await db.commit()
-    except Exception:
+    except Exception as exc:
         logger.exception("Remotion export error for %s", job_id)
+        try:
+            async with session_factory() as db:
+                job = (await db.execute(select(ReelsJob).where(ReelsJob.job_id == job_id))).scalar_one_or_none()
+                if job:
+                    step_state = dict(job.step_state or {})
+                    video_data = step_state.get("video", {})
+                    video_data["export_status"] = "failed"
+                    video_data["export_error"] = str(exc)[:500]
+                    step_state["video"] = video_data
+                    job.step_state = step_state
+                    flag_modified(job, "step_state")
+                    await db.commit()
+        except Exception:
+            logger.exception("Failed to update DB after export error")
 
 
 @router.post("/{job_id}/step/{step_name}", summary="Execute a pipeline step")

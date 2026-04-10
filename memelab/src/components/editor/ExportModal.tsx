@@ -34,12 +34,16 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
 
   const [stage, setStage] = useState<Stage>("validating");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Track whether we've seen "rendering" status from the backend.
+  // Prevents stale cached "complete" from triggering "done" prematurely.
+  const [sawRendering, setSawRendering] = useState(false);
 
   // Reset stage when modal opens
   useEffect(() => {
     if (open) {
       setStage("validating");
       setErrorMsg(null);
+      setSawRendering(false);
     }
   }, [open]);
 
@@ -54,17 +58,24 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
   useEffect(() => {
     if (stage !== "exporting" || !stepState?.video) return;
     const status = stepState.video.export_status;
+    if (status === "rendering") {
+      setSawRendering(true);
+    }
+    // Only transition to done/failed after we've confirmed the backend
+    // received our request (saw "rendering" at least once).
+    if (!sawRendering) return;
     if (status === "complete") {
       setStage("done");
     } else if (status === "failed") {
       setErrorMsg(stepState.video.export_error ?? "Erro desconhecido durante render");
       setStage("failed");
     }
-  }, [stage, stepState]);
+  }, [stage, stepState, sawRendering]);
 
   const handleExport = async () => {
     setStage("exporting");
     setErrorMsg(null);
+    setSawRendering(false);
     try {
       await exportRemotion(jobId);
     } catch (err) {
@@ -149,15 +160,26 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
             </>
           )}
 
-          {stage === "exporting" && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-              <p className="text-sm text-foreground">Renderizando video...</p>
-              <p className="text-xs text-muted-foreground">
-                Isso pode levar alguns minutos. Voce pode fechar e voltar mais tarde.
-              </p>
-            </div>
-          )}
+          {stage === "exporting" && (() => {
+            const progress = stepState?.video?.export_progress ?? 0;
+            return (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                <p className="text-sm text-foreground">Renderizando video...</p>
+                <div className="w-full max-w-[300px] space-y-1">
+                  <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-purple-500 transition-all duration-500 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {progress > 0 ? `${progress}%` : "Iniciando..."}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {stage === "done" && (
             <div className="flex flex-col items-center gap-3 py-6">
