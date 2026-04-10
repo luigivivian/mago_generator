@@ -870,6 +870,13 @@ class ProductAdJob(TimestampMixin, Base):
     # Output
     outputs: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # V2 cinematic multi-scene pipeline (Phase 1002)
+    pipeline_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    takes_config: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    storyboard: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    image_urls: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     __table_args__ = (
         Index("idx_product_ad_jobs_user_id", "user_id"),
         Index("idx_product_ad_jobs_status", "status"),
