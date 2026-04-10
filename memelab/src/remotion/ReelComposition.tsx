@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence } from "remotion";
+import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
 import { Audio } from "@remotion/media";
 import type {
   EditorTrack,
@@ -14,6 +14,7 @@ import { SubtitleOverlay } from "./components/SubtitleOverlay";
 export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
   tracks,
 }) => {
+  const { fps } = useVideoConfig();
   const videoTrack = tracks.find((t) => t.type === "video");
   const audioTrack = tracks.find((t) => t.type === "audio");
   const subtitleTrack = tracks.find((t) => t.type === "subtitle");
@@ -31,21 +32,16 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
   const audioAudible = isAudibleTrack("audio");
   const subtitlesVisible = isAudibleTrack("subtitle");
 
-  // Sort scenes by position for transition pairing
   const sorted = [...scenes].sort((a, b) => a.from - b.from);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {sorted.map((scene, i) => {
-        // This scene's transition config = exit effect
         const exitType = scene.transition.type;
         const exitDuration = exitType !== "none" ? scene.transition.durationFrames : 0;
-
-        // Previous scene's transition = this scene's enter effect
         const prev = i > 0 ? sorted[i - 1] : null;
         const enterType = prev?.transition.type ?? "none";
         const enterDuration = enterType !== "none" ? (prev?.transition.durationFrames ?? 0) : 0;
-
         const hasTransition = enterType !== "none" || exitType !== "none";
 
         return (
@@ -53,6 +49,7 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
             key={`scene-${scene.id}`}
             from={scene.from}
             durationInFrames={scene.durationInFrames}
+            premountFor={fps}
           >
             {hasTransition ? (
               <TransitionWrapper
@@ -83,7 +80,6 @@ export const ReelComposition: React.FC<{ tracks: EditorTrack[] }> = ({
               src={item.audioUrl}
               trimBefore={item.startFrom ?? 0}
               volume={effectiveVolume}
-              pauseWhenBuffering
             />
           </Sequence>
         );

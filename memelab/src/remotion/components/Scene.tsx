@@ -2,18 +2,12 @@ import { AbsoluteFill, Img, useCurrentFrame, interpolate } from "remotion";
 import { Video } from "@remotion/media";
 import type { EditorScene } from "../../stores/editor-types";
 
-// 999.14 D-06, D-07, D-08: Ken Burns motion patterns for image-only
-// scenes. Pattern picked deterministically by scene.index so
-// neighbouring scenes alternate motion direction. 4 patterns,
-// 15% zoom, ±5% pan. Feels cinematic without making the viewer
-// dizzy.
 const KEN_BURNS_PATTERNS: { translateX: number; translateY: number }[] = [
-  { translateX: 0, translateY: 0 }, // 0: zoom-in center
-  { translateX: -5, translateY: 0 }, // 1: pan-left
-  { translateX: 5, translateY: 0 }, // 2: pan-right
-  { translateX: 0, translateY: -5 }, // 3: zoom-up
+  { translateX: 0, translateY: 0 },
+  { translateX: -5, translateY: 0 },
+  { translateX: 5, translateY: 0 },
+  { translateX: 0, translateY: -5 },
 ];
-
 
 export const Scene: React.FC<{ scene: EditorScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
@@ -29,7 +23,6 @@ export const Scene: React.FC<{ scene: EditorScene }> = ({ scene }) => {
           objectFit="cover"
           playbackRate={rate}
           muted
-          pauseWhenBuffering
         />
       </AbsoluteFill>
     );
