@@ -31,10 +31,19 @@ def test_04_take_editor():
     assert False, "TakeEditor component not implemented"
 
 
-@pytest.mark.xfail(reason="REQ-PS2-05: category templates not yet implemented", strict=True)
 def test_05_category_templates():
     from src.product_studio.config import CATEGORY_CONFIGS
     assert "food_cookies" in CATEGORY_CONFIGS
+    assert len(CATEGORY_CONFIGS) == 7
+    for key, cfg in CATEGORY_CONFIGS.items():
+        assert "surface" in cfg
+        assert "lighting" in cfg
+        assert "hero_actions" in cfg
+        assert "video_camera_moves" in cfg
+    from src.product_studio.prompt_builder import build_product_prompt
+    prompt = build_product_prompt("food_cookies", "dolly", "cookie breaking in half")
+    assert len(prompt) <= 463
+    assert "@prod" in prompt
 
 
 @pytest.mark.xfail(reason="REQ-PS2-06: kling multi-image not yet implemented", strict=True)
