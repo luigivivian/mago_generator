@@ -1063,8 +1063,29 @@ export const useEditorStore = create<EditorState>()(
           .then((r) => r.text())
           .then((text) => {
             if (thisGen !== srtGeneration) return; // stale
-            const subtitles = parseSrt(text, fps);
-            if (subtitles.length > 0) set({ subtitles });
+            let subtitles = parseSrt(text, fps);
+            if (subtitles.length === 0) return;
+            // SRT timestamps are in source-audio coordinates. When the
+            // audio has been left-trimmed (startFrom > from), shift
+            // subtitles so they align with the audible portion.
+            const { audioItems } = get();
+            const main = audioItems[0];
+            if (main) {
+              const trimOffset = (main.startFrom ?? 0) - main.from;
+              if (trimOffset > 0) {
+                subtitles = subtitles
+                  .map((s) => ({
+                    ...s,
+                    startFrame: s.startFrame - trimOffset,
+                    endFrame: s.endFrame - trimOffset,
+                  }))
+                  .filter((s) => s.endFrame > 0);
+                if (subtitles.length > 0 && subtitles[0].startFrame < 0) {
+                  subtitles[0] = { ...subtitles[0], startFrame: 0 };
+                }
+              }
+            }
+            set({ subtitles });
           })
           .catch(() => {});
       },
