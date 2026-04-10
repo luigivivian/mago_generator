@@ -127,13 +127,21 @@ export const useEditorStore = create<EditorState>()(
           | Array<{ index: number; start: number; end: number; duration: number; narracao?: string }>
           | undefined;
 
-        // Fallback: if clips/video have no scenes yet (pipeline hasn't produced
-        // them, or downstream got invalidated by a TTS regen) but we DO have
-        // SRT scene_timings, reconstruct scenes from timings so the editor is
-        // usable. This lets the user audit the audio/SRT alignment and add
-        // legendas even before clips exist.
+        // Source count priority:
+        // 1. clips.scenes — authoritative when clips exist
+        // 2. tts.cenas_meta — real per-cena TTS output (matches script cenas)
+        // 3. script.json.cenas — the script itself
+        // 4. srt.scene_timings — LAST resort (may have extra entries from scene splitter)
+        const ttsCenas = (stepState.tts as Record<string, unknown> | undefined)?.cenas_meta as
+          | Array<Record<string, unknown>> | undefined;
+        const scriptCenas = (stepState.script as Record<string, unknown> | undefined)?.json as Record<string, unknown> | undefined;
+        const scriptCenasCount = (scriptCenas?.cenas as unknown[] | undefined)?.length ?? 0;
         const sourceCount = sceneStatuses.length > 0
           ? sceneStatuses.length
+          : ttsCenas && ttsCenas.length > 0
+          ? ttsCenas.length
+          : scriptCenasCount > 0
+          ? scriptCenasCount
           : (sceneTimings?.length ?? 0);
 
         // When step_state is sparse (clips.scenes=[], images.paths=[]) we
