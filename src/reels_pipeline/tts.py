@@ -1,5 +1,6 @@
 """Reels TTS narration — Gemini Flash TTS gemini-2.5-flash-preview-tts (same GOOGLE_API_KEY, zero extra dependency)."""
 
+import json
 import logging
 import os
 import subprocess
@@ -216,6 +217,46 @@ def estimate_tts_cost(text: str) -> float:
     chars = len(text)
     minutes = chars / 150
     return minutes * 0.019 / 60
+
+
+def _compress_silence(wav_path: str, threshold_db: int = -30, min_silence_s: float = 0.2) -> float:
+    """Remove excessive silence from a WAV file in-place.
+
+    Uses ffmpeg silenceremove filter to strip silence gaps longer than
+    min_silence_s. Returns the new duration in seconds.
+
+    This prevents bloated per-cena audio with long pauses that cause
+    cena durations to exceed the actual narration length.
+    """
+    tmp = wav_path + ".compressed.wav"
+    af = (
+        f"silenceremove=stop_periods=-1:stop_duration={min_silence_s}:stop_threshold={threshold_db}dB,"
+        f"areverse,"
+        f"silenceremove=stop_periods=-1:stop_duration={min_silence_s}:stop_threshold={threshold_db}dB,"
+        f"areverse"
+    )
+    result = subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", wav_path, "-af", af, tmp],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode == 0 and os.path.isfile(tmp):
+        os.replace(tmp, wav_path)
+    else:
+        # Clean up temp file on failure
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+    # Return new duration via ffprobe
+    probe = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", wav_path],
+        capture_output=True, text=True, timeout=10,
+    )
+    try:
+        return float(json.loads(probe.stdout)["format"]["duration"])
+    except (json.JSONDecodeError, KeyError):
+        return 0.0
 
 
 # Phase 22: ffmpeg concat demuxer for bit-exact PCM WAV concatenation (D-09)

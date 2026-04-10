@@ -387,6 +387,7 @@ class ReelsPipeline:
         import asyncio
 
         from src.reels_pipeline.tts import (
+            _compress_silence,
             _concat_cena_wavs,
             classify_tts_error,
             estimate_tts_cost,
@@ -490,6 +491,10 @@ class ReelsPipeline:
                             speed=per_cena.get("speed") or self.config.get("tts_speed"),
                             tone=tone,
                         )
+                        # Compress silence gaps within per-cena audio
+                        # before measuring duration — prevents bloated
+                        # cena durations that exceed actual narration length.
+                        _compress_silence(cena_path)
                         duration = get_video_duration(cena_path)
                         _update_cena(i, {
                             "status": "complete",
