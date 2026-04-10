@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Literal, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -66,3 +67,44 @@ class AdCostEstimate(BaseModel):
     audio_cost_brl: float
     image_cost_brl: float
     total_brl: float
+
+
+# ============================================================
+# V2 cinematic multi-scene ads pipeline (Phase 1002)
+# ============================================================
+
+
+class TakeConfig(BaseModel):
+    """Single take/shot configuration for v2 cinematic pipeline."""
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    order: int = Field(..., ge=0, description="Take order in storyboard")
+    prompt: str = Field(..., max_length=463, description="Action description for Kling (463 char limit after @element)")
+    camera_move: Literal["dolly", "orbit", "macro_zoom", "static", "crane"] = Field(default="static")
+    duration: int = Field(default=5, ge=3, le=10, description="Take duration 3-10s")
+    transition_type: Literal["dissolve", "cut", "wipeleft", "fade", "fadeblack"] = Field(default="dissolve")
+    sfx_id: Optional[str] = Field(default=None, description="SFX library entry ID")
+    thumbnail_url: Optional[str] = Field(default=None)
+
+
+class StoryboardScene(BaseModel):
+    """AI-generated scene suggestion."""
+    take_config: TakeConfig
+    rationale: str = Field(..., description="Why this scene works for the product")
+    category_defaults_applied: str = Field(default="", description="Which category config was used")
+
+
+class AdCreateRequestV2(BaseModel):
+    """V2 wizard request for multi-scene cinematic ad."""
+    product_name: str = Field(..., description="Product name")
+    category: str = Field(default="generic", description="Product category key (food_cookies, beauty_skincare, etc.)")
+    image_urls: list[str] = Field(..., min_length=1, max_length=4, description="1-4 product image URLs")
+    takes: list[TakeConfig] = Field(default_factory=list, description="Take configs (empty = auto-generate)")
+    output_formats: list[str] = Field(default=["9:16"], description="Export formats")
+    audio_mode: Literal["sfx", "music", "mute"] = Field(default="sfx")
+
+
+class AdJobResponseV2(AdJobResponse):
+    """Extended response for v2 jobs."""
+    pipeline_version: int = Field(default=2)
+    takes: list[TakeConfig] = Field(default_factory=list)
+    storyboard: list[StoryboardScene] = Field(default_factory=list)
