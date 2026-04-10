@@ -194,13 +194,22 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
                   <Download className="h-3.5 w-3.5" /> Baixar video
                 </a>
               )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-xs text-[#8888a0] hover:text-[#f0f0f5]"
-              >
-                Fechar
-              </button>
+              <div className="flex items-center gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-xs text-[#8888a0] hover:text-[#f0f0f5]"
+                >
+                  Continuar editando
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/reels"; }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-green-600 text-white hover:bg-green-700 font-medium"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Concluido
+                </button>
+              </div>
             </div>
           )}
 

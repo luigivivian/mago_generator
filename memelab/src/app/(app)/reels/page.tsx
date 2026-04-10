@@ -18,7 +18,9 @@ import {
   RefreshCw,
   Sparkles,
   Pencil,
+  Download,
 } from "lucide-react";
+import { reelFileUrl } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -754,6 +756,14 @@ function JobHistory() {
                         Ver video
                       </a>
                     )}
+                    <a
+                      href={reelFileUrl(job.job_id, "editor-export.mp4")}
+                      download
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Download className="h-3 w-3" />
+                      Baixar
+                    </a>
                     <a
                       href={`/reels/${job.job_id}/edit`}
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
