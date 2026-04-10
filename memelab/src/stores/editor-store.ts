@@ -157,8 +157,10 @@ export const useEditorStore = create<EditorState>()(
         let fromCursor = 0;
         const scenes: EditorScene[] = Array.from({ length: sourceCount }, (_, i) => {
           const ss = sceneStatuses[i];
+          const ttsCena = ttsCenas?.find((t: Record<string, unknown>) => t.index === i);
           const sceneTiming = sceneTimings?.find((t) => t.index === i);
-          const durationSec = sceneTiming?.duration ?? ss?.duration ?? 5;
+          // Priority: tts.cenas_meta (post-compression) > srt.scene_timings > clips.scenes > fallback
+          const durationSec = (ttsCena?.duration as number | undefined) ?? sceneTiming?.duration ?? ss?.duration ?? 5;
           const imgPath = ss?.img_path ?? imagePaths[i] ?? conventionImg(i);
           const clipPath = ss?.clip_path ?? conventionClip(i);
           const dur = Math.round(durationSec * fps);
