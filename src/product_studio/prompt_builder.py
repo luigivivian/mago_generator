@@ -78,3 +78,66 @@ async def build_video_prompt(
 def get_negative_prompt(style: str) -> str:
     """Get the negative prompt for a given style."""
     return NEGATIVE_PROMPTS.get(style, NEGATIVE_PROMPTS["cinematic"])
+
+
+def build_product_prompt(
+    category: str,
+    camera_move: str,
+    action_description: str,
+    element_name: str = "prod",
+    duration: int = 5,
+) -> str:
+    """Build a Kling-ready video prompt from category defaults + take config.
+
+    Uses CATEGORY_CONFIGS for deterministic quality floor, then layers
+    the user's action description and camera move on top.
+
+    Args:
+        category: Key from CATEGORY_CONFIGS (e.g., "food_cookies").
+        camera_move: Camera move name (dolly, orbit, macro_zoom, static, crane).
+        action_description: User-editable action text for this take.
+        element_name: Kling element reference name (short, budgets 37 chars).
+        duration: Take duration in seconds.
+
+    Returns:
+        Prompt string under 463 chars (500 Kling limit - 37 for @element).
+    """
+    from src.product_studio.config import CATEGORY_CONFIGS, CATEGORY_DEFAULT
+
+    cfg = CATEGORY_CONFIGS.get(category, CATEGORY_DEFAULT)
+
+    # Map camera_move names to natural language
+    camera_map = {
+        "dolly": "slow dolly push-in",
+        "orbit": "slow orbit around subject",
+        "macro_zoom": "extreme macro with slow zoom",
+        "static": "static shot",
+        "crane": "crane sweep",
+    }
+    camera_text = camera_map.get(camera_move, camera_move)
+
+    parts = [
+        f"Cinematic commercial shot of @{element_name}",
+        f"on {cfg['surface'].split('|')[0].strip()}.",
+        action_description + ".",
+        f"Camera: {camera_text}.",
+        f"{cfg['lighting']}.",
+        f"Mood: {cfg['mood']}.",
+        f"Shot with {cfg['lens']}.",
+        f"{duration}s.",
+        "4K, commercial quality.",
+    ]
+    prompt = " ".join(parts)
+
+    # Enforce 463 char limit (500 - 37 for @element overhead)
+    if len(prompt) > 463:
+        prompt = prompt[:460] + "..."
+
+    return prompt
+
+
+def build_negative_prompt(category: str) -> str:
+    """Return negative prompt for the given category."""
+    from src.product_studio.config import CATEGORY_CONFIGS, CATEGORY_DEFAULT
+    cfg = CATEGORY_CONFIGS.get(category, CATEGORY_DEFAULT)
+    return cfg.get("negative", "blurry, low quality, text, watermark")
