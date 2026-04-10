@@ -235,10 +235,10 @@ export function Timeline({ playerRef }: TimelineProps) {
   );
 
   return (
-    <div className="flex flex-col border-t border-zinc-700 bg-zinc-950 select-none" onContextMenu={handleCtx}>
+    <div className="flex flex-col border-t border-white/[0.06] bg-[#0a0a0f] text-[#e8e8f0] select-none" onContextMenu={handleCtx}>
       {/* Ruler row — same flex layout as tracks so label column aligns */}
       <div className="flex">
-        <div className="w-20 shrink-0 border-r border-zinc-700 h-6 bg-zinc-900" />
+        <div className="w-20 shrink-0 border-r border-white/[0.06] h-6 bg-[#111118]" />
         <div className="flex-1 overflow-hidden">
           <TimelineRuler
             pixelsPerFrame={pixelsPerFrame}
@@ -254,7 +254,7 @@ export function Timeline({ playerRef }: TimelineProps) {
       <ContextMenu target={ctxTarget} playheadFrame={playheadFrame}>
       <div className="flex flex-1 min-h-0">
         {/* Track labels — highlight selected track + M/S toggles (999.12 D-19) */}
-        <div className="w-20 shrink-0 border-r border-zinc-700">
+        <div className="w-20 shrink-0 border-r border-white/[0.06] bg-[#0e0e16]">
           {(["video", "audio", "subtitle"] as const).map((track) => {
             const isSelected =
               (track === "video" && !!selectedSceneId) ||
@@ -264,13 +264,13 @@ export function Timeline({ playerRef }: TimelineProps) {
             const soloed = soloedTracks.has(track);
             const cfg =
               track === "video"
-                ? { label: "Video", h: "h-14", border: "border-b border-zinc-800", color: "purple", action: () => { if (!selectedSceneId && scenes.length > 0) setSelectedScene(scenes[0].id); } }
+                ? { label: "Video", h: "h-14", border: "border-b border-white/[0.06]", color: "purple", action: () => { if (!selectedSceneId && scenes.length > 0) setSelectedScene(scenes[0].id); } }
                 : track === "audio"
-                ? { label: "Audio", h: "h-14", border: "border-b border-zinc-800", color: "blue", action: () => { if (!selectedAudioId && audioItems.length > 0) setSelectedAudio(audioItems[0].id); } }
+                ? { label: "Audio", h: "h-14", border: "border-b border-white/[0.06]", color: "blue", action: () => { if (!selectedAudioId && audioItems.length > 0) setSelectedAudio(audioItems[0].id); } }
                 : { label: "Legendas", h: "h-10", border: "", color: "amber", action: () => { if (!selectedSubtitleId && subtitles.length > 0) setSelectedSubtitle(subtitles[0].id); } };
             const colorClasses =
               cfg.color === "purple"
-                ? "text-purple-300 bg-purple-500/10 border-l-purple-500"
+                ? "text-primary/80 bg-primary/10 border-l-primary"
                 : cfg.color === "blue"
                 ? "text-blue-300 bg-blue-500/10 border-l-blue-500"
                 : "text-amber-300 bg-amber-500/10 border-l-amber-500";
@@ -278,7 +278,7 @@ export function Timeline({ playerRef }: TimelineProps) {
               <div
                 key={track}
                 className={`${cfg.h} flex items-center justify-between px-2 text-xs ${cfg.border} transition-colors cursor-pointer border-l-2 ${
-                  isSelected ? colorClasses : "text-zinc-400 border-l-transparent"
+                  isSelected ? colorClasses : "text-[#8888a0] border-l-transparent"
                 }`}
                 onClick={cfg.action}
               >
@@ -287,7 +287,7 @@ export function Timeline({ playerRef }: TimelineProps) {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); toggleTrackMute(track); }}
-                    className={`text-[10px] font-bold w-4 h-4 rounded-sm flex items-center justify-center ${muted ? "bg-yellow-500 text-zinc-900" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
+                    className={`text-[10px] font-bold w-4 h-4 rounded-sm flex items-center justify-center ${muted ? "bg-yellow-500 text-zinc-900" : "bg-white/[0.06] text-[#888] hover:bg-white/[0.12]"}`}
                     title={muted ? "Desmutar" : "Mutar"}
                   >
                     M
@@ -295,7 +295,7 @@ export function Timeline({ playerRef }: TimelineProps) {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); toggleTrackSolo(track); }}
-                    className={`text-[10px] font-bold w-4 h-4 rounded-sm flex items-center justify-center ${soloed ? "bg-yellow-500 text-zinc-900" : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700"}`}
+                    className={`text-[10px] font-bold w-4 h-4 rounded-sm flex items-center justify-center ${soloed ? "bg-yellow-500 text-zinc-900" : "bg-white/[0.06] text-[#888] hover:bg-white/[0.12]"}`}
                     title={soloed ? "Desativar solo" : "Solo"}
                   >
                     S

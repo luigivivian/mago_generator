@@ -167,7 +167,7 @@ export default function EditorPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Carregando editor...</p>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function EditorPage() {
           <p className="text-red-400">Reel nao encontrado ou erro ao carregar.</p>
           <Link
             href="/reels"
-            className="inline-flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:text-primary/80"
           >
             <ArrowLeft className="h-4 w-4" /> Voltar para Reels
           </Link>

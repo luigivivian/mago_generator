@@ -67,13 +67,34 @@ const VIDEO_STATUS_LABELS: Record<string, string> = {
   failed: "Video falhou",
 };
 
-const CHART_COLORS = {
-  gemini_text: "#3b82f6",    // blue-500
-  gemini_image: "#8b5cf6",   // violet-500
-  kie_video: "#06b6d4",      // cyan-500
-  gemini_web: "#10b981",     // emerald-500
+// Chart colors use CSS variables from the active theme palette
+const getChartColors = () => {
+  const style = getComputedStyle(document.documentElement);
+  return {
+    gemini_text: style.getPropertyValue("--color-info").trim() || "#3b82f6",
+    gemini_image: style.getPropertyValue("--color-primary").trim() || "#8b5cf6",
+    kie_video: style.getPropertyValue("--color-chart-4").trim() || "#06b6d4",
+    gemini_web: style.getPropertyValue("--color-success").trim() || "#10b981",
+  };
 };
-
+const getPieColors = () => {
+  const style = getComputedStyle(document.documentElement);
+  return [
+    style.getPropertyValue("--color-primary").trim() || "#8b5cf6",
+    style.getPropertyValue("--color-info").trim() || "#3b82f6",
+    style.getPropertyValue("--color-chart-4").trim() || "#06b6d4",
+    style.getPropertyValue("--color-success").trim() || "#10b981",
+    style.getPropertyValue("--color-warning").trim() || "#f59e0b",
+    style.getPropertyValue("--color-destructive").trim() || "#ef4444",
+  ];
+};
+// Static fallbacks for SSR
+const CHART_COLORS = {
+  gemini_text: "#3b82f6",
+  gemini_image: "#8b5cf6",
+  kie_video: "#06b6d4",
+  gemini_web: "#10b981",
+};
 const PIE_COLORS = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"];
 
 const VIDEO_USD_TO_BRL = 5.75;
@@ -700,7 +721,7 @@ export default function DashboardPage() {
                     tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 10, fill: "#71717a" }} />
                   <Tooltip
-                    contentStyle={{ background: "#1c1c22", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
+                    contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
                     labelFormatter={(v) => String(v)}
                   />
                   <Area type="monotone" dataKey="gemini_text" stackId="1" fill={CHART_COLORS.gemini_text} stroke={CHART_COLORS.gemini_text} fillOpacity={0.3} name="Gemini Text" />
@@ -745,7 +766,7 @@ export default function DashboardPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{ background: "#1c1c22", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
+                      contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
                       formatter={(v) => [formatBRL(Number(v)), "Custo"]}
                     />
                   </PieChart>
@@ -786,11 +807,11 @@ export default function DashboardPage() {
                     tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 10, fill: "#71717a" }} />
                   <Tooltip
-                    contentStyle={{ background: "#1c1c22", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
+                    contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12, fontSize: 12 }}
                     labelFormatter={(v) => String(v)}
                   />
-                  <Bar dataKey="runs" fill="#7C3AED" radius={[4, 4, 0, 0]} name="Runs" />
-                  <Bar dataKey="packages" fill="#a78bfa" radius={[4, 4, 0, 0]} name="Pacotes" />
+                  <Bar dataKey="runs" fill="var(--color-primary)" radius={[4, 4, 0, 0]} name="Runs" />
+                  <Bar dataKey="packages" fill="var(--color-accent)" radius={[4, 4, 0, 0]} name="Pacotes" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

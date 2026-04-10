@@ -138,7 +138,7 @@ export default function SettingsPage() {
       {/* Instagram Connection Card */}
       <Card className="relative overflow-hidden">
         {/* Gradient accent border */}
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-pink-500 via-primary to-indigo-500" />
 
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -186,7 +186,7 @@ export default function SettingsPage() {
               <Button
                 onClick={handleConnect}
                 disabled={connecting}
-                className="gap-2 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
+                className="gap-2 rounded-lg bg-gradient-to-r from-pink-500 to-primary/90 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition"
               >
                 {connecting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -203,7 +203,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               {/* Account info */}
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-purple-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-primary/90">
                   <Instagram className="h-5 w-5 text-white" />
                 </div>
                 <div>

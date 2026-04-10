@@ -33,9 +33,9 @@ interface TimelineTrackProps {
 }
 
 const TRACK_CONFIG = {
-  video: { height: "h-14", bg: "bg-zinc-900", border: "border-b border-zinc-800" },
-  audio: { height: "h-14", bg: "bg-zinc-950", border: "border-b border-zinc-800" },
-  subtitle: { height: "h-10", bg: "bg-zinc-900", border: "" },
+  video: { height: "h-14", bg: "bg-[#0e0e16]", border: "border-b border-white/[0.06]" },
+  audio: { height: "h-14", bg: "bg-[#0a0a0f]", border: "border-b border-white/[0.06]" },
+  subtitle: { height: "h-10", bg: "bg-[#0e0e16]", border: "" },
 };
 
 export function TimelineTrack({

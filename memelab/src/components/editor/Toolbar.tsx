@@ -142,7 +142,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         type="button"
         onClick={handleSplit}
         disabled={!hasSelection}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#f0f0f5]"
         title="Cortar no Playhead (S)"
       >
         <Scissors className="h-4 w-4" />
@@ -157,7 +157,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         type="button"
         onClick={handleTrimToPlayhead}
         disabled={playheadFrame <= 0}
-        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
+        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
         title="Cortar tudo antes do playhead — remove o inicio (clips, audio e legendas)"
       >
         <ChevronsLeft className="h-4 w-4" />
@@ -166,7 +166,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
       <button
         type="button"
         onClick={handleTrimAfterPlayhead}
-        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
+        className="flex items-center gap-0.5 px-1.5 py-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 border border-amber-500/30"
         title="Cortar tudo depois do playhead — remove o final (clips, audio e legendas)"
       >
         <ChevronsRight className="h-4 w-4" />
@@ -176,7 +176,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         type="button"
         onClick={handleDuplicate}
         disabled={!selectedSceneId}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#f0f0f5]"
         title="Duplicar (D)"
       >
         <Copy className="h-4 w-4" />
@@ -185,7 +185,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         type="button"
         onClick={handleFreeze}
         disabled={!selectedSceneId}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#f0f0f5]"
         title="Congelar Frame +1s (F)"
       >
         <Snowflake className="h-4 w-4" />
@@ -193,7 +193,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
       <button
         type="button"
         onClick={handleAddSubtitle}
-        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent text-amber-300 border border-amber-500/30"
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-[#1f1f2a] text-amber-300 border border-amber-500/30"
         title="Adicionar legenda no playhead (T)"
       >
         <Type className="h-4 w-4" />
@@ -203,7 +203,7 @@ function ToolbarEditButtons({ playerRef }: { playerRef: React.RefObject<PlayerRe
         type="button"
         onClick={handleDelete}
         disabled={!hasSelection}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-red-400 hover:text-red-300"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-red-400 hover:text-red-300"
         title="Deletar (Delete)"
       >
         <Trash2 className="h-4 w-4" />
@@ -286,33 +286,33 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
   }, []);
 
   return (
-    <div className="flex items-center gap-2 border-b border-border px-4 py-2 bg-background shrink-0">
+    <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2 bg-[#0e0e16] shrink-0">
       <Link
         href={`/reels/${jobId}`}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mr-2"
+        className="flex items-center gap-1 text-sm text-[#8888a0] hover:text-[#f0f0f5] mr-2"
       >
         <ArrowLeft className="h-4 w-4" />
         <span className="hidden sm:inline">Voltar</span>
       </Link>
 
-      <div className="h-5 w-px bg-border" />
+      <div className="h-5 w-px bg-white/[0.06]" />
 
       <button
         type="button"
         onClick={togglePlay}
-        className="p-1.5 rounded hover:bg-accent text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] text-[#f0f0f5]"
         title={isPlaying ? "Pausar" : "Reproduzir"}
       >
         {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
       </button>
 
-      <div className="h-5 w-px bg-border" />
+      <div className="h-5 w-px bg-white/[0.06]" />
 
       <button
         type="button"
         onClick={() => undo()}
         disabled={!canUndo}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#f0f0f5]"
         title="Desfazer (Ctrl+Z)"
       >
         <Undo2 className="h-4 w-4" />
@@ -322,17 +322,17 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
         type="button"
         onClick={() => redo()}
         disabled={!canRedo}
-        className="p-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#f0f0f5]"
         title="Refazer (Ctrl+Shift+Z)"
       >
         <Redo2 className="h-4 w-4" />
       </button>
 
-      <div className="h-5 w-px bg-border" />
+      <div className="h-5 w-px bg-white/[0.06]" />
 
       <ToolbarEditButtons playerRef={playerRef} />
 
-      <div className="h-5 w-px bg-border" />
+      <div className="h-5 w-px bg-white/[0.06]" />
 
       {/* 999.14 D-08 (Bug 1 escape hatch): reset persisted editor state to
           the live step_state. Use when scenes look duplicated or counts
@@ -341,7 +341,7 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
         type="button"
         onClick={handleResetEditorState}
         disabled={resetting || !stepState}
-        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-100 border border-zinc-700"
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#8888a0] hover:text-zinc-100 border border-white/[0.06]"
         title="Resetar editor — descarta edicoes e recarrega da pipeline"
       >
         {resetting ? (
@@ -361,20 +361,20 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
           useEditorStore.getState().resetAudio(jobId, stepState);
         }}
         disabled={!stepState}
-        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-zinc-400 hover:text-zinc-100 border border-zinc-700"
+        className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-[#1f1f2a] disabled:opacity-30 disabled:cursor-not-allowed text-[#8888a0] hover:text-zinc-100 border border-white/[0.06]"
         title="Restaurar audio original da pipeline"
       >
         <Volume2 className="h-4 w-4" />
         <span className="text-xs font-medium">Restaurar Audio</span>
       </button>
 
-      <div className="h-5 w-px bg-border" />
+      <div className="h-5 w-px bg-white/[0.06]" />
 
       {/* 999.12 D-13: zoom-to-fit */}
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent("timeline:fit"))}
-        className="p-1.5 rounded hover:bg-accent text-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] text-[#f0f0f5]"
         title="Ajustar timeline (Shift+Z)"
       >
         <Maximize2 className="h-4 w-4" />
@@ -389,7 +389,7 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
               safePlatform === "off" ? "tiktok" : safePlatform === "tiktok" ? "instagram" : "off";
             onSafePlatformChange(next);
           }}
-          className={`p-1.5 rounded hover:bg-accent flex items-center gap-1 ${safePlatform !== "off" ? "text-purple-400" : "text-foreground"}`}
+          className={`p-1.5 rounded hover:bg-[#1f1f2a] flex items-center gap-1 ${safePlatform !== "off" ? "text-primary" : "text-[#f0f0f5]"}`}
           title={
             safePlatform === "off"
               ? "Safe zone: desligado (clique para TikTok)"
@@ -416,7 +416,7 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-xs text-muted-foreground flex items-center gap-1"
+            className="text-xs text-[#8888a0] flex items-center gap-1"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
             Salvando...
@@ -440,7 +440,7 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
       <button
         type="button"
         onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, code: "Slash" }))}
-        className="p-1.5 rounded hover:bg-accent text-muted-foreground"
+        className="p-1.5 rounded hover:bg-[#1f1f2a] text-[#8888a0]"
         title="Atalhos (?)"
       >
         <HelpCircle className="h-4 w-4" />
@@ -449,7 +449,7 @@ export function Toolbar({ playerRef, saveStatus, safePlatform = "off", onSafePla
       <button
         type="button"
         onClick={handleExport}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-700 text-sm text-white font-medium"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary hover:bg-primary/90 text-sm text-white font-medium"
         title="Exportar video"
       >
         <Download className="h-4 w-4" />

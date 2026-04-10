@@ -130,7 +130,7 @@ function SubtitleOverlay({
             : undefined,
           padding: "4px 8px",
           borderRadius: "4px",
-          outline: isSelected ? "2px solid #7C3AED" : "1px solid transparent",
+          outline: isSelected ? "2px solid var(--color-primary)" : "1px solid transparent",
           outlineOffset: "2px",
           whiteSpace: "pre-wrap",
           textAlign: "center",

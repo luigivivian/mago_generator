@@ -207,7 +207,7 @@ export default function AdJobPage() {
         </Link>
         <h1 className="text-xl font-bold tracking-tight">Product Ad</h1>
         {actionLoading && (
-          <Loader2 className="h-4 w-4 animate-spin text-purple-400 ml-auto" />
+          <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />
         )}
       </div>
 

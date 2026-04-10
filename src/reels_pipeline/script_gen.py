@@ -137,7 +137,8 @@ Crie um roteiro que:
 2. Distribua a narracao entre as cenas de forma natural
 3. Crie um gancho irresistivel
 4. Termine com CTA forte
-5. Gere hashtags relevantes e caption completo para o Instagram""",
+5. Gere hashtags relevantes e caption completo para o Instagram
+6. NUNCA corte uma frase no meio entre duas cenas. Cada cena deve ter frases COMPLETAS""",
 
     "en-US": """You are an expert scriptwriter for viral Instagram Reels content.
 
@@ -200,7 +201,8 @@ Create a script that:
 2. Distributes narration naturally across scenes
 3. Creates an irresistible hook
 4. Ends with a strong CTA
-5. Generates relevant hashtags and a complete Instagram caption""",
+5. Generates relevant hashtags and a complete Instagram caption
+6. NEVER split a sentence across two scenes. Each scene must have COMPLETE sentences""",
 
     "es-ES": """Eres un guionista experto en contenido viral para Instagram Reels.
 
@@ -260,7 +262,8 @@ Crea un guion que:
 2. Distribuya la narracion entre las escenas de forma natural
 3. Cree un gancho irresistible
 4. Termine con un CTA fuerte
-5. Genere hashtags relevantes y un caption completo para Instagram""",
+5. Genere hashtags relevantes y un caption completo para Instagram
+6. NUNCA corte una frase entre dos escenas. Cada escena debe tener frases COMPLETAS""",
 }
 
 # Fallback for unsupported languages: use English template with language instruction
@@ -326,7 +329,8 @@ Create a script that:
 2. Distributes narration naturally across scenes
 3. Creates an irresistible hook
 4. Ends with a strong CTA
-5. Generates relevant hashtags and a complete Instagram caption"""
+5. Generates relevant hashtags and a complete Instagram caption
+6. NEVER split a sentence across two scenes. Each scene must have COMPLETE sentences"""
 
 
 # Biblical narration system prompts — parallel to _SYSTEM_PROMPTS but with guardrails
@@ -406,7 +410,8 @@ Crie um roteiro que:
 3. Cada cena tenha em legenda_overlay texto curto de legenda para exibir na tela
 4. NAO inclua referencias de versiculo na narracao — conte a historia naturalmente
 5. Gere hashtags relevantes e caption para Instagram
-6. Faca o ouvinte sentir que PRECISA ouvir ate o final""",
+6. Faca o ouvinte sentir que PRECISA ouvir ate o final
+7. NUNCA corte uma frase no meio entre duas cenas. Cada cena deve ter frases COMPLETAS. A narracao de cada cena deve fazer sentido sozinha, sem depender da cena anterior para completar uma frase""",
 
     "en-US": """You are an expert biblical narrator specialized in telling Scripture stories engagingly for Instagram Reels.
 
@@ -473,7 +478,8 @@ Create a script that:
 2. Distributes narration naturally and dramatically across scenes
 3. Each scene has a short subtitle text in legenda_overlay for on-screen display
 4. Does NOT include verse references in narration — tell the story naturally
-5. Generates relevant hashtags and an Instagram caption""",
+5. Generates relevant hashtags and an Instagram caption
+6. NEVER split a sentence across two scenes. Each scene's narration must contain COMPLETE sentences that make sense on their own""",
 
     "es-ES": """Eres un narrador biblico experto en contar historias de las Escrituras de forma envolvente para Instagram Reels.
 
@@ -537,7 +543,8 @@ Crea un guion que:
 2. Distribuya la narracion entre las escenas de forma natural y dramatica
 3. Cada escena tenga en legenda_overlay texto corto de subtitulo para mostrar en pantalla
 4. NO incluya referencias de versiculo en la narracion — cuente la historia naturalmente
-5. Genere hashtags relevantes y caption para Instagram""",
+5. Genere hashtags relevantes y caption para Instagram
+6. NUNCA corte una frase entre dos escenas. Cada escena debe tener frases COMPLETAS que tengan sentido por si solas""",
 }
 
 

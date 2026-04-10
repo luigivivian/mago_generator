@@ -727,7 +727,7 @@ function ManualRunForm({
                       onClick={() => setBackgroundImage(bg.filename)}
                       className={`block rounded overflow-hidden transition-all ${
                         backgroundImage === bg.filename
-                          ? "border-2 border-[#8B5CF6] scale-105"
+                          ? "border-2 border-primary scale-105"
                           : "border border-white/10 hover:border-white/20"
                       }`}
                     >
@@ -800,7 +800,7 @@ function ManualRunForm({
             type="checkbox"
             checked={useGeminiImage}
             onChange={(e) => setUseGeminiImage(e.target.checked)}
-            className="h-4 w-4 rounded accent-[#8B5CF6]"
+            className="h-4 w-4 rounded accent-primary"
           />
           <div className="text-sm font-normal">
             Gerar background via Gemini
@@ -814,7 +814,7 @@ function ManualRunForm({
             type="checkbox"
             checked={enableL5}
             onChange={(e) => setEnableL5(e.target.checked)}
-            className="h-4 w-4 rounded accent-[#8B5CF6]"
+            className="h-4 w-4 rounded accent-primary"
           />
           <span className="text-sm font-normal">
             Gerar caption e hashtags
@@ -825,7 +825,7 @@ function ManualRunForm({
         <Button
           onClick={handleSubmit}
           disabled={isRunning}
-          className={`w-full gap-2 font-semibold bg-[#8B5CF6] hover:bg-[#7C3AED] text-white ${
+          className={`w-full gap-2 font-semibold bg-primary hover:bg-primary/90 text-white ${
             isRunning ? "pulse-glow" : ""
           }`}
         >

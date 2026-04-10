@@ -7,13 +7,13 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary/90 text-primary-foreground shadow-[0_0_8px_rgba(139,92,246,0.2)]",
+        default: "border-transparent bg-primary/90 text-primary-foreground shadow-[0_0_8px_var(--color-primary)/20]",
         secondary: "border-white/[0.06] bg-[var(--color-surface-2)] text-secondary-foreground",
-        destructive: "border-transparent bg-rose-500/15 text-rose-400",
+        destructive: "border-transparent bg-destructive/15 text-destructive",
         outline: "text-foreground border-white/[0.1]",
-        success: "border-transparent bg-emerald-500/15 text-emerald-400",
-        warning: "border-transparent bg-amber-500/15 text-amber-400",
-        info: "border-transparent bg-sky-500/15 text-sky-400",
+        success: "border-transparent bg-success/15 text-success",
+        warning: "border-transparent bg-warning/15 text-warning",
+        info: "border-transparent bg-info/15 text-info",
       },
     },
     defaultVariants: { variant: "default" },

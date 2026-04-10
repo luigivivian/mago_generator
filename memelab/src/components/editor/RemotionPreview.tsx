@@ -64,10 +64,10 @@ export function RemotionPreview({ playerRef }: RemotionPreviewProps) {
   if (scenes.length === 0) {
     return (
       <div
-        className="relative w-full max-w-[360px] mx-auto flex items-center justify-center bg-card rounded-lg border border-border"
+        className="relative w-full max-w-[360px] mx-auto flex items-center justify-center bg-[#0f0f14] rounded-lg border border-white/[0.06]"
         style={{ aspectRatio: "9/16" }}
       >
-        <p className="text-muted-foreground text-sm">Nenhuma cena carregada</p>
+        <p className="text-[#8888a0] text-sm">Nenhuma cena carregada</p>
       </div>
     );
   }

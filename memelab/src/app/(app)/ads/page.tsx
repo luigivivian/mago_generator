@@ -70,7 +70,7 @@ export default function AdsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Film className="h-5 w-5 text-purple-400" />
+            <Film className="h-5 w-5 text-primary" />
             Videos
           </CardTitle>
         </CardHeader>
@@ -106,7 +106,7 @@ export default function AdsPage() {
                 const Icon = badge.icon;
                 return (
                   <Link key={job.job_id} href={`/ads/${job.job_id}`}>
-                    <div className="rounded-lg border bg-card p-4 space-y-2 hover:border-purple-500/50 transition-colors cursor-pointer">
+                    <div className="rounded-lg border bg-card p-4 space-y-2 hover:border-primary/50 transition-colors cursor-pointer">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium line-clamp-2">{job.product_name}</p>
                         <Badge variant="outline" className={badge.color}>
@@ -116,7 +116,7 @@ export default function AdsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-xs">
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
                           {STYLE_LABELS[job.style] ?? job.style}
                         </Badge>
                       </div>

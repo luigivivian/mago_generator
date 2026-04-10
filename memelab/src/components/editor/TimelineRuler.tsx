@@ -83,7 +83,7 @@ export function TimelineRuler({
   return (
     <div
       ref={rulerRef}
-      className="relative h-6 bg-zinc-900 border-b border-zinc-700 select-none cursor-pointer overflow-hidden"
+      className="relative h-6 bg-[#111118] border-b border-white/[0.06] select-none cursor-pointer overflow-hidden"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -99,7 +99,7 @@ export function TimelineRuler({
             style={{ left: tick.x }}
           >
             <div className="w-px h-2 bg-zinc-500" />
-            <span className="text-[9px] text-zinc-400 leading-none mt-0.5">
+            <span className="text-[9px] text-[#8888a0] leading-none mt-0.5">
               {tick.label}
             </span>
           </div>

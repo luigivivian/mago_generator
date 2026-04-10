@@ -38,7 +38,7 @@ export default function ReelJobPage() {
   if (isLoading || !stepState) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Carregando reel...</p>
       </div>
     );
@@ -88,12 +88,12 @@ export default function ReelJobPage() {
   function renderStepContent() {
     // When viewing a past step, show a "back to current" bar
     const viewingPastBar = isViewingPast ? (
-      <div className="flex items-center justify-between rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 mb-3">
-        <p className="text-sm text-purple-300">Visualizando passo anterior. Pode regenerar ou voltar ao passo atual.</p>
+      <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3 mb-3">
+        <p className="text-sm text-primary/80">Visualizando passo anterior. Pode regenerar ou voltar ao passo atual.</p>
         <button
           type="button"
           onClick={() => setViewStep(null)}
-          className="text-sm text-purple-400 hover:text-purple-300 font-medium"
+          className="text-sm text-primary hover:text-primary/80 font-medium"
         >
           Voltar ao passo atual →
         </button>

@@ -22,7 +22,7 @@ export default function EditorLayout({ children }: { children: React.ReactNode }
       >
         <div
           className="h-8 w-8 rounded-full border-4 border-t-transparent animate-spin"
-          style={{ borderColor: "#7C3AED", borderTopColor: "transparent" }}
+          style={{ borderColor: "var(--color-primary, #7C3AED)", borderTopColor: "transparent" }}
         />
       </div>
     );

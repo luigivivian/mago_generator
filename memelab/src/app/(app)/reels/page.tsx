@@ -62,7 +62,7 @@ const STEP_LABELS: Record<string, string> = {
 const STATUS_BADGE: Record<string, { color: string; label: string }> = {
   queued: { color: "bg-amber-500/20 text-amber-400 border-amber-500/30", label: "Na fila" },
   generating: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30", label: "Gerando" },
-  interactive: { color: "bg-purple-500/20 text-purple-400 border-purple-500/30", label: "Interativo" },
+  interactive: { color: "bg-primary/20 text-primary border-primary/30", label: "Interativo" },
   complete: { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", label: "Completo" },
   failed: { color: "bg-red-500/20 text-red-400 border-red-500/30", label: "Falhou" },
 };
@@ -273,7 +273,7 @@ function GenerationForm() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clapperboard className="h-5 w-5 text-purple-400" />
+          <Clapperboard className="h-5 w-5 text-primary" />
           Gerar Reel
         </CardTitle>
       </CardHeader>
@@ -302,7 +302,7 @@ function GenerationForm() {
                 href={jobStatus.video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-purple-400 hover:underline"
+                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-3 w-3" />
                 Ver video
@@ -380,7 +380,7 @@ function GenerationForm() {
                       onClick={() => { setSelectedSubTheme(st); setSuggestions([]); }}
                       className={`px-3 py-1 rounded-full text-xs border transition-all ${
                         selectedSubTheme === st
-                          ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                          ? "bg-primary/20 text-primary/80 border-primary/40"
                           : "bg-secondary text-muted-foreground border-border hover:bg-secondary/80"
                       }`}
                     >
@@ -414,7 +414,7 @@ function GenerationForm() {
                 size="sm"
                 onClick={handleSuggestThemes}
                 disabled={loadingSuggestions || !selectedNiche}
-                className="text-purple-400 hover:text-purple-300"
+                className="text-primary hover:text-primary/80"
               >
                 {loadingSuggestions ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -450,11 +450,11 @@ function GenerationForm() {
                     onClick={() => handleSelectSuggestion(s)}
                     className={`w-full text-left p-3 rounded-lg border transition-all ${
                       selectedSuggestion?.title === s.title
-                        ? "border-purple-500 bg-purple-500/10 ring-1 ring-purple-500/30"
-                        : "border-border hover:border-purple-500/30 hover:bg-secondary/50"
+                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                        : "border-border hover:border-primary/30 hover:bg-secondary/50"
                     }`}
                   >
-                    <p className="text-sm font-medium text-purple-300">{s.title}</p>
+                    <p className="text-sm font-medium text-primary/80">{s.title}</p>
                     {s.outline && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.outline}</p>
                     )}
@@ -495,7 +495,7 @@ function GenerationForm() {
                             : prev.filter((x) => x !== p.id)
                         );
                       }}
-                      className="accent-purple-500 h-3.5 w-3.5"
+                      className="accent-primary h-3.5 w-3.5"
                     />
                     <span className={p.id === "instagram" ? "text-muted-foreground" : ""}>{p.label}</span>
                   </label>
@@ -673,7 +673,7 @@ function JobHistory() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-purple-400" />
+            <Clock className="h-5 w-5 text-primary" />
             Historico
           </CardTitle>
         </CardHeader>
@@ -693,7 +693,7 @@ function JobHistory() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-purple-400" />
+            <Clock className="h-5 w-5 text-primary" />
             Historico
           </CardTitle>
         </CardHeader>
@@ -710,7 +710,7 @@ function JobHistory() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-purple-400" />
+          <Clock className="h-5 w-5 text-primary" />
           Historico
         </CardTitle>
       </CardHeader>
@@ -734,7 +734,7 @@ function JobHistory() {
                 {job.status === "interactive" && (
                   <a
                     href={`/reels/${job.job_id}`}
-                    className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                   >
                     <ArrowRight className="h-3 w-3" />
                     Continuar
@@ -748,7 +748,7 @@ function JobHistory() {
                         href={job.video_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" />
                         Ver video
@@ -756,7 +756,7 @@ function JobHistory() {
                     )}
                     <a
                       href={`/reels/${job.job_id}/edit`}
-                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
                       <Pencil className="h-3 w-3" />
                       Editar
@@ -845,7 +845,7 @@ function ConfigPanel() {
         onClick={() => setExpanded(!expanded)}
       >
         <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-purple-400" />
+          <Settings className="h-5 w-5 text-primary" />
           Configuracoes do Pipeline
           {expanded ? <ChevronUp className="h-4 w-4 ml-auto" /> : <ChevronDown className="h-4 w-4 ml-auto" />}
         </CardTitle>
@@ -880,7 +880,7 @@ function ConfigPanel() {
                 step="0.05"
                 value={ttsSpeed}
                 onChange={(e) => setTtsSpeed(e.target.value)}
-                className="w-full accent-purple-500"
+                className="w-full accent-primary"
               />
             </div>
 
@@ -937,7 +937,7 @@ function ConfigPanel() {
                 step="0.1"
                 value={transitionDuration}
                 onChange={(e) => setTransitionDuration(e.target.value)}
-                className="w-full accent-purple-500"
+                className="w-full accent-primary"
               />
             </div>
 
@@ -950,7 +950,7 @@ function ConfigPanel() {
                 step="2"
                 value={subtitleFontSize}
                 onChange={(e) => setSubtitleFontSize(e.target.value)}
-                className="w-full accent-purple-500"
+                className="w-full accent-primary"
               />
             </div>
           </div>

@@ -51,8 +51,8 @@ function MenuItem({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed ${
-        destructive ? "text-red-400 hover:text-red-300" : "text-foreground"
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-[#1a1a24] disabled:opacity-40 disabled:cursor-not-allowed ${
+        destructive ? "text-red-400 hover:text-red-300" : "text-[#f0f0f5]"
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -82,8 +82,8 @@ function TransitionSubmenu({
             setTransition(sceneId, opt.value, opt.value === "none" ? 0 : 15);
             onClose();
           }}
-          className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-zinc-800 ${
-            currentType === opt.value ? "text-purple-400" : "text-foreground"
+          className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-[#1a1a24] ${
+            currentType === opt.value ? "text-primary" : "text-[#f0f0f5]"
           }`}
         >
           {currentType === opt.value && <span className="text-xs">●</span>}
@@ -150,7 +150,7 @@ function SceneMenu({
         <button
           type="button"
           onClick={() => setShowTransitions(false)}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-zinc-800 rounded"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[#8888a0] hover:bg-[#1a1a24] rounded"
         >
           ← Voltar
         </button>
@@ -171,7 +171,7 @@ function SceneMenu({
         <button
           type="button"
           onClick={() => setShowSpeed(false)}
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-zinc-800 rounded"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-[#8888a0] hover:bg-[#1a1a24] rounded"
         >
           ← Voltar
         </button>
@@ -182,8 +182,8 @@ function SceneMenu({
               key={opt.value}
               type="button"
               onClick={() => { setPlaybackRate(target.sceneId, opt.value); close(); }}
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-zinc-800 ${
-                currentRate === opt.value ? "text-purple-400" : "text-foreground"
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm rounded hover:bg-[#1a1a24] ${
+                currentRate === opt.value ? "text-primary" : "text-[#f0f0f5]"
               }`}
             >
               {currentRate === opt.value ? <span className="text-xs">●</span> : <span className="text-xs opacity-0">●</span>}
@@ -213,18 +213,18 @@ function SceneMenu({
       <button
         type="button"
         onClick={() => setShowSpeed(true)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-zinc-800 text-foreground"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-[#1a1a24] text-[#f0f0f5]"
       >
         <span className="flex items-center gap-2"><Gauge className="h-3.5 w-3.5" />Velocidade ({(scene?.playbackRate ?? 1)}x)</span>
-        <span className="text-xs text-muted-foreground">→</span>
+        <span className="text-xs text-[#8888a0]">→</span>
       </button>
       <button
         type="button"
         onClick={() => setShowTransitions(true)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-zinc-800 text-foreground"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-sm rounded hover:bg-[#1a1a24] text-[#f0f0f5]"
       >
         <span className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5" />Transicao</span>
-        <span className="text-xs text-muted-foreground">→</span>
+        <span className="text-xs text-[#8888a0]">→</span>
       </button>
     </>
   );
@@ -321,7 +321,7 @@ export function ContextMenu({ children, target, playheadFrame }: ContextMenuProp
       {menuPos && (
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[200px] rounded-lg border border-border bg-zinc-950 py-1 shadow-xl"
+          className="fixed z-50 min-w-[200px] rounded-lg border border-white/[0.08] bg-[#0e0e16] py-1 shadow-xl"
           style={{ left: menuPos.x, top: menuPos.y }}
         >
           {target.type === "scene" && <SceneMenu target={target} playheadFrame={playheadFrame} close={close} />}

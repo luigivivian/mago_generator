@@ -96,13 +96,13 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-card border border-border rounded-lg shadow-xl w-[480px] max-w-[95vw] max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="bg-[#0f0f14] border border-white/[0.06] rounded-lg shadow-xl w-[480px] max-w-[95vw] max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <h2 className="text-sm font-semibold">Exportar Video</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-accent text-muted-foreground"
+            className="p-1 rounded hover:bg-[#1f1f2a] text-[#8888a0]"
           >
             <X className="h-4 w-4" />
           </button>
@@ -143,7 +143,7 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3 py-1.5 text-xs rounded border border-border hover:bg-accent"
+                  className="px-3 py-1.5 text-xs rounded border border-white/[0.06] hover:bg-[#1f1f2a]"
                 >
                   Cancelar
                 </button>
@@ -151,7 +151,7 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
                   <button
                     type="button"
                     onClick={handleExport}
-                    className="px-3 py-1.5 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
+                    className="px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90 font-medium"
                   >
                     {warnings.length > 0 ? "Exportar mesmo assim" : "Exportar"}
                   </button>
@@ -164,16 +164,16 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
             const progress = stepState?.video?.export_progress ?? 0;
             return (
               <div className="flex flex-col items-center gap-3 py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                <p className="text-sm text-foreground">Renderizando video...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-[#f0f0f5]">Renderizando video...</p>
                 <div className="w-full max-w-[300px] space-y-1">
-                  <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                  <div className="h-2 rounded-full bg-[#1a1a24] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-purple-500 transition-all duration-500 ease-out"
+                      className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-xs text-[#8888a0] text-center">
                     {progress > 0 ? `${progress}%` : "Iniciando..."}
                   </p>
                 </div>
@@ -184,12 +184,12 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
           {stage === "done" && (
             <div className="flex flex-col items-center gap-3 py-6">
               <CheckCircle2 className="h-8 w-8 text-green-400" />
-              <p className="text-sm text-foreground">Pronto!</p>
+              <p className="text-sm text-[#f0f0f5]">Pronto!</p>
               {stepState?.video?.path && (
                 <a
                   href={reelFileUrl(jobId, "editor-export.mp4")}
                   download
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90 font-medium"
                 >
                   <Download className="h-3.5 w-3.5" /> Baixar video
                 </a>
@@ -197,7 +197,7 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-[#8888a0] hover:text-[#f0f0f5]"
               >
                 Fechar
               </button>
@@ -209,14 +209,14 @@ export function ExportModal({ open, onClose, jobId }: ExportModalProps) {
               <AlertTriangle className="h-8 w-8 text-red-400" />
               <p className="text-sm text-red-300">Erro na exportacao</p>
               {errorMsg && (
-                <p className="text-xs text-muted-foreground max-w-[400px] text-center break-words">
+                <p className="text-xs text-[#8888a0] max-w-[400px] text-center break-words">
                   {errorMsg}
                 </p>
               )}
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs rounded border border-border hover:bg-accent"
+                className="px-3 py-1.5 text-xs rounded border border-white/[0.06] hover:bg-[#1f1f2a]"
               >
                 Fechar
               </button>

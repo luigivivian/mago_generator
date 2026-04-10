@@ -28,11 +28,11 @@ const FONT_OPTIONS = ["Inter", "Roboto", "Montserrat", "Open Sans"];
 function Section({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-border pb-3">
+    <div className="border-b border-white/[0.06] pb-3">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 py-1 text-sm font-medium text-foreground hover:text-foreground/80"
+        className="flex w-full items-center gap-1.5 py-1 text-sm font-medium text-[#f0f0f5] hover:text-[#f0f0f5]/80"
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         {title}
@@ -49,8 +49,8 @@ function SliderField({ label, value, min, max, step, unit, onChange }: {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <label className="text-xs text-muted-foreground">{label}</label>
-        <span className="text-xs tabular-nums text-foreground">{value}{unit}</span>
+        <label className="text-xs text-[#8888a0]">{label}</label>
+        <span className="text-xs tabular-nums text-[#f0f0f5]">{value}{unit}</span>
       </div>
       <input
         type="range"
@@ -59,7 +59,7 @@ function SliderField({ label, value, min, max, step, unit, onChange }: {
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-purple-500 h-1.5"
+        className="w-full accent-primary h-1.5"
       />
     </div>
   );
@@ -173,14 +173,14 @@ function ScenePanel({ jobId }: { jobId: string }) {
         {/* 999.14 D-09 (Bug 6 fix): hint that the duration slider only
             stretches/shrinks the scene visually — it does NOT trim the
             audio. Use "Cortar Inicio/Fim" in the toolbar for that. */}
-        <p className="text-[10px] text-muted-foreground/70 leading-tight">
+        <p className="text-[10px] text-[#8888a0]/70 leading-tight">
           A duracao mostra apenas o tempo visual da cena. Para cortar o
           audio junto, use os botoes "Inicio" / "Fim" na barra superior.
         </p>
         {scene.narration && (
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Narracao</label>
-            <p className="text-xs text-foreground/80 bg-zinc-900 rounded p-2 leading-relaxed">
+            <label className="text-xs text-[#8888a0]">Narracao</label>
+            <p className="text-xs text-[#f0f0f5]/80 bg-[#0f0f14] rounded p-2 leading-relaxed">
               {scene.narration}
             </p>
           </div>
@@ -189,7 +189,7 @@ function ScenePanel({ jobId }: { jobId: string }) {
 
       <Section title="Transicao">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Tipo</label>
+          <label className="text-xs text-[#8888a0]">Tipo</label>
           <select
             value={scene.transition.type}
             onChange={(e) => {
@@ -205,7 +205,7 @@ function ScenePanel({ jobId }: { jobId: string }) {
                   : 15;
               setTransition(scene.id, newType, newDur);
             }}
-            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {TRANSITION_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -241,11 +241,11 @@ function ScenePanel({ jobId }: { jobId: string }) {
 
       <Section title="Voz / Narracao">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Voz</label>
+          <label className="text-xs text-[#8888a0]">Voz</label>
           <select
             value={scene.voiceConfig.voice}
             onChange={(e) => handleUpdateVoice(e.target.value)}
-            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {VOICE_OPTIONS.map((v) => (
               <option key={v} value={v}>{v}</option>
@@ -269,7 +269,7 @@ function ScenePanel({ jobId }: { jobId: string }) {
             type="button"
             onClick={handleRegenNarration}
             disabled={regenNarration || scenes.length === 0}
-            className="flex items-center justify-center gap-2 rounded bg-zinc-800 px-3 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 rounded bg-[#1a1a24] px-3 py-1.5 text-sm hover:bg-[#1f1f2a] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {regenNarration ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Regenerar Narracao
@@ -278,7 +278,7 @@ function ScenePanel({ jobId }: { jobId: string }) {
             type="button"
             onClick={handleRegenClip}
             disabled={regenClip || scenes.length === 0}
-            className="flex items-center justify-center gap-2 rounded bg-zinc-800 px-3 py-1.5 text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 rounded bg-[#1a1a24] px-3 py-1.5 text-sm hover:bg-[#1f1f2a] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {regenClip ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Regenerar Clip
@@ -302,35 +302,35 @@ function SubtitlePanel() {
     <div className="space-y-3">
       <Section title="Legenda">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Texto</label>
+          <label className="text-xs text-[#8888a0]">Texto</label>
           <textarea
             value={subtitle.text}
             onChange={(e) => updateSubtitle(subtitle.id, { text: e.target.value })}
             rows={3}
-            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Inicio (s)</label>
+            <label className="text-xs text-[#8888a0]">Inicio (s)</label>
             <input
               type="number"
               value={startSec}
               min={0}
               step={0.1}
               onChange={(e) => updateSubtitle(subtitle.id, { startFrame: Math.round(parseFloat(e.target.value) * EDITOR_FPS) })}
-              className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Fim (s)</label>
+            <label className="text-xs text-[#8888a0]">Fim (s)</label>
             <input
               type="number"
               value={endSec}
               min={0}
               step={0.1}
               onChange={(e) => updateSubtitle(subtitle.id, { endFrame: Math.round(parseFloat(e.target.value) * EDITOR_FPS) })}
-              className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
         </div>
@@ -338,11 +338,11 @@ function SubtitlePanel() {
 
       <Section title="Estilo">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Fonte</label>
+          <label className="text-xs text-[#8888a0]">Fonte</label>
           <select
             value={subtitle.style.fontFamily}
             onChange={(e) => updateSubtitle(subtitle.id, { style: { ...subtitle.style, fontFamily: e.target.value } })}
-            className="w-full rounded border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded border border-white/[0.08] bg-[#09090b] px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {FONT_OPTIONS.map((f) => (
               <option key={f} value={f}>{f}</option>
@@ -360,27 +360,27 @@ function SubtitlePanel() {
         />
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Cor do Texto</label>
+            <label className="text-xs text-[#8888a0]">Cor do Texto</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={subtitle.style.color}
                 onChange={(e) => updateSubtitle(subtitle.id, { style: { ...subtitle.style, color: e.target.value } })}
-                className="h-8 w-8 rounded border border-input cursor-pointer"
+                className="h-8 w-8 rounded border border-white/[0.08] cursor-pointer"
               />
-              <span className="text-xs text-muted-foreground">{subtitle.style.color}</span>
+              <span className="text-xs text-[#8888a0]">{subtitle.style.color}</span>
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Cor da Sombra</label>
+            <label className="text-xs text-[#8888a0]">Cor da Sombra</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={subtitle.style.shadowColor}
                 onChange={(e) => updateSubtitle(subtitle.id, { style: { ...subtitle.style, shadowColor: e.target.value } })}
-                className="h-8 w-8 rounded border border-input cursor-pointer"
+                className="h-8 w-8 rounded border border-white/[0.08] cursor-pointer"
               />
-              <span className="text-xs text-muted-foreground">{subtitle.style.shadowColor}</span>
+              <span className="text-xs text-[#8888a0]">{subtitle.style.shadowColor}</span>
             </div>
           </div>
         </div>
@@ -466,12 +466,12 @@ function SubtitlePresetsSection({
       <button
         type="button"
         onClick={handleSave}
-        className="w-full text-xs px-2 py-1.5 rounded border border-border hover:bg-accent"
+        className="w-full text-xs px-2 py-1.5 rounded border border-white/[0.06] hover:bg-[#1f1f2a]"
       >
         Salvar estilo atual como preset
       </button>
       {presets.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[11px] text-[#8888a0]">
           Nenhum preset salvo. Salve o estilo atual para reutilizar em outras legendas.
         </p>
       ) : (
@@ -479,7 +479,7 @@ function SubtitlePresetsSection({
           {presets.map((p) => (
             <li
               key={p.id}
-              className="flex items-center gap-1 text-xs rounded border border-border bg-card px-2 py-1"
+              className="flex items-center gap-1 text-xs rounded border border-white/[0.06] bg-[#0f0f14] px-2 py-1"
             >
               {renamingId === p.id ? (
                 <input
@@ -505,7 +505,7 @@ function SubtitlePresetsSection({
                     setRenamingId(p.id);
                     setRenameValue(p.name);
                   }}
-                  className="flex-1 text-left truncate hover:text-purple-300"
+                  className="flex-1 text-left truncate hover:text-primary/80"
                   title="Clique para aplicar, duplo clique para renomear"
                 >
                   {p.name}
@@ -514,7 +514,7 @@ function SubtitlePresetsSection({
               <button
                 type="button"
                 onClick={() => handleDelete(p.id)}
-                className="text-muted-foreground hover:text-red-400 p-0.5"
+                className="text-[#8888a0] hover:text-red-400 p-0.5"
                 title="Excluir preset"
               >
                 <X className="h-3 w-3" />
@@ -544,14 +544,14 @@ function AudioPanel() {
   return (
     <div className="space-y-3">
       <Section title="Audio">
-        <div className="text-[11px] text-muted-foreground space-y-0.5">
+        <div className="text-[11px] text-[#8888a0] space-y-0.5">
           <div className="flex justify-between">
             <span>Posicao no timeline:</span>
-            <span className="text-foreground tabular-nums">{fromSec.toFixed(2)}s</span>
+            <span className="text-[#f0f0f5] tabular-nums">{fromSec.toFixed(2)}s</span>
           </div>
           <div className="flex justify-between">
             <span>Duracao:</span>
-            <span className="text-foreground tabular-nums">{durationSec.toFixed(2)}s</span>
+            <span className="text-[#f0f0f5] tabular-nums">{durationSec.toFixed(2)}s</span>
           </div>
           {startFromSec > 0 && (
             <div className="flex justify-between text-amber-300/90">
@@ -561,7 +561,7 @@ function AudioPanel() {
           )}
         </div>
         {/* 999.14 D-09 (Bug 6 fix): explain audio editing options */}
-        <p className="text-[10px] text-muted-foreground/70 leading-tight">
+        <p className="text-[10px] text-[#8888a0]/70 leading-tight">
           Arraste as bordas do bloco para trim, arraste o meio para mover.
           Use "Cortar Inicio" / "Cortar Fim" na barra superior para um corte
           que tambem ajusta as cenas.
@@ -622,9 +622,9 @@ export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
     if (audio) parts.push(`${audio} audio${audio > 1 ? "s" : ""}`);
     return (
       <div className="p-4 space-y-3">
-        <p className="text-sm text-foreground">
+        <p className="text-sm text-[#f0f0f5]">
           {selection.size} itens selecionados
-          <span className="block text-xs text-muted-foreground mt-0.5">
+          <span className="block text-xs text-[#8888a0] mt-0.5">
             {parts.join(" · ")}
           </span>
         </p>
@@ -632,7 +632,7 @@ export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
           <button
             type="button"
             onClick={() => bulkDuplicateSelected()}
-            className="rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:bg-card/80"
+            className="rounded-md border border-white/[0.06] bg-[#0f0f14] px-3 py-1.5 text-xs hover:bg-[#0f0f14]/80"
           >
             Duplicar todos (Cmd+D)
           </button>
@@ -660,7 +660,7 @@ export function PropertiesPanel({ jobId }: PropertiesPanelProps) {
   if (!scene && !subtitle) {
     return (
       <div className="flex items-center justify-center h-40 p-4">
-        <p className="text-sm text-muted-foreground text-center">
+        <p className="text-sm text-[#8888a0] text-center">
           Selecione uma cena ou legenda para editar
         </p>
       </div>

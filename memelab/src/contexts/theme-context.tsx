@@ -4,10 +4,11 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 
 // ── Full theme palette ───────────────────────────────────────────────
 
-export type PaletteCategory = "core" | "flatui-vibrant" | "flatui-earth" | "flatui-neon" | "flatui-pastel";
+export type PaletteCategory = "core" | "modern" | "flatui-vibrant" | "flatui-earth" | "flatui-neon" | "flatui-pastel";
 
 export const PALETTE_CATEGORIES: { id: PaletteCategory; label: string }[] = [
   { id: "core", label: "Core" },
+  { id: "modern", label: "Modern" },
   { id: "flatui-vibrant", label: "FlatUI Vibrant" },
   { id: "flatui-earth", label: "FlatUI Earth" },
   { id: "flatui-neon", label: "FlatUI Neon" },
@@ -708,6 +709,127 @@ export const PALETTES: ThemePalette[] = [
     surfaceTint: "156, 136, 255", ring: "#9c88ff",
     gradientFrom: "#8c7ae6", gradientVia: "#9c88ff", gradientTo: "#dcdde1",
   },
+  // ── Modern ──────────────────────────────────────────────────────────
+  {
+    id: "mod-arctic", label: "Arctic Blue", category: "modern",
+    primary: "#0EA5E9", primaryForeground: "#ffffff",
+    secondary: "#0284C7", secondaryForeground: "#ffffff",
+    accent: "#7DD3FC", accentForeground: "#0c4a6e",
+    complement: "#F97316", complementForeground: "#ffffff",
+    success: "#22C55E", warning: "#EAB308", destructive: "#EF4444", info: "#06B6D4",
+    surfaceTint: "14, 165, 233", ring: "#0EA5E9",
+    gradientFrom: "#0284C7", gradientVia: "#0EA5E9", gradientTo: "#7DD3FC",
+  },
+  {
+    id: "mod-emerald-glass", label: "Emerald Glass", category: "modern",
+    primary: "#10B981", primaryForeground: "#ffffff",
+    secondary: "#059669", secondaryForeground: "#ffffff",
+    accent: "#6EE7B7", accentForeground: "#064e3b",
+    complement: "#F472B6", complementForeground: "#ffffff",
+    success: "#22C55E", warning: "#FBBF24", destructive: "#FB7185", info: "#67E8F9",
+    surfaceTint: "16, 185, 129", ring: "#10B981",
+    gradientFrom: "#059669", gradientVia: "#10B981", gradientTo: "#6EE7B7",
+  },
+  {
+    id: "mod-rose-gold", label: "Rose Gold", category: "modern",
+    primary: "#F43F5E", primaryForeground: "#ffffff",
+    secondary: "#BE123C", secondaryForeground: "#ffffff",
+    accent: "#FDA4AF", accentForeground: "#881337",
+    complement: "#14B8A6", complementForeground: "#ffffff",
+    success: "#4ADE80", warning: "#FCD34D", destructive: "#DC2626", info: "#38BDF8",
+    surfaceTint: "244, 63, 94", ring: "#F43F5E",
+    gradientFrom: "#BE123C", gradientVia: "#F43F5E", gradientTo: "#FDA4AF",
+  },
+  {
+    id: "mod-sunset-amber", label: "Sunset Amber", category: "modern",
+    primary: "#F59E0B", primaryForeground: "#000000",
+    secondary: "#D97706", secondaryForeground: "#000000",
+    accent: "#FCD34D", accentForeground: "#78350f",
+    complement: "#8B5CF6", complementForeground: "#ffffff",
+    success: "#34D399", warning: "#FB923C", destructive: "#EF4444", info: "#60A5FA",
+    surfaceTint: "245, 158, 11", ring: "#F59E0B",
+    gradientFrom: "#D97706", gradientVia: "#F59E0B", gradientTo: "#FCD34D",
+  },
+  {
+    id: "mod-electric-indigo", label: "Electric Indigo", category: "modern",
+    primary: "#6366F1", primaryForeground: "#ffffff",
+    secondary: "#4F46E5", secondaryForeground: "#ffffff",
+    accent: "#A5B4FC", accentForeground: "#312e81",
+    complement: "#FB923C", complementForeground: "#000000",
+    success: "#10B981", warning: "#F59E0B", destructive: "#F43F5E", info: "#22D3EE",
+    surfaceTint: "99, 102, 241", ring: "#6366F1",
+    gradientFrom: "#4F46E5", gradientVia: "#6366F1", gradientTo: "#A5B4FC",
+  },
+  {
+    id: "mod-cyber-teal", label: "Cyber Teal", category: "modern",
+    primary: "#14B8A6", primaryForeground: "#ffffff",
+    secondary: "#0D9488", secondaryForeground: "#ffffff",
+    accent: "#5EEAD4", accentForeground: "#134e4a",
+    complement: "#E879F9", complementForeground: "#ffffff",
+    success: "#22C55E", warning: "#FBBF24", destructive: "#F43F5E", info: "#38BDF8",
+    surfaceTint: "20, 184, 166", ring: "#14B8A6",
+    gradientFrom: "#0D9488", gradientVia: "#14B8A6", gradientTo: "#5EEAD4",
+  },
+  {
+    id: "mod-midnight-purple", label: "Midnight Purple", category: "modern",
+    primary: "#A855F7", primaryForeground: "#ffffff",
+    secondary: "#9333EA", secondaryForeground: "#ffffff",
+    accent: "#D8B4FE", accentForeground: "#581c87",
+    complement: "#22D3EE", complementForeground: "#000000",
+    success: "#4ADE80", warning: "#FBBF24", destructive: "#FB7185", info: "#67E8F9",
+    surfaceTint: "168, 85, 247", ring: "#A855F7",
+    gradientFrom: "#7C3AED", gradientVia: "#A855F7", gradientTo: "#D8B4FE",
+  },
+  {
+    id: "mod-hot-pink", label: "Hot Pink", category: "modern",
+    primary: "#EC4899", primaryForeground: "#ffffff",
+    secondary: "#DB2777", secondaryForeground: "#ffffff",
+    accent: "#F9A8D4", accentForeground: "#831843",
+    complement: "#34D399", complementForeground: "#000000",
+    success: "#4ADE80", warning: "#FCD34D", destructive: "#EF4444", info: "#38BDF8",
+    surfaceTint: "236, 72, 153", ring: "#EC4899",
+    gradientFrom: "#DB2777", gradientVia: "#EC4899", gradientTo: "#F9A8D4",
+  },
+  {
+    id: "mod-forest", label: "Forest", category: "modern",
+    primary: "#16A34A", primaryForeground: "#ffffff",
+    secondary: "#15803D", secondaryForeground: "#ffffff",
+    accent: "#86EFAC", accentForeground: "#14532d",
+    complement: "#F472B6", complementForeground: "#ffffff",
+    success: "#4ADE80", warning: "#FBBF24", destructive: "#F43F5E", info: "#38BDF8",
+    surfaceTint: "22, 163, 74", ring: "#16A34A",
+    gradientFrom: "#15803D", gradientVia: "#16A34A", gradientTo: "#86EFAC",
+  },
+  {
+    id: "mod-slate-steel", label: "Slate Steel", category: "modern",
+    primary: "#64748B", primaryForeground: "#ffffff",
+    secondary: "#475569", secondaryForeground: "#ffffff",
+    accent: "#94A3B8", accentForeground: "#1e293b",
+    complement: "#F59E0B", complementForeground: "#000000",
+    success: "#22C55E", warning: "#EAB308", destructive: "#EF4444", info: "#0EA5E9",
+    surfaceTint: "100, 116, 139", ring: "#64748B",
+    gradientFrom: "#475569", gradientVia: "#64748B", gradientTo: "#94A3B8",
+  },
+  {
+    id: "mod-coral", label: "Coral Reef", category: "modern",
+    primary: "#FB7185", primaryForeground: "#ffffff",
+    secondary: "#F43F5E", secondaryForeground: "#ffffff",
+    accent: "#FECDD3", accentForeground: "#881337",
+    complement: "#06B6D4", complementForeground: "#ffffff",
+    success: "#34D399", warning: "#FBBF24", destructive: "#DC2626", info: "#38BDF8",
+    surfaceTint: "251, 113, 133", ring: "#FB7185",
+    gradientFrom: "#F43F5E", gradientVia: "#FB7185", gradientTo: "#FECDD3",
+  },
+  {
+    id: "mod-neon-lime", label: "Neon Lime", category: "modern",
+    primary: "#84CC16", primaryForeground: "#000000",
+    secondary: "#65A30D", secondaryForeground: "#ffffff",
+    accent: "#BEF264", accentForeground: "#365314",
+    complement: "#D946EF", complementForeground: "#ffffff",
+    success: "#22C55E", warning: "#F59E0B", destructive: "#EF4444", info: "#06B6D4",
+    surfaceTint: "132, 204, 22", ring: "#84CC16",
+    gradientFrom: "#65A30D", gradientVia: "#84CC16", gradientTo: "#BEF264",
+  },
 ];
 
 export type ThemeMode = "dark" | "light";
@@ -775,9 +897,16 @@ function applyPalette(palette: ThemePalette, mode: ThemeMode) {
   s.setProperty("--color-complement", palette.complement);
   s.setProperty("--color-complement-foreground", palette.complementForeground);
 
-  // Secondary (derived from palette, not from mode)
+  // Secondary accent — direct palette color for explicit use
   s.setProperty("--color-secondary-accent", palette.secondary);
   s.setProperty("--color-secondary-accent-foreground", palette.secondaryForeground);
+
+  // Chart colors (used by Recharts, dashboards, etc.)
+  s.setProperty("--color-chart-1", palette.primary);
+  s.setProperty("--color-chart-2", palette.accent);
+  s.setProperty("--color-chart-3", palette.complement);
+  s.setProperty("--color-chart-4", palette.info);
+  s.setProperty("--color-chart-5", palette.success);
 
   // Gradients
   s.setProperty("--gradient-from", palette.gradientFrom);
