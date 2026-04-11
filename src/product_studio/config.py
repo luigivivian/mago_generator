@@ -418,6 +418,8 @@ CATEGORY_DEFAULT = {
 # Replaces global VIDEO_QUALITY_SUFFIX pattern with shot-type-aware instructions.
 STABILITY_SUFFIXES: dict[str, str] = {
     "static_macro": "Locked camera, no movement, no jitter, no drift, no deformation. Ultra slow motion, stable picture.",
+    "static": "Locked camera, perfectly stable, no jitter, no drift, no deformation. Stable picture.",
+    "dolly": "Smooth controlled dolly movement, no jitter, no drift, no deformation. Stable tracking, smooth motion.",
     "dolly_out": "Smooth controlled dolly movement, no jitter, no drift, no deformation. Stable tracking, smooth motion.",
     "dolly_in": "Smooth controlled dolly push-in, no jitter, no drift, no deformation. Stable tracking, smooth motion.",
     "push_in": "Controlled dolly push-in, steady tracking, no jitter, no drift, no deformation. Stable picture.",
@@ -426,6 +428,7 @@ STABILITY_SUFFIXES: dict[str, str] = {
     "pull_back": "Smooth controlled pull-back, no jitter, no drift, no deformation. Stable tracking.",
     "product_rotate": "Smooth product rotation, no jitter, no wobble, no deformation. Stable picture, controlled spin.",
     "crane": "Smooth crane sweep, no jitter, no drift, no deformation. Controlled vertical movement, stable picture.",
+    "macro_zoom": "Smooth controlled zoom, no jitter, no drift, no deformation. Stable picture.",
 }
 STABILITY_SUFFIX_DEFAULT = "Smooth motion, no jitter, no drift, no deformation. Stable picture, ultra slow motion."
 

@@ -186,8 +186,6 @@ async def generate_storyboard(
     Returns:
         List of StoryboardScene Pydantic instances.
     """
-    from google import genai
-
     cfg = CATEGORY_CONFIGS.get(category, CATEGORY_DEFAULT)
     num_takes = max(3, min(5, num_takes))
 
@@ -244,7 +242,7 @@ async def generate_storyboard(
         return storyboard
 
     # ── Gemini fallback: product-aware take suggestions ──
-    client = genai.Client()
+    client = _get_client()
 
     image_parts = []
     for path in image_paths[:4]:
@@ -257,7 +255,7 @@ async def generate_storyboard(
         f"Generate exactly {num_takes} takes for a premium commercial video.\n\n"
         f"For each take, return:\n"
         f"- action_description: What happens in the shot (under 200 chars)\n"
-        f"- camera_move: one of: dolly, orbit, macro_zoom, static, crane, static_macro, dolly_out, push_in\n"
+        f"- camera_move: one of: dolly, orbit, macro_zoom, static, crane, static_macro, dolly_out, dolly_in, push_in, tilt_up, pull_back, product_rotate\n"
         f"- duration: 3-10 seconds\n"
         f"- transition_type: one of: dissolve, cut, wipeleft, fade, fadeblack\n"
         f"- atmosphere: atmospheric description (haze, steam, particles, light rays)\n"
@@ -283,7 +281,8 @@ async def generate_storyboard(
                 "camera_move": {
                     "type": "string",
                     "enum": ["dolly", "orbit", "macro_zoom", "static", "crane",
-                             "static_macro", "dolly_out", "push_in"],
+                             "static_macro", "dolly_out", "dolly_in", "push_in",
+                             "tilt_up", "pull_back", "product_rotate"],
                 },
                 "duration": {"type": "integer"},
                 "transition_type": {
@@ -304,7 +303,8 @@ async def generate_storyboard(
         },
     }
 
-    response = await client.aio.models.generate_content(
+    response = await asyncio.to_thread(
+        client.models.generate_content,
         model="gemini-2.5-flash",
         contents=[instruction, *image_parts],
         config=types.GenerateContentConfig(
