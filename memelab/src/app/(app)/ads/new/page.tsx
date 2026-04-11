@@ -12,6 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createAdJobV2, generateScenePrompt, composePreview } from "@/lib/api";
 
+const VIDEO_MODELS = [
+  { value: "kling-3.0/video", label: "Kling 3.0" },
+  { value: "kling-2.1/video", label: "Kling 2.1" },
+  { value: "seedance-1.0/video", label: "Seedance 1.0" },
+  { value: "wan-2.1/video", label: "Wan 2.1" },
+  { value: "veo-3/video", label: "Veo 3" },
+];
+
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return (
@@ -68,7 +76,8 @@ export default function NewAdPage() {
   const [editingPromptFor, setEditingPromptFor] = useState<number | null>(null);
   const [singlePrompt, setSinglePrompt] = useState("");
 
-  // Step 4: Submit
+  // Step 4: Video config
+  const [videoModel, setVideoModel] = useState("kling-3.0/video");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -218,6 +227,8 @@ export default function NewAdPage() {
         category,
         image_urls: selectedUrls,
         composed_urls: approvedComposed.map((c) => c.url),
+        video_model: videoModel,
+        scene_prompts: approvedComposed.map((c) => c.prompt),
       });
       router.push(`/ads/${job.job_id}`);
     } catch (err) {
@@ -419,58 +430,67 @@ export default function NewAdPage() {
                   {composed.map((item, idx) => (
                     <div
                       key={idx}
-                      className={`relative group rounded-lg overflow-hidden border-2 transition-all aspect-[9/16] ${
+                      className={`relative group rounded-lg overflow-hidden border-2 transition-all flex flex-col ${
                         item.approved
                           ? "border-green-500 ring-2 ring-green-500/30"
                           : "border-border hover:border-muted-foreground/30"
                       }`}
                     >
-                      {composingIdx === idx && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                      )}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.url} alt={`composed ${idx + 1}`} className="w-full h-full object-cover" />
+                      {/* Image */}
+                      <div className="relative aspect-[9/16]">
+                        {composingIdx === idx && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          </div>
+                        )}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt={`composed ${idx + 1}`} className="w-full h-full object-cover" />
+                        {item.approved && (
+                          <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-0.5">
+                            <Check className="h-3 w-3" />
+                          </div>
+                        )}
+                      </div>
 
-                      {/* Approve badge */}
-                      {item.approved && (
-                        <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-0.5">
-                          <Check className="h-3 w-3" />
-                        </div>
-                      )}
+                      {/* Prompt preview */}
+                      <div className="p-2 bg-card border-t border-border">
+                        <p className="text-[10px] text-muted-foreground line-clamp-2 leading-tight">
+                          {item.prompt}
+                        </p>
+                      </div>
 
                       {/* Action bar */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 justify-center">
+                      <div className="flex border-t border-border divide-x divide-border">
                         <button
                           onClick={() => toggleApprove(idx)}
-                          className={`p-1.5 rounded-md text-xs ${
-                            item.approved ? "bg-green-600 text-white" : "bg-white/20 text-white hover:bg-white/30"
+                          className={`flex-1 p-1.5 text-xs flex items-center justify-center gap-1 transition-colors ${
+                            item.approved
+                              ? "bg-green-600/20 text-green-400"
+                              : "text-muted-foreground hover:bg-muted"
                           }`}
-                          title={item.approved ? "Remover aprovacao" : "Aprovar"}
                         >
-                          <Check className="h-3.5 w-3.5" />
+                          <Check className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => handleRegenSingle(idx)}
-                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-white/30 text-xs"
+                          className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-muted flex items-center justify-center"
                           title="Regenerar"
                         >
-                          <RotateCcw className="h-3.5 w-3.5" />
+                          <RotateCcw className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => { setEditingPromptFor(idx); setSinglePrompt(item.prompt); }}
-                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-white/30 text-xs"
-                          title="Editar prompt e regenerar"
+                          className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-muted flex items-center justify-center"
+                          title="Editar prompt"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => removeComposed(idx)}
-                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-red-600/80 text-xs"
+                          className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-red-600/20 hover:text-red-400 flex items-center justify-center"
                           title="Remover"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
@@ -509,16 +529,75 @@ export default function NewAdPage() {
           </section>
         )}
 
-        {/* ── Step 4: Submit ── */}
+        {/* ── Step 4: Video config + Submit ── */}
         {approvedComposed.length > 0 && (
-          <section className="space-y-3">
+          <section className="space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              4. Gerar video
+              4. Configuracao do video
             </h3>
+
+            {/* Model selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Modelo de video</label>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {VIDEO_MODELS.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setVideoModel(m.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm transition-all ${
+                      videoModel === m.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Per-scene prompt review */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prompts por cena (editaveis)</label>
+              <div className="space-y-2">
+                {approvedComposed.map((item, idx) => (
+                  <div key={idx} className="flex gap-3 items-start rounded-lg border border-border p-2 bg-card">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.url}
+                      alt={`scene ${idx + 1}`}
+                      className="w-16 h-28 rounded object-cover flex-shrink-0"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
+                      <Textarea
+                        value={item.prompt}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setComposed((prev) => {
+                            const approvedIdx = prev.filter((c) => c.approved).indexOf(item);
+                            let count = 0;
+                            return prev.map((c) => {
+                              if (!c.approved) return c;
+                              if (count++ === approvedIdx) return { ...c, prompt: val };
+                              return c;
+                            });
+                          });
+                        }}
+                        rows={2}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Button className="w-full" onClick={handleSubmit} disabled={submitting} size="lg">
               {submitting
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Criando video ad...</>
-                : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad ({approvedComposed.length} cenas aprovadas)</>}
+                : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad — {videoModel.split("/")[0]} ({approvedComposed.length} cenas)</>}
             </Button>
           </section>
         )}

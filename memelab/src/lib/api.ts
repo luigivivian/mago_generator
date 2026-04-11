@@ -1909,6 +1909,8 @@ export async function createAdJobV2(data: {
   category: string;
   image_urls: string[];
   composed_urls?: string[];
+  video_model?: string;
+  scene_prompts?: string[];
   takes?: unknown[];
   output_formats?: string[];
   audio_mode?: string;
