@@ -71,9 +71,23 @@ def test_06_kling_multi_image():
     assert False, "kling_v3 multi-image payload not implemented"
 
 
-@pytest.mark.xfail(reason="REQ-PS2-07: sfx library not yet implemented", strict=True)
 def test_07_sfx_library():
-    assert False, "SFX library not implemented"
+    from src.product_studio.sfx_library import (
+        SFX_CATALOG,
+        get_sfx_by_id,
+        get_sfx_by_category,
+        auto_select_sfx_for_product,
+    )
+    assert len(SFX_CATALOG) >= 12
+    assert get_sfx_by_id("asmr_crunch_01") is not None
+    assert get_sfx_by_id("nonexistent") is None
+    asmr = get_sfx_by_category("asmr")
+    assert len(asmr) >= 4
+    asmr_food = get_sfx_by_category("asmr", "food_cookies")
+    assert any(e["id"] == "asmr_crunch_01" for e in asmr_food)
+    selection = auto_select_sfx_for_product("food_cookies")
+    assert "ambient_id" in selection
+    assert "hit_ids" in selection
 
 
 @pytest.mark.xfail(reason="REQ-PS2-08: audio mixing not yet implemented", strict=True)
