@@ -19,8 +19,11 @@ import type { AdJob } from "@/lib/api";
 
 const STATUS_BADGE: Record<string, { color: string; label: string; icon: typeof Clock }> = {
   draft: { color: "bg-amber-500/20 text-amber-400 border-amber-500/30", label: "Rascunho", icon: FileEdit },
+  pending: { color: "bg-sky-500/20 text-sky-400 border-sky-500/30", label: "Na fila", icon: Clock },
+  processing: { color: "bg-sky-500/20 text-sky-400 border-sky-500/30", label: "Gerando", icon: Loader2 },
   generating: { color: "bg-sky-500/20 text-sky-400 border-sky-500/30", label: "Gerando", icon: Loader2 },
   complete: { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", label: "Completo", icon: CheckCircle2 },
+  error: { color: "bg-red-500/20 text-red-400 border-red-500/30", label: "Erro", icon: XCircle },
   failed: { color: "bg-red-500/20 text-red-400 border-red-500/30", label: "Falhou", icon: XCircle },
 };
 
@@ -110,7 +113,7 @@ export default function AdsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium line-clamp-2">{job.product_name}</p>
                         <Badge variant="outline" className={badge.color}>
-                          {job.status === "generating" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                          {(job.status === "generating" || job.status === "processing" || job.status === "pending") && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                           {badge.label}
                         </Badge>
                       </div>
@@ -119,6 +122,11 @@ export default function AdsPage() {
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
                           {STYLE_LABELS[job.style] ?? job.style}
                         </Badge>
+                        {job.pipeline_version === 2 && (
+                          <Badge variant="outline" className="bg-violet-500/10 text-violet-400 border-violet-500/30 text-xs">
+                            v2
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
