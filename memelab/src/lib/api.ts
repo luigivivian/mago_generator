@@ -1837,6 +1837,7 @@ export interface AdJob {
   status: string;
   style: string;
   product_name: string;
+  pipeline_version?: number;
   step_state: Record<string, { status: string; result?: unknown }> | null;
   cost_brl: number | null;
   outputs: Record<string, string> | null;

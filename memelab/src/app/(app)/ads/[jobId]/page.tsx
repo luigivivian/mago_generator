@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2, Play, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useAdSteps } from "@/hooks/use-ads";
+import { useAdSteps, useAdJob } from "@/hooks/use-ads";
 import { executeAdStep, approveAdStep, regenerateAdStep } from "@/lib/api";
 import { AdStepper, AdStepContent, ADS_STEP_ORDER, getStepStatus } from "@/components/ads/stepper";
 import { Button } from "@/components/ui/button";
@@ -51,13 +51,16 @@ export default function AdJobPage() {
   const params = useParams<{ jobId: string }>();
   const jobId = params.jobId;
   const { data, error, isLoading, mutate } = useAdSteps(jobId);
+  const { data: jobData, isLoading: jobLoading } = useAdJob(jobId);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [viewingStep, setViewingStep] = useState<string | null>(null);
   const autoStarted = useRef(false);
 
   // Auto-start first step if all steps are pending (new draft)
+  // Skip for v2 jobs — they run the pipeline in background automatically
   useEffect(() => {
     if (!data || autoStarted.current) return;
+    if ((data as any).pipeline_version === 2) return;
     const allPending = data.steps.every((s) => s.status === "pending");
     if (allPending && data.steps.length > 0) {
       autoStarted.current = true;
@@ -84,6 +87,83 @@ export default function AdJobPage() {
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-center">
           <p className="text-red-400">Ad nao encontrado ou erro ao carregar.</p>
         </div>
+      </div>
+    );
+  }
+
+  const pipelineVersion = jobData?.pipeline_version ?? (data as any)?.pipeline_version ?? 1;
+  const jobStatus = jobData?.status ?? "pending";
+  const jobOutputs = (jobData as any)?.outputs as Record<string, string> | undefined;
+
+  // V2 jobs: show pipeline status with real-time polling via useAdJob
+  if (pipelineVersion === 2) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/ads">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Video Ad</h1>
+            <p className="text-muted-foreground">
+              Pipeline v2 — {jobData?.product_name ?? "multi-scene cinematico"}
+            </p>
+          </div>
+        </div>
+
+        {jobStatus === "processing" || jobStatus === "pending" ? (
+          <div className="rounded-lg border bg-card p-12 flex flex-col items-center gap-4">
+            <div className="relative">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <div className="absolute inset-0 h-10 w-10 rounded-full bg-primary/10 animate-ping" />
+            </div>
+            <p className="text-sm font-medium">Gerando video cinematico...</p>
+            <p className="text-xs text-muted-foreground">
+              Storyboard, geracao de cenas, composicao e audio. Pode levar 3-8 minutos.
+            </p>
+            <p className="text-[10px] text-muted-foreground/50">Atualizando automaticamente...</p>
+          </div>
+        ) : jobStatus === "error" || jobStatus === "failed" ? (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 space-y-2">
+            <p className="text-red-400 font-medium">Erro na geracao</p>
+            <p className="text-red-400/70 text-sm">
+              {(jobData as any)?.error_message || "O pipeline encontrou um erro. Tente criar um novo ad."}
+            </p>
+            <Link href="/ads/new">
+              <Button variant="outline" size="sm" className="mt-2">Criar novo ad</Button>
+            </Link>
+          </div>
+        ) : jobStatus === "complete" ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6 space-y-3">
+              <p className="text-emerald-400 font-medium">Video gerado com sucesso!</p>
+              {jobOutputs?.composed_video && (
+                <video
+                  src={`/api/ads/${jobId}/file/${jobOutputs.composed_video.split("/").pop()}`}
+                  controls
+                  autoPlay
+                  muted
+                  className="w-full max-w-lg rounded-lg border border-border"
+                />
+              )}
+              {jobOutputs && !jobOutputs.composed_video && (
+                <div className="space-y-2">
+                  {Object.entries(jobOutputs).map(([key, val]) => (
+                    <div key={key} className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">{key}:</span>
+                      <span className="text-foreground truncate">{String(val).split("/").pop()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Link href="/ads/new">
+              <Button variant="outline" size="sm">Criar outro ad</Button>
+            </Link>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -165,7 +245,7 @@ export default function AdJobPage() {
     const props = {
       stepState: activeStepData ?? { step_name: activeView, status: "pending" as const },
       onApprove: () => handleApprove(activeView),
-      onRegenerate: () => handleRegenerate(activeView),
+      onRegenerate: (overrides?: { video_model?: string; target_duration?: string }) => handleRegenerate(activeView, overrides),
       jobId,
     };
 
