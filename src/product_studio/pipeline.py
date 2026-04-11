@@ -253,6 +253,117 @@ class ProductAdPipeline:
         return video_paths
 
     # ------------------------------------------------------------------
+    # Step 4b (v2): Multi-take Kling generation (Phase 1002)
+    # ------------------------------------------------------------------
+
+    async def run_step_generation_v2(
+        self,
+        image_urls: list[str],
+        takes: list[dict],
+        job_dir: str,
+        product_name: str = "product",
+        aspect_ratio: str = "9:16",
+    ) -> dict:
+        """V2 Step: Generate video using Kling multi-image elements + multi-shot.
+
+        Strategy:
+            - If sum(take durations) <= 15s AND len(takes) <= 5 → single Kling
+              task with multi_prompt + kling_elements (multi-shot mode).
+            - Else → per-take individual Kling calls, composed later in Plan 05.
+
+        Args:
+            image_urls: 1-4 publicly accessible product image URLs (from
+                /ads/upload-images in Plan 03).
+            takes: List of TakeConfig dicts (or .model_dump() output) with
+                at least `prompt` and `duration` fields.
+            job_dir: Directory for downloaded videos.
+            product_name: Used as element description for Kling.
+            aspect_ratio: "9:16" | "16:9" | "1:1".
+
+        Returns:
+            Dict: {"video_paths": [...], "mode": "multi_shot" | "per_take",
+                   "cost_usd": float}
+
+        Raises:
+            RuntimeError: If any Kling call returns None (generation failed).
+        """
+        from src.video_gen.kie_client import KieSora2Client
+
+        total_duration = sum(int(t["duration"]) for t in takes)
+        client = KieSora2Client()
+        # Kling 3.0 model id per RESEARCH.md
+        kling_model = "kling-3.0/video"
+
+        if total_duration <= 15 and len(takes) <= 5:
+            # Single multi-shot call: multi_prompt drives Kling's per-shot
+            # breakdown; kling_elements binds product refs to @prod.
+            multi_prompt = [
+                {"prompt": t["prompt"][:463], "duration": int(t["duration"])}
+                for t in takes
+            ]
+            kling_elements = [{
+                "name": "prod",
+                "description": f"product being advertised: {product_name}",
+                "element_input_urls": image_urls[:4],
+            }]
+            extra = {"multi_prompt": multi_prompt, "kling_elements": kling_elements}
+
+            result = await client.generate_video(
+                image_url=image_urls[0],
+                prompt=multi_prompt[0]["prompt"],
+                duration=total_duration,
+                output_dir=job_dir,
+                model=kling_model,
+                extra=extra,
+            )
+            if result is None:
+                raise RuntimeError(
+                    "Kling multi_shot generation failed (client returned None)"
+                )
+            logger.info(
+                "Step generation_v2 complete (multi_shot): %s", result.local_path
+            )
+            return {
+                "video_paths": [result.local_path],
+                "mode": "multi_shot",
+                "cost_usd": float(result.cost_usd or 0.0),
+            }
+
+        # Fallback: per-take generation
+        video_paths: list[str] = []
+        total_cost = 0.0
+        for i, t in enumerate(takes):
+            take_dir = os.path.join(job_dir, f"take_{i}")
+            os.makedirs(take_dir, exist_ok=True)
+            result = await client.generate_video(
+                image_url=image_urls[0],
+                prompt=t["prompt"][:463],
+                duration=int(t["duration"]),
+                output_dir=take_dir,
+                model=kling_model,
+                extra={"kling_elements": [{
+                    "name": "prod",
+                    "description": f"product: {product_name}",
+                    "element_input_urls": image_urls[:4],
+                }]},
+            )
+            if result is None:
+                raise RuntimeError(
+                    f"Kling per-take generation failed at take {i}"
+                )
+            video_paths.append(result.local_path)
+            total_cost += float(result.cost_usd or 0.0)
+
+        logger.info(
+            "Step generation_v2 complete (per_take): %d clips", len(video_paths)
+        )
+        return {
+            "video_paths": video_paths,
+            "mode": "per_take",
+            "cost_usd": total_cost,
+        }
+
+    # ------------------------------------------------------------------
     # Step 5: Copy
     # ------------------------------------------------------------------
 

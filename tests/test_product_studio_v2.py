@@ -41,9 +41,80 @@ def test_02_image_treatment(tmp_path):
     assert os.path.getsize(result) <= 10 * 1024 * 1024
 
 
-@pytest.mark.xfail(reason="REQ-PS2-03: scene generation not yet implemented", strict=True)
-def test_03_scene_generation():
-    assert False, "generate_storyboard not implemented"
+def test_03_scene_generation(monkeypatch, tmp_path):
+    import asyncio
+    import json as _json
+    import sys
+    import types as _types
+
+    from PIL import Image
+
+    # Stub google.genai so the import inside generate_storyboard succeeds
+    # without the real SDK being installed in the test environment.
+    class _MockResponse:
+        text = _json.dumps([
+            {
+                "action_description": "Slow reveal of the product against a dark backdrop",
+                "camera_move": "dolly",
+                "duration": 4,
+                "transition_type": "dissolve",
+                "rationale": "opens the commercial",
+            },
+            {
+                "action_description": "Macro detail shot showing product texture",
+                "camera_move": "macro_zoom",
+                "duration": 3,
+                "transition_type": "cut",
+                "rationale": "shows texture",
+            },
+            {
+                "action_description": "Hero shot with orbital camera motion",
+                "camera_move": "orbit",
+                "duration": 5,
+                "transition_type": "fade",
+                "rationale": "final impact",
+            },
+        ])
+
+    class _MockModels:
+        async def generate_content(self, **kw):
+            return _MockResponse()
+
+    class _MockAio:
+        def __init__(self):
+            self.models = _MockModels()
+
+    class _MockClient:
+        def __init__(self, **kw):
+            self.aio = _MockAio()
+
+    google_mod = sys.modules.get("google") or _types.ModuleType("google")
+    genai_mod = _types.ModuleType("google.genai")
+    genai_mod.Client = _MockClient
+    google_mod.genai = genai_mod
+    monkeypatch.setitem(sys.modules, "google", google_mod)
+    monkeypatch.setitem(sys.modules, "google.genai", genai_mod)
+
+    img_path = tmp_path / "product.jpg"
+    Image.new("RGB", (500, 500), color="blue").save(str(img_path))
+
+    from src.product_studio import scene_composer
+    from src.product_studio.models import StoryboardScene, TakeConfig
+
+    storyboard = asyncio.run(
+        scene_composer.generate_storyboard(
+            image_paths=[str(img_path)],
+            category="food_cookies",
+            product_name="Test Cookie",
+            num_takes=3,
+        )
+    )
+    assert len(storyboard) == 3
+    assert isinstance(storyboard[0], StoryboardScene)
+    assert isinstance(storyboard[0].take_config, TakeConfig)
+    assert storyboard[0].take_config.camera_move == "dolly"
+    assert storyboard[0].category_defaults_applied == "food_cookies"
+    assert storyboard[0].take_config.order == 0
 
 
 @pytest.mark.xfail(reason="REQ-PS2-04: take editor not yet implemented", strict=True)
@@ -66,9 +137,37 @@ def test_05_category_templates():
     assert "@prod" in prompt
 
 
-@pytest.mark.xfail(reason="REQ-PS2-06: kling multi-image not yet implemented", strict=True)
 def test_06_kling_multi_image():
-    assert False, "kling_v3 multi-image payload not implemented"
+    from src.video_gen.kie_client import KieSora2Client
+
+    # Pass dummy key directly — _KIE_API_KEY is frozen at module import time
+    c = KieSora2Client(api_key="test-key-dummy")
+    payload = c._build_payload(
+        input_format="kling_v3",
+        model="kling-3.0/video",
+        image_url="https://example.com/a.jpg",
+        prompt="fallback prompt",
+        duration=12,
+        extra={
+            "multi_prompt": [
+                {"prompt": "shot 1", "duration": 4},
+                {"prompt": "shot 2", "duration": 4},
+                {"prompt": "shot 3", "duration": 4},
+            ],
+            "kling_elements": [{
+                "name": "prod",
+                "description": "test",
+                "element_input_urls": [
+                    "https://example.com/a.jpg",
+                    "https://example.com/b.jpg",
+                ],
+            }],
+        },
+    )
+    assert payload["input"]["multi_shots"] is True
+    assert len(payload["input"]["multi_prompt"]) == 3
+    assert "kling_elements" in payload["input"]
+    assert len(payload["input"]["kling_elements"][0]["element_input_urls"]) == 2
 
 
 def test_07_sfx_library():

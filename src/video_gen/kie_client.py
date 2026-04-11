@@ -127,6 +127,7 @@ class KieSora2Client:
         negative_prompt: str = "",
         character_ids: list[str] | None = None,
         aspect_ratio: str = "9:16",
+        extra: dict | None = None,
     ) -> dict:
         """Build Kie.ai createTask payload per model format.
 
@@ -215,10 +216,14 @@ class KieSora2Client:
         #       aspect_ratio "16:9"/"9:16"/"1:1" (optional if image provided),
         #       multi_shots (bool, required), sound (bool, required),
         #       multi_prompt (array, required when multi_shots=true)
+        # v2 extensions (Phase 1002): multi_prompt + kling_elements for
+        # multi-shot coherent generation from multi-image product refs.
         if input_format == "kling_v3":
             # Normalize aspect_ratio — Kling only accepts "16:9", "9:16", "1:1"
             ar = aspect_ratio if aspect_ratio in ("16:9", "9:16", "1:1") else "9:16"
-            return {"model": model, "input": {
+            extra_kw = extra or {}
+
+            payload_input = {
                 "prompt": prompt,
                 "image_urls": [image_url],
                 "duration": dur,
@@ -226,7 +231,19 @@ class KieSora2Client:
                 "aspect_ratio": ar,
                 "sound": False,
                 "multi_shots": False,
-            }}
+            }
+
+            # v2: multi_shots + multi_prompt for multi-take generation
+            if extra_kw.get("multi_prompt"):
+                payload_input["multi_shots"] = True
+                payload_input["multi_prompt"] = extra_kw["multi_prompt"]
+
+            # v2: kling_elements for multi-image product references
+            # (image_urls stays as first-frame hint; Kie.ai accepts both patterns)
+            if extra_kw.get("kling_elements"):
+                payload_input["kling_elements"] = extra_kw["kling_elements"]
+
+            return {"model": model, "input": payload_input}
 
         # ── Grok Imagine ────────────────────────────────────────
         # Docs: image_urls (array max 7), mode "normal"/"fun"/"spicy",
@@ -267,6 +284,7 @@ class KieSora2Client:
         aspect_ratio: str = "portrait",
         model: str | None = None,
         negative_prompt: str = "",
+        extra: dict | None = None,
     ) -> str:
         """Submit an image-to-video generation task.
 
@@ -326,6 +344,7 @@ class KieSora2Client:
             negative_prompt=negative_prompt,
             character_ids=character_ids,
             aspect_ratio=aspect_ratio,
+            extra=extra,
         )
 
         logger.info(
@@ -540,6 +559,7 @@ class KieSora2Client:
         output_dir: str | None = None,
         model: str | None = None,
         negative_prompt: str = "",
+        extra: dict | None = None,
     ) -> VideoGenerationResult | None:
         """Full pipeline: create task -> poll -> download video.
 
@@ -562,6 +582,7 @@ class KieSora2Client:
                 character_ids=character_ids,
                 model=model,
                 negative_prompt=negative_prompt,
+                extra=extra,
             )
         except (KieAPIError, httpx.HTTPError) as e:
             logger.error("Failed to create video task: %s", e)
