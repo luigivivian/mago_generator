@@ -90,14 +90,95 @@ def test_07_sfx_library():
     assert "hit_ids" in selection
 
 
-@pytest.mark.xfail(reason="REQ-PS2-08: audio mixing not yet implemented", strict=True)
-def test_08_audio_mixing():
-    assert False, "audio mixing not implemented"
+def test_08_audio_mixing(tmp_path, monkeypatch):
+    from src.product_studio.take_composer import compose_take_audio, calculate_sfx_offsets
+
+    offsets = calculate_sfx_offsets([4.0, 4.0, 4.0], transition_duration=0.5)
+    assert offsets[0] == 0.0
+    assert offsets[1] == 3.5
+    assert offsets[2] == 7.0
+
+    calls = []
+    import subprocess
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    out = tmp_path / "mixed.m4a"
+    compose_take_audio(
+        ambient_path=None,
+        sfx_entries=[],
+        output_path=str(out),
+        total_duration=12.0,
+    )
+    assert len(calls) == 1
+    cmd = calls[0]
+    assert "ffmpeg" in cmd[0]
+    assert "anullsrc" in " ".join(cmd)
+
+    calls.clear()
+    fake_sfx = tmp_path / "hit.mp3"
+    fake_sfx.write_bytes(b"\x00" * 16)
+    out2 = tmp_path / "mixed_with_sfx.m4a"
+    compose_take_audio(
+        ambient_path=None,
+        sfx_entries=[
+            {"path": str(fake_sfx), "offset_sec": 3.5, "volume": 0.8},
+            {"path": str(fake_sfx), "offset_sec": 7.0, "volume": 0.6},
+        ],
+        output_path=str(out2),
+        total_duration=12.0,
+    )
+    assert len(calls) == 1
+    cmd2 = calls[0]
+    cmd2_joined = " ".join(cmd2)
+    assert "amix=inputs=3" in cmd2_joined
+    assert "adelay=3500|3500" in cmd2_joined
+    assert "adelay=7000|7000" in cmd2_joined
+    assert "volume=0.8" in cmd2_joined
+    assert "volume=0.6" in cmd2_joined
 
 
-@pytest.mark.xfail(reason="REQ-PS2-09: video composition not yet implemented", strict=True)
-def test_09_video_composition():
-    assert False, "video composition not implemented"
+def test_09_video_composition(tmp_path, monkeypatch):
+    from src.product_studio.take_composer import compose_takes
+
+    calls = []
+
+    def fake_concat(segment_paths, output_path, transition_duration, transition_type):
+        calls.append({
+            "paths": segment_paths,
+            "duration": transition_duration,
+            "type": transition_type,
+        })
+        open(output_path, "w").close()
+        return output_path
+
+    monkeypatch.setattr("src.reels_pipeline.video_builder.concat_segments", fake_concat)
+
+    v1 = tmp_path / "v1.mp4"
+    v1.write_text("")
+    v2 = tmp_path / "v2.mp4"
+    v2.write_text("")
+    v3 = tmp_path / "v3.mp4"
+    v3.write_text("")
+    out = tmp_path / "composed.mp4"
+
+    compose_takes(
+        video_paths=[str(v1), str(v2), str(v3)],
+        transition_types=["dissolve", "cut"],
+        output_path=str(out),
+        transition_duration=0.5,
+    )
+    assert len(calls) == 2
+    assert calls[0]["duration"] == 0.5
+    assert calls[1]["duration"] == 0.0
 
 
 @pytest.mark.xfail(reason="REQ-PS2-10: multi-format export not yet implemented", strict=True)
