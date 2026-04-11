@@ -149,10 +149,12 @@ def build_free_prompt(
         NEGATIVE_PROMPTS_BASE,
     )
     stability = STABILITY_SUFFIXES.get(shot_type, STABILITY_SUFFIX_DEFAULT)
-    positive = f"{user_prompt.strip()}. {stability}"
-    if len(positive) > 2000:
-        positive = positive[:1997] + "..."
     negative = f"{NEGATIVE_PROMPTS_BASE}, {PRODUCT_PRESERVE_NEGATIVE}"
+    # Reserve space for " Negative: {negative}" when callers embed it into prompt
+    max_positive = 2000 - len(f" Negative: {negative}") - 1
+    positive = f"{user_prompt.strip()}. {stability}"
+    if len(positive) > max_positive:
+        positive = positive[:max_positive - 3] + "..."
     return positive, negative
 
 
