@@ -78,8 +78,12 @@ class TakeConfig(BaseModel):
     """Single take/shot configuration for v2 cinematic pipeline."""
     id: str = Field(default_factory=lambda: str(uuid4()))
     order: int = Field(..., ge=0, description="Take order in storyboard")
-    prompt: str = Field(..., max_length=463, description="Action description for Kling (463 char limit after @element)")
-    camera_move: Literal["dolly", "orbit", "macro_zoom", "static", "crane"] = Field(default="static")
+    prompt: str = Field(..., max_length=2000, description="Kling-ready video prompt (2000 char budget)")
+    camera_move: Literal[
+        "dolly", "orbit", "macro_zoom", "static", "crane",
+        "static_macro", "dolly_out", "dolly_in", "push_in",
+        "tilt_up", "pull_back", "product_rotate",
+    ] = Field(default="static")
     duration: int = Field(default=5, ge=3, le=10, description="Take duration 3-10s")
     transition_type: Literal["dissolve", "cut", "wipeleft", "fade", "fadeblack"] = Field(default="dissolve")
     sfx_id: Optional[str] = Field(default=None, description="SFX library entry ID")
