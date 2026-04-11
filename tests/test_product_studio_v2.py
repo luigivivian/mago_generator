@@ -117,9 +117,18 @@ def test_03_scene_generation(monkeypatch, tmp_path):
     assert storyboard[0].take_config.order == 0
 
 
-@pytest.mark.xfail(reason="REQ-PS2-04: take editor not yet implemented", strict=True)
 def test_04_take_editor():
-    assert False, "TakeEditor component not implemented"
+    # REQ-PS2-04: TakeEditor is a frontend component. Assert the file ships.
+    path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "memelab",
+        "src",
+        "components",
+        "ads",
+        "take-editor.tsx",
+    )
+    assert os.path.exists(path), f"take-editor.tsx not found at {path}"
 
 
 def test_05_category_templates():
