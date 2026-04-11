@@ -104,7 +104,15 @@ class AdCreateRequestV2(BaseModel):
 
 
 class AdJobResponseV2(AdJobResponse):
-    """Extended response for v2 jobs."""
-    pipeline_version: int = Field(default=2)
+    """Extended response for v2 jobs. Defaulted fields let v1 rows round-trip
+    through the same listing endpoint without errors (pipeline_version=1,
+    image_urls=[], etc.)."""
+    pipeline_version: int = Field(default=1)
     takes: list[TakeConfig] = Field(default_factory=list)
-    storyboard: list[StoryboardScene] = Field(default_factory=list)
+    storyboard: Optional[list] = Field(default=None)
+    # Raw storage shapes surfaced for v2 clients; v1 clients may ignore
+    image_urls: list[str] = Field(default_factory=list)
+    category: Optional[str] = Field(default=None)
+    takes_config: Optional[list[dict]] = Field(default=None)
+    composed_video_path: Optional[str] = Field(default=None)
+    takes_output_paths: list[str] = Field(default_factory=list)

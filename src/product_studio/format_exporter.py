@@ -270,3 +270,77 @@ def export_all_formats(
         results[fmt] = out_path
 
     return results
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# V2 cinematic pipeline (Phase 1002) — multi-format takes + thumbnail
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def export_takes_multi_format(
+    composed_video_path: str,
+    take_video_paths: list[str],
+    output_dir: str,
+    formats: list[str],
+) -> dict:
+    """Export final composed video in multiple formats AND individual takes.
+
+    Args:
+        composed_video_path: Path to the final composed video (from compose_takes).
+        take_video_paths: Paths to individual take videos for per-take export.
+        output_dir: Base output directory.
+        formats: List of aspect ratios: "9:16", "16:9", "1:1".
+
+    Returns:
+        {
+          "final": {"9:16": path, "16:9": path, "1:1": path},
+          "takes": [{"9:16": path, ...}, ...],
+          "thumbnail": path,
+        }
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    takes_dir = os.path.join(output_dir, "takes")
+    os.makedirs(takes_dir, exist_ok=True)
+
+    # Export final composed video in all formats
+    final_exports = export_all_formats(composed_video_path, output_dir, formats)
+
+    # Export each take in all formats (skip when take_video_paths is empty,
+    # e.g. multi_shot mode where the composed video IS the only video)
+    takes_exports: list[dict[str, str]] = []
+    for i, take_path in enumerate(take_video_paths):
+        take_out_dir = os.path.join(takes_dir, f"take_{i}")
+        os.makedirs(take_out_dir, exist_ok=True)
+        take_exports = export_all_formats(take_path, take_out_dir, formats)
+        takes_exports.append(take_exports)
+
+    # Generate thumbnail from the first frame of composed video
+    thumbnail_path = os.path.join(output_dir, "thumbnail.jpg")
+    generate_thumbnail(composed_video_path, thumbnail_path)
+
+    return {
+        "final": final_exports,
+        "takes": takes_exports,
+        "thumbnail": thumbnail_path,
+    }
+
+
+def generate_thumbnail(
+    video_path: str,
+    output_path: str,
+    timestamp_sec: float = 0.5,
+) -> str:
+    """Extract a thumbnail JPG from a video at the given timestamp.
+
+    Uses ffmpeg -ss for fast seek.
+    """
+    cmd = [
+        "ffmpeg", "-y",
+        "-ss", str(timestamp_sec),
+        "-i", video_path,
+        "-frames:v", "1",
+        "-q:v", "2",
+        output_path,
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=30)
+    return output_path

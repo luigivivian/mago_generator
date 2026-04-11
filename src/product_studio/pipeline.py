@@ -364,6 +364,216 @@ class ProductAdPipeline:
         }
 
     # ------------------------------------------------------------------
+    # V2 end-to-end orchestrator (Phase 1002) — Plan 06
+    # ------------------------------------------------------------------
+
+    async def run_v2_pipeline(
+        self,
+        image_urls: list[str],
+        category: str,
+        product_name: str,
+        takes: list[dict] | None = None,
+        output_formats: list[str] | None = None,
+        audio_mode: str = "sfx",
+        aspect_ratio: str = "9:16",
+    ) -> dict:
+        """End-to-end v2 cinematic pipeline orchestrator.
+
+        Pipeline steps (composed from Plans 01-05):
+            1. Download reference images (for scene composer that needs local paths)
+            2. Generate storyboard via scene_composer.generate_storyboard
+               (skipped if takes explicitly provided)
+            3. Generate videos via run_step_generation_v2 (Kling multi-shot or
+               per-take fallback)
+            4. Compose takes with xfade transitions (per-take mode only)
+            5. Auto-select SFX per product category, build ambient+hits audio
+               track, mux into composed video (if audio_mode == "sfx")
+            6. Export multi-format (9:16 / 16:9 / 1:1) + per-take variants +
+               thumbnail
+
+        Args:
+            image_urls: 1-4 publicly accessible product image URLs. These are
+                the GCS URLs returned by POST /ads/upload-images (Plan 03).
+            category: Product category key (food_cookies, beauty_skincare, ...).
+                Falls back to CATEGORY_DEFAULT if unknown.
+            product_name: Human-readable product name (used as Kling element
+                description and for job directory naming).
+            takes: Optional list of TakeConfig dicts. If None, storyboard is
+                auto-generated from the images via Gemini.
+            output_formats: Export aspect ratios. Defaults to ["9:16"].
+            audio_mode: "sfx" | "music" | "mute". Only "sfx" is implemented in
+                v2.0 (music/mute skip the audio compose step).
+            aspect_ratio: Kling output aspect ratio (passed through).
+
+        Returns:
+            {
+              "job_dir": absolute path to job working directory,
+              "composed_video": final muxed video path,
+              "exports": export_takes_multi_format() return value,
+              "takes": the final list of take dicts used (post-storyboard),
+              "cost_usd": generation cost from Kling,
+              "mode": "multi_shot" | "per_take",
+            }
+
+        Raises:
+            RuntimeError: If any Kling call fails.
+            httpx.HTTPError: If image download fails.
+        """
+        import httpx
+
+        from src.product_studio.format_exporter import export_takes_multi_format
+        from src.product_studio.scene_composer import generate_storyboard
+        from src.product_studio.sfx_library import (
+            auto_select_sfx_for_product,
+            resolve_sfx_path,
+        )
+        from src.product_studio.take_composer import (
+            calculate_sfx_offsets,
+            compose_take_audio,
+            compose_takes,
+        )
+
+        output_formats = output_formats or ["9:16"]
+        job_dir = self._make_job_dir(product_name)
+
+        # ── Step 1: Download images to local paths for scene composer ──
+        local_image_paths: list[str] = []
+        async with httpx.AsyncClient(timeout=60.0) as hc:
+            for i, url in enumerate(image_urls):
+                resp = await hc.get(url)
+                resp.raise_for_status()
+                local = os.path.join(job_dir, f"ref_{i}.jpg")
+                with open(local, "wb") as fp:
+                    fp.write(resp.content)
+                local_image_paths.append(local)
+
+        # ── Step 2: Generate storyboard if no takes provided ──
+        if not takes:
+            storyboard = await generate_storyboard(
+                image_paths=local_image_paths,
+                category=category,
+                product_name=product_name,
+                num_takes=4,
+            )
+            # generate_storyboard returns list[StoryboardScene] (pydantic).
+            # Extract TakeConfig dicts for run_step_generation_v2.
+            takes = []
+            for scene in storyboard:
+                if hasattr(scene, "take_config"):
+                    takes.append(scene.take_config.model_dump())
+                elif isinstance(scene, dict) and "take_config" in scene:
+                    tc = scene["take_config"]
+                    takes.append(tc.model_dump() if hasattr(tc, "model_dump") else tc)
+                else:
+                    # Already a bare dict
+                    takes.append(scene)
+
+        # ── Step 3: Generate videos via Kling ──
+        gen_result = await self.run_step_generation_v2(
+            image_urls=image_urls,
+            takes=takes,
+            job_dir=job_dir,
+            product_name=product_name,
+            aspect_ratio=aspect_ratio,
+        )
+        video_paths = gen_result["video_paths"]
+
+        # ── Step 4: Compose takes (skip for multi_shot — one video already) ──
+        if gen_result["mode"] == "multi_shot":
+            composed_video = video_paths[0]
+            # Multi-shot returns one composed video; no per-take exports
+            take_video_paths: list[str] = []
+        else:
+            transition_types = [
+                t.get("transition_type", "dissolve") for t in takes[:-1]
+            ]
+            composed_video = os.path.join(job_dir, "composed_video.mp4")
+            compose_takes(
+                video_paths=video_paths,
+                transition_types=transition_types,
+                output_path=composed_video,
+                transition_duration=0.5,
+            )
+            take_video_paths = list(video_paths)
+
+        # ── Step 5: Audio composition (SFX mode only in v2.0) ──
+        if audio_mode == "sfx":
+            sfx_selection = auto_select_sfx_for_product(category)
+            ambient_path = resolve_sfx_path(sfx_selection.get("ambient_id") or "")
+
+            take_durations = [float(t.get("duration", 5)) for t in takes]
+            offsets = calculate_sfx_offsets(take_durations, transition_duration=0.5)
+
+            hit_ids = sfx_selection.get("hit_ids") or []
+            sfx_entries: list[dict] = []
+            for i, offset in enumerate(offsets):
+                if not hit_ids:
+                    break
+                sfx_id = hit_ids[i % len(hit_ids)]
+                path = resolve_sfx_path(sfx_id)
+                if path:
+                    sfx_entries.append({
+                        "path": path,
+                        "offset_sec": offset,
+                        "volume": 0.8,
+                    })
+
+            total_duration = sum(take_durations)
+            audio_path = os.path.join(job_dir, "composed_audio.m4a")
+            compose_take_audio(
+                ambient_path=ambient_path,
+                sfx_entries=sfx_entries,
+                output_path=audio_path,
+                total_duration=total_duration,
+            )
+
+            # Mux audio + video via ffmpeg (video copied, audio re-encoded aac)
+            muxed_path = os.path.join(job_dir, "composed_muxed.mp4")
+            await asyncio.to_thread(
+                subprocess.run,
+                [
+                    "ffmpeg", "-y",
+                    "-i", composed_video,
+                    "-i", audio_path,
+                    "-c:v", "copy",
+                    "-c:a", "aac",
+                    "-map", "0:v:0",
+                    "-map", "1:a:0",
+                    "-shortest",
+                    muxed_path,
+                ],
+                check=True,
+                capture_output=True,
+                timeout=120,
+            )
+            composed_video = muxed_path
+
+        # ── Step 6: Multi-format export + thumbnail ──
+        exports = export_takes_multi_format(
+            composed_video_path=composed_video,
+            take_video_paths=take_video_paths,
+            output_dir=os.path.join(job_dir, "exports"),
+            formats=output_formats,
+        )
+
+        logger.info(
+            "V2 pipeline complete: mode=%s takes=%d formats=%d cost_usd=%.4f",
+            gen_result["mode"],
+            len(takes),
+            len(output_formats),
+            gen_result["cost_usd"],
+        )
+
+        return {
+            "job_dir": job_dir,
+            "composed_video": composed_video,
+            "exports": exports,
+            "takes": takes,
+            "cost_usd": gen_result["cost_usd"],
+            "mode": gen_result["mode"],
+        }
+
+    # ------------------------------------------------------------------
     # Step 5: Copy
     # ------------------------------------------------------------------
 

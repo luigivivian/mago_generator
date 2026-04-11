@@ -24,7 +24,9 @@ from src.database.models import ProductAdJob
 from src.product_studio.config import ADS_STEP_ORDER, ADS_OUTPUT_DIR
 from src.product_studio.models import (
     AdCreateRequest,
+    AdCreateRequestV2,
     AdJobResponse,
+    AdJobResponseV2,
     AdStepStateResponse,
     AdCostEstimate,
 )
@@ -76,9 +78,17 @@ async def _get_user_job(
     return job
 
 
-def _job_to_response(job: ProductAdJob) -> AdJobResponse:
-    """Convert ORM model to response."""
-    return AdJobResponse(
+def _job_to_response(job: ProductAdJob) -> AdJobResponseV2:
+    """Convert ORM model to response.
+
+    Returns `AdJobResponseV2` (subclass of `AdJobResponse`) so both v1 and v2
+    rows serialize through the same listing endpoint. v1 rows get
+    `pipeline_version=1`, `image_urls=[]`, `takes_config=None` — v2 clients
+    detect the shape via `pipeline_version`.
+    """
+    outputs = job.outputs or {}
+    return AdJobResponseV2(
+        # ── v1 fields (unchanged) ──
         job_id=job.job_id,
         status=job.status,
         style=job.style,
@@ -88,6 +98,15 @@ def _job_to_response(job: ProductAdJob) -> AdJobResponse:
         outputs=job.outputs,
         created_at=job.created_at,
         updated_at=job.updated_at,
+        # ── v2 fields ──
+        pipeline_version=getattr(job, "pipeline_version", 1) or 1,
+        image_urls=list(getattr(job, "image_urls", None) or []),
+        category=getattr(job, "category", None),
+        takes_config=getattr(job, "takes_config", None),
+        storyboard=getattr(job, "storyboard", None),
+        composed_video_path=outputs.get("composed_video") if isinstance(outputs, dict) else None,
+        takes_output_paths=[],
+        takes=[],
     )
 
 
@@ -475,13 +494,17 @@ async def analyze_product(
         }
 
 
-@router.post("/create", response_model=AdJobResponse)
+@router.post("/create", response_model=AdJobResponseV2)
 async def create_ad_job(
     req: AdCreateRequest,
     db: AsyncSession = Depends(db_session),
     current_user=Depends(get_current_user),
 ):
-    """Create a new product ad job with wizard config."""
+    """Create a new product ad job with wizard config (v1 pipeline).
+
+    Note: response_model is AdJobResponseV2 so both v1 and v2 rows use a
+    single consistent shape. v1 callers get pipeline_version=1.
+    """
     from src.product_studio.pipeline import ProductAdPipeline
 
     job_id = str(uuid.uuid4())
@@ -522,7 +545,123 @@ async def create_ad_job(
     return _job_to_response(job)
 
 
-@router.get("/jobs", response_model=list[AdJobResponse])
+@router.post("/create-v2", response_model=AdJobResponseV2)
+async def create_ad_job_v2(
+    req: AdCreateRequestV2,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(db_session),
+    current_user=Depends(get_current_user),
+):
+    """Create a v2 cinematic multi-scene ad job (Phase 1002).
+
+    Accepts pre-uploaded GCS image URLs (from POST /ads/upload-images) and
+    either auto-generates a storyboard via Gemini or uses caller-supplied
+    takes. The pipeline runs in a FastAPI background task; poll
+    GET /ads/{job_id} for status and outputs.
+
+    Backward compat: v1 jobs created via POST /create remain visible via
+    GET /jobs and serialize through the same response shape (with
+    pipeline_version=1).
+    """
+    job_id = str(uuid.uuid4())
+    step_state = _init_step_state()
+
+    takes_dump = [t.model_dump() for t in req.takes] if req.takes else None
+
+    job = ProductAdJob(
+        job_id=job_id,
+        user_id=current_user.id,
+        product_name=req.product_name,
+        product_images=[],
+        config=req.model_dump(),
+        style="cinematic",
+        audio_mode=req.audio_mode,
+        output_formats=req.output_formats,
+        status="pending",
+        step_state=step_state,
+        # V2 columns
+        pipeline_version=2,
+        image_urls=req.image_urls,
+        category=req.category,
+        takes_config=takes_dump,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Schedule v2 pipeline execution
+    from src.database.session import get_session_factory
+    session_factory = get_session_factory()
+    background_tasks.add_task(
+        _execute_v2_pipeline_task,
+        job_id=job_id,
+        session_factory=session_factory,
+    )
+
+    return _job_to_response(job)
+
+
+async def _execute_v2_pipeline_task(job_id: str, session_factory):
+    """Background task: run the v2 cinematic pipeline end-to-end and update
+    the ProductAdJob row with outputs or the failure reason.
+
+    Uses an independent DB session (same pattern as `_execute_ad_step_task`).
+    """
+    from src.product_studio.pipeline import ProductAdPipeline
+
+    async with session_factory() as session:
+        job = None
+        try:
+            result = await session.execute(
+                select(ProductAdJob).where(ProductAdJob.job_id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                logger.error("v2 pipeline: job %s not found", job_id)
+                return
+
+            job.status = "processing"
+            await session.commit()
+
+            config = dict(job.config or {})
+            pipeline = ProductAdPipeline(config=config)
+
+            pipeline_result = await pipeline.run_v2_pipeline(
+                image_urls=list(job.image_urls or []),
+                category=job.category or "generic",
+                product_name=job.product_name,
+                takes=list(job.takes_config) if job.takes_config else None,
+                output_formats=job.output_formats or ["9:16"],
+                audio_mode=job.audio_mode or "sfx",
+            )
+
+            job.status = "complete"
+            job.outputs = {
+                "composed_video": pipeline_result["composed_video"],
+                "exports": pipeline_result["exports"],
+                "mode": pipeline_result["mode"],
+                "job_dir": pipeline_result["job_dir"],
+            }
+            job.takes_config = pipeline_result["takes"]
+            job.cost_brl = float(pipeline_result["cost_usd"]) * 5.0  # rough USD->BRL
+            flag_modified(job, "outputs")
+            flag_modified(job, "takes_config")
+            await session.commit()
+            logger.info("v2 pipeline complete for job %s", job_id)
+        except Exception as e:
+            logger.error("v2 pipeline failed for job %s: %s", job_id, str(e))
+            logger.error(traceback.format_exc())
+            if job is not None:
+                try:
+                    job.status = "failed"
+                    job.error_message = str(e)[:500]
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+            raise
+
+
+@router.get("/jobs", response_model=list[AdJobResponseV2])
 async def list_ad_jobs(
     status: str | None = Query(default=None),
     character_slug: str | None = Query(default=None),
@@ -546,7 +685,7 @@ async def list_ad_jobs(
     return [_job_to_response(j) for j in jobs]
 
 
-@router.get("/{job_id}", response_model=AdJobResponse)
+@router.get("/{job_id}", response_model=AdJobResponseV2)
 async def get_ad_job(
     job_id: str,
     db: AsyncSession = Depends(db_session),

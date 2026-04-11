@@ -280,11 +280,161 @@ def test_09_video_composition(tmp_path, monkeypatch):
     assert calls[1]["duration"] == 0.0
 
 
-@pytest.mark.xfail(reason="REQ-PS2-10: multi-format export not yet implemented", strict=True)
-def test_10_multi_format_export():
-    assert False, "multi-format export not implemented"
+def test_10_multi_format_export(tmp_path, monkeypatch):
+    """Verify export_takes_multi_format calls export_all_formats for final +
+    each take and produces a thumbnail. Mocks export_all_formats + subprocess.run
+    so no real ffmpeg is required."""
+    from src.product_studio import format_exporter
+
+    def fake_export_all(video_path, output_dir, formats):
+        # Mimic shape of real export_all_formats return
+        import os as _os
+        _os.makedirs(output_dir, exist_ok=True)
+        return {
+            f: _os.path.join(output_dir, f"out_{f.replace(':', '_')}.mp4")
+            for f in formats
+        }
+
+    monkeypatch.setattr(format_exporter, "export_all_formats", fake_export_all)
+
+    import subprocess
+
+    def fake_run(cmd, **kw):
+        # Touch the output file (last arg in the ffmpeg cmd) so downstream
+        # code sees the thumbnail exists.
+        if isinstance(cmd, (list, tuple)) and "ffmpeg" in str(cmd[0]):
+            out_path = cmd[-1]
+            open(out_path, "w").close()
+
+        class R:
+            returncode = 0
+            stdout = b""
+            stderr = b""
+
+        return R()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    composed = tmp_path / "composed.mp4"
+    composed.write_text("")
+    t1 = tmp_path / "t1.mp4"
+    t1.write_text("")
+    t2 = tmp_path / "t2.mp4"
+    t2.write_text("")
+
+    result = format_exporter.export_takes_multi_format(
+        composed_video_path=str(composed),
+        take_video_paths=[str(t1), str(t2)],
+        output_dir=str(tmp_path / "out"),
+        formats=["9:16", "16:9", "1:1"],
+    )
+    assert "final" in result
+    assert "takes" in result
+    assert "thumbnail" in result
+    assert len(result["takes"]) == 2
+    assert "9:16" in result["final"]
+    assert "16:9" in result["final"]
+    assert "1:1" in result["final"]
+    # Thumbnail file was "created" by the fake ffmpeg run
+    assert os.path.exists(result["thumbnail"])
 
 
-@pytest.mark.xfail(reason="REQ-PS2-11: backward compat not yet implemented", strict=True)
 def test_11_backward_compat():
-    assert False, "backward compat not implemented"
+    """Verify v1 + v2 Pydantic request models coexist and the DB model
+    exposes a pipeline_version column that defaults to 1 for old rows."""
+    # v1 Pydantic model still accepts old request shape
+    from src.product_studio.models import AdCreateRequest
+    req = AdCreateRequest(product_name="Test", style="cinematic")
+    assert req.style == "cinematic"
+
+    # v2 Pydantic model accepts new request shape
+    from src.product_studio.models import AdCreateRequestV2
+    req2 = AdCreateRequestV2(
+        product_name="Test",
+        category="food_cookies",
+        image_urls=["a.jpg", "b.jpg"],
+    )
+    assert req2.audio_mode == "sfx"
+    assert req2.category == "food_cookies"
+    assert len(req2.image_urls) == 2
+
+    # DB model has pipeline_version column with default 1 for old rows
+    from src.database.models import ProductAdJob
+    col = ProductAdJob.__table__.columns.get("pipeline_version")
+    assert col is not None
+    # server_default="1" ensures old rows land with pipeline_version=1
+    assert col.server_default is not None
+    # v2 columns exist
+    assert ProductAdJob.__table__.columns.get("takes_config") is not None
+    assert ProductAdJob.__table__.columns.get("storyboard") is not None
+    assert ProductAdJob.__table__.columns.get("image_urls") is not None
+    assert ProductAdJob.__table__.columns.get("category") is not None
+
+    # v2 response model extends v1 response (subclass relationship preserves compat)
+    from src.product_studio.models import AdJobResponse, AdJobResponseV2
+    assert issubclass(AdJobResponseV2, AdJobResponse)
+
+
+def test_11b_job_to_response_v2_shape():
+    """Verify _job_to_response emits v2 fields for both v1 and v2 ProductAdJob
+    rows. Does not require a live DB session — uses a detached ORM instance.
+    """
+    from datetime import datetime
+    from src.api.routes.ads import _job_to_response
+    from src.database.models import ProductAdJob
+    from src.product_studio.models import AdJobResponseV2
+
+    # v2 job (detached — never added to a session)
+    v2_job = ProductAdJob(
+        id=1,
+        job_id="test-v2-job",
+        user_id=1,
+        product_name="Test v2",
+        style="cinematic",
+        status="complete",
+        pipeline_version=2,
+        image_urls=["https://example.com/a.jpg", "https://example.com/b.jpg"],
+        category="food_cookies",
+        takes_config=[{
+            "id": "t1",
+            "order": 0,
+            "prompt": "shot 1",
+            "camera_move": "dolly",
+            "duration": 5,
+            "transition_type": "dissolve",
+            "sfx_id": None,
+            "thumbnail_url": None,
+        }],
+        storyboard=None,
+        step_state={},
+        cost_brl=0.0,
+        outputs={"composed_video": "/out/composed.mp4"},
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    resp_v2 = _job_to_response(v2_job)
+    assert isinstance(resp_v2, AdJobResponseV2)
+    assert resp_v2.pipeline_version == 2
+    assert resp_v2.image_urls == ["https://example.com/a.jpg", "https://example.com/b.jpg"]
+    assert resp_v2.takes_config is not None and len(resp_v2.takes_config) == 1
+    assert resp_v2.category == "food_cookies"
+
+    # v1 job should round-trip cleanly with defaulted v2 fields
+    v1_job = ProductAdJob(
+        id=2,
+        job_id="test-v1-job",
+        user_id=1,
+        product_name="Test v1",
+        style="cinematic",
+        status="complete",
+        pipeline_version=1,
+        step_state={},
+        cost_brl=0.0,
+        outputs={},
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    resp_v1 = _job_to_response(v1_job)
+    assert resp_v1.pipeline_version == 1
+    assert resp_v1.image_urls == []
+    assert resp_v1.takes_config is None
