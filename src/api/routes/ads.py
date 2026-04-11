@@ -483,6 +483,68 @@ async def upload_product_images(
     return {"image_urls": urls, "count": len(urls)}
 
 
+@router.post("/generate-scene-prompt")
+async def generate_scene_prompt(
+    req: dict,
+    current_user=Depends(get_current_user),
+):
+    """Generate a professional scene prompt using GMINI_PROMPT_HELPER system instruction.
+
+    Takes product_name + category, returns an AI-generated scene composition prompt
+    that the user can edit before composing.
+    """
+    from src.llm_client import _get_client, _extract_text
+    from src.product_studio.config import CATEGORY_CONFIGS
+
+    product_name = req.get("product_name", "product")
+    category = req.get("category", "generic")
+
+    cat_cfg = CATEGORY_CONFIGS.get(category, CATEGORY_CONFIGS.get("generic", {}))
+    surface = cat_cfg.get("surface", "clean white surface")
+    atmospheres = cat_cfg.get("atmospheres", ["soft natural studio lighting"])
+    color_grade = cat_cfg.get("color_grade", "clean neutral tones")
+
+    system_instruction = (
+        'You are "AI Image Prompt Helper," a specialist prompt engineer for AI image generation. '
+        "Your sole job is to produce precise, production-ready text prompts that will generate "
+        "or recreate specific visuals in any AI image model.\n\n"
+        "Output ONLY the prompt text. No preamble, no labels. Write in flowing paragraphs. "
+        "Use focal lengths, f-stops, lighting types, and specific color grades.\n\n"
+        "Every prompt must address: Subject and Action, Environment and Background, "
+        "Lighting and Mood, Style/Quality Descriptors, Camera Perspective/Focal Length, "
+        "Composition and Framing.\n\n"
+        "CRITICAL: The product must remain PIXEL-PERFECT identical to the input photo. "
+        "Do NOT add humans, hands, fingers, body parts, text, watermarks, or logos. "
+        "Vertical 9:16 composition, product centered in lower 2/3, top 1/3 clean for text overlay."
+    )
+
+    user_prompt = (
+        f"Create a product advertisement photo composition prompt for: {product_name}\n"
+        f"Category: {category}\n"
+        f"Suggested surface: {surface}\n"
+        f"Atmosphere options: {', '.join(atmospheres[:3])}\n"
+        f"Color grade: {color_grade}\n\n"
+        "Generate a single cohesive prompt paragraph describing the BACKGROUND and ENVIRONMENT only. "
+        "The product itself will be placed via image composition — describe the scene around it. "
+        "Keep under 400 characters."
+    )
+
+    client = _get_client()
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model="gemini-2.5-flash",
+        contents=[{"role": "user", "parts": [{"text": user_prompt}]}],
+        config={"system_instruction": system_instruction, "temperature": 0.85},
+    )
+
+    prompt_text = _extract_text(response).strip()
+    # Clean markdown artifacts
+    if prompt_text.startswith('"') and prompt_text.endswith('"'):
+        prompt_text = prompt_text[1:-1]
+
+    return {"prompt": prompt_text}
+
+
 @router.post("/compose-preview")
 async def compose_preview(
     req: dict,
@@ -490,56 +552,53 @@ async def compose_preview(
 ):
     """Compose product images onto clean backgrounds using Gemini.
 
-    Takes GCS image URLs + category + product_name, runs scene composition
-    for each, uploads composed results to GCS, returns preview URLs.
-    User reviews these before submitting to video pipeline.
+    Accepts:
+    - image_url (str): single GCS image URL to compose
+    - prompt (str): scene composition prompt (user-editable)
+    - count (int): number of variations to generate (default 1, max 8)
+
+    Returns list of composed image URLs.
     """
     import tempfile
     import httpx
 
-    image_urls = req.get("image_urls", [])
-    category = req.get("category", "generic")
-    product_name = req.get("product_name", "product")
+    image_url = req.get("image_url", "")
+    prompt = req.get("prompt", "")
+    count = min(int(req.get("count", 1)), 8)
 
-    if not image_urls:
-        raise HTTPException(400, "image_urls required")
-    if len(image_urls) > 4:
-        raise HTTPException(400, "Max 4 images")
+    if not image_url:
+        raise HTTPException(400, "image_url required")
+    if not prompt:
+        raise HTTPException(400, "prompt required")
 
     from src.product_studio.scene_composer import compose_scene
-    from src.product_studio.config import CATEGORY_CONFIGS
     from src.video_gen.gcs_uploader import GCSUploader
 
-    cat_cfg = CATEGORY_CONFIGS.get(category, CATEGORY_CONFIGS.get("generic", {}))
-    surface = cat_cfg.get("surface", "clean white marble surface").split("|")[0].strip()
-    atmospheres = cat_cfg.get("atmospheres", ["soft natural studio lighting"])
-    scene_prompt = f"{surface}, {atmospheres[0]}"
-
     uploader = GCSUploader()
-    composed_urls: list[str] = []
+    user_id = current_user.id
+
+    async def _compose_one(idx: int, tmp: str) -> str:
+        async with httpx.AsyncClient(timeout=60) as http:
+            resp = await http.get(image_url)
+            if resp.status_code != 200:
+                raise HTTPException(400, f"Failed to download image: {resp.status_code}")
+            raw_path = os.path.join(tmp, f"raw_{idx}.jpg")
+            with open(raw_path, "wb") as fp:
+                fp.write(resp.content)
+
+            composed_path = os.path.join(tmp, f"composed_{idx}.jpg")
+            await compose_scene(raw_path, prompt, composed_path)
+
+            import uuid as _uuid
+            remote_name = f"ads/v2/{user_id}/composed_{_uuid.uuid4().hex[:8]}.jpg"
+            return await asyncio.to_thread(uploader.upload_image, composed_path, remote_name)
 
     with tempfile.TemporaryDirectory() as tmp:
-        async with httpx.AsyncClient(timeout=30) as http:
-            for i, url in enumerate(image_urls):
-                # Download GCS image
-                resp = await http.get(url)
-                if resp.status_code != 200:
-                    raise HTTPException(400, f"Failed to download image {i}: {resp.status_code}")
-                raw_path = os.path.join(tmp, f"raw_{i}.jpg")
-                with open(raw_path, "wb") as fp:
-                    fp.write(resp.content)
+        composed_urls = await asyncio.gather(
+            *[_compose_one(i, tmp) for i in range(count)]
+        )
 
-                # Compose scene via Gemini
-                composed_path = os.path.join(tmp, f"composed_{i}.jpg")
-                await compose_scene(raw_path, scene_prompt, composed_path)
-
-                # Upload composed image to GCS
-                import uuid as _uuid
-                remote_name = f"ads/v2/{current_user.id}/composed_{_uuid.uuid4().hex[:8]}.jpg"
-                composed_url = await asyncio.to_thread(uploader.upload_image, composed_path, remote_name)
-                composed_urls.append(composed_url)
-
-    return {"composed_urls": composed_urls, "scene_prompt": scene_prompt, "count": len(composed_urls)}
+    return {"composed_urls": list(composed_urls), "count": len(composed_urls)}
 
 
 @router.post("/analyze")

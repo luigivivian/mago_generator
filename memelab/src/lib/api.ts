@@ -2077,13 +2077,35 @@ export async function exportRemotion(jobId: string) {
   );
 }
 
-export async function composePreview(data: {
-  image_urls: string[];
-  category: string;
-  product_name: string;
-}): Promise<{ composed_urls: string[]; scene_prompt: string; count: number }> {
-  return request<{ composed_urls: string[]; scene_prompt: string; count: number }>("/ads/compose-preview", {
+function _directPost<T>(path: string, data: unknown): Promise<T> {
+  const token =
+    typeof window !== "undefined"
+      ? (localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token"))
+      : null;
+  return fetch(`http://127.0.0.1:8000${path}`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(data),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as T;
   });
+}
+
+export function generateScenePrompt(data: {
+  product_name: string;
+  category: string;
+}): Promise<{ prompt: string }> {
+  return _directPost("/ads/generate-scene-prompt", data);
+}
+
+export function composePreview(data: {
+  image_url: string;
+  prompt: string;
+  count?: number;
+}): Promise<{ composed_urls: string[]; count: number }> {
+  return _directPost("/ads/compose-preview", data);
 }

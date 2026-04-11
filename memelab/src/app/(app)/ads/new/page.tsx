@@ -3,10 +3,14 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Plus, X, Loader2, Film, Sparkles, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft, Check, Plus, X, Loader2, Film,
+  Sparkles, RotateCcw, Pencil, Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createAdJobV2, composePreview } from "@/lib/api";
+import { Textarea } from "@/components/ui/textarea";
+import { createAdJobV2, generateScenePrompt, composePreview } from "@/lib/api";
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -35,24 +39,44 @@ interface UploadedImage {
   selected: boolean;
 }
 
+interface ComposedImage {
+  url: string;
+  approved: boolean;
+  sourceIdx: number;
+  prompt: string;
+}
+
 export default function NewAdPage() {
   const router = useRouter();
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [productName, setProductName] = useState("");
-  const [category, setCategory] = useState("generic");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Composition step state
+  // Step 1: Upload
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // Step 2: Product info
+  const [productName, setProductName] = useState("");
+  const [category, setCategory] = useState("generic");
+
+  // Step 3: Composition
+  const [scenePrompt, setScenePrompt] = useState("");
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
+  const [variationCount, setVariationCount] = useState(4);
   const [composing, setComposing] = useState(false);
-  const [composedUrls, setComposedUrls] = useState<string[]>([]);
-  const [composedApproved, setComposedApproved] = useState(false);
+  const [composingIdx, setComposingIdx] = useState<number | null>(null);
+  const [composed, setComposed] = useState<ComposedImage[]>([]);
+  const [editingPromptFor, setEditingPromptFor] = useState<number | null>(null);
+  const [singlePrompt, setSinglePrompt] = useState("");
+
+  // Step 4: Submit
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedCount = images.filter((img) => img.selected).length;
   const selectedUrls = images.filter((img) => img.selected).map((img) => img.url);
+  const approvedComposed = composed.filter((c) => c.approved);
 
+  // ── Upload ──
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -61,21 +85,15 @@ export default function NewAdPage() {
     try {
       const token = getAuthToken();
       const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
-      }
+      for (let i = 0; i < files.length; i++) formData.append("files", files[i]);
       const res = await fetch("http://127.0.0.1:8000/ads/upload-images", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Upload failed ${res.status}: ${text || res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`Upload failed ${res.status}`);
       const data: { image_urls: string[]; count: number } = await res.json();
-      const newImages = data.image_urls.map((url) => ({ url, selected: false }));
-      setImages((prev) => [...prev, ...newImages]);
+      setImages((prev) => [...prev, ...data.image_urls.map((url) => ({ url, selected: false }))]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -92,29 +110,51 @@ export default function NewAdPage() {
         return { ...img, selected: !img.selected };
       })
     );
-    // Reset composition when selection changes
-    setComposedUrls([]);
-    setComposedApproved(false);
+    setComposed([]);
+    setScenePrompt("");
   };
 
   const removeImage = (idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
-    setComposedUrls([]);
-    setComposedApproved(false);
+    setComposed([]);
   };
 
-  const handleCompose = async () => {
-    if (!productName.trim() || selectedCount === 0 || composing) return;
+  // ── Prompt generation ──
+  const handleGeneratePrompt = async () => {
+    if (!productName.trim()) return;
+    setGeneratingPrompt(true);
+    setError(null);
+    try {
+      const result = await generateScenePrompt({
+        product_name: productName.trim(),
+        category,
+      });
+      setScenePrompt(result.prompt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar prompt");
+    } finally {
+      setGeneratingPrompt(false);
+    }
+  };
+
+  // ── Batch compose ──
+  const handleComposeAll = async () => {
+    if (!scenePrompt.trim() || selectedCount === 0) return;
     setComposing(true);
     setError(null);
-    setComposedApproved(false);
     try {
-      const result = await composePreview({
-        image_urls: selectedUrls,
-        category,
-        product_name: productName.trim(),
-      });
-      setComposedUrls(result.composed_urls);
+      const results: ComposedImage[] = [];
+      for (let si = 0; si < selectedUrls.length; si++) {
+        const data = await composePreview({
+          image_url: selectedUrls[si],
+          prompt: scenePrompt,
+          count: variationCount,
+        });
+        for (const url of data.composed_urls) {
+          results.push({ url, approved: false, sourceIdx: si, prompt: scenePrompt });
+        }
+      }
+      setComposed((prev) => [...prev, ...results]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na composicao");
     } finally {
@@ -122,16 +162,52 @@ export default function NewAdPage() {
     }
   };
 
+  // ── Single image regen ──
+  const handleRegenSingle = async (compIdx: number, customPrompt?: string) => {
+    const item = composed[compIdx];
+    const sourceUrl = selectedUrls[item.sourceIdx];
+    const prompt = customPrompt || item.prompt;
+    setComposingIdx(compIdx);
+    setError(null);
+    try {
+      const data = await composePreview({
+        image_url: sourceUrl,
+        prompt,
+        count: 1,
+      });
+      setComposed((prev) =>
+        prev.map((c, i) =>
+          i === compIdx ? { ...c, url: data.composed_urls[0], prompt, approved: false } : c
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao regenerar");
+    } finally {
+      setComposingIdx(null);
+      setEditingPromptFor(null);
+    }
+  };
+
+  const toggleApprove = (idx: number) => {
+    setComposed((prev) =>
+      prev.map((c, i) => (i === idx ? { ...c, approved: !c.approved } : c))
+    );
+  };
+
+  const removeComposed = (idx: number) => {
+    setComposed((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // ── Submit ──
   const handleSubmit = async () => {
-    if (!productName.trim() || selectedCount === 0 || submitting) return;
-    if (!composedApproved) return;
+    if (approvedComposed.length === 0 || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       const job = await createAdJobV2({
         product_name: productName.trim(),
         category,
-        image_urls: composedUrls.length > 0 ? composedUrls : selectedUrls,
+        image_urls: approvedComposed.map((c) => c.url),
       });
       router.push(`/ads/${job.job_id}`);
     } catch (err) {
@@ -140,87 +216,52 @@ export default function NewAdPage() {
     }
   };
 
-  const readyToCompose = selectedCount > 0 && productName.trim().length > 0;
-  const hasComposed = composedUrls.length > 0;
+  const readyForPrompt = selectedCount > 0 && productName.trim().length > 0;
+  const readyToCompose = readyForPrompt && scenePrompt.trim().length > 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/ads">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Novo Video Ad</h1>
-          <p className="text-muted-foreground">
-            Upload, composicao de cena, e geracao de video
-          </p>
+          <p className="text-muted-foreground">Upload, composicao de cena com IA, e geracao de video</p>
         </div>
       </div>
 
-      <div className="space-y-5 max-w-3xl">
-        {/* Step 1: Images */}
-        <div className="space-y-3">
+      <div className="space-y-6 max-w-4xl">
+        {/* ── Step 1: Images ── */}
+        <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
             1. Imagens do produto
           </h3>
           <div className="flex items-center gap-3">
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleUpload}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar imagens do produto
-                </>
-              )}
+            <input ref={inputRef} type="file" multiple accept="image/*" onChange={handleUpload} className="hidden" />
+            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+              {uploading
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enviando...</>
+                : <><Plus className="h-4 w-4 mr-1" />Adicionar imagens</>}
             </Button>
             {images.length > 0 && (
-              <span className="text-sm text-muted-foreground">
-                {selectedCount}/4 selecionadas
-              </span>
+              <span className="text-sm text-muted-foreground">{selectedCount}/4 selecionadas</span>
             )}
           </div>
-
           {images.length > 0 && (
             <>
-              <p className="text-xs text-muted-foreground">
-                Clique para selecionar ate 4 imagens
-              </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              <p className="text-xs text-muted-foreground">Clique para selecionar ate 4 imagens</p>
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
                 {images.map((img, i) => (
                   <div
                     key={i}
                     className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-colors aspect-square ${
-                      img.selected
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-transparent hover:border-muted-foreground/30"
+                      img.selected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-muted-foreground/30"
                     }`}
                     onClick={() => toggleSelect(i)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.url}
-                      alt={`img ${i + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={img.url} alt={`img ${i + 1}`} className="w-full h-full object-cover" />
                     {img.selected && (
                       <div className="absolute top-1 left-1 bg-primary text-primary-foreground rounded-full p-0.5">
                         <Check className="h-3 w-3" />
@@ -228,10 +269,7 @@ export default function NewAdPage() {
                     )}
                     <button
                       className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeImage(i);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); removeImage(i); }}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -240,11 +278,11 @@ export default function NewAdPage() {
               </div>
             </>
           )}
-        </div>
+        </section>
 
-        {/* Step 2: Product info */}
+        {/* ── Step 2: Product info ── */}
         {images.length > 0 && (
-          <div className="space-y-3">
+          <section className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               2. Produto e categoria
             </h3>
@@ -253,14 +291,9 @@ export default function NewAdPage() {
               <Input
                 placeholder="Ex: Serum Vitamina C, Tenis Runner Pro, Cookie Duplo Chocolate"
                 value={productName}
-                onChange={(e) => {
-                  setProductName(e.target.value);
-                  setComposedUrls([]);
-                  setComposedApproved(false);
-                }}
+                onChange={(e) => { setProductName(e.target.value); setScenePrompt(""); setComposed([]); }}
               />
             </div>
-
             <div className="space-y-1">
               <label className="text-sm font-medium">Categoria</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -268,11 +301,7 @@ export default function NewAdPage() {
                   <button
                     key={cat.value}
                     type="button"
-                    onClick={() => {
-                      setCategory(cat.value);
-                      setComposedUrls([]);
-                      setComposedApproved(false);
-                    }}
+                    onClick={() => { setCategory(cat.value); setScenePrompt(""); setComposed([]); }}
                     className={`text-left rounded-lg border px-3 py-2 text-sm transition-all ${
                       category === cat.value
                         ? "border-primary bg-primary/10 text-primary"
@@ -284,116 +313,195 @@ export default function NewAdPage() {
                 ))}
               </div>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Step 3: Composition */}
-        {readyToCompose && (
-          <div className="space-y-3">
+        {/* ── Step 3: Composition Studio ── */}
+        {readyForPrompt && (
+          <section className="space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               3. Composicao de cena
             </h3>
 
-            {!hasComposed && (
-              <Button
-                variant="outline"
-                onClick={handleCompose}
-                disabled={composing}
-              >
-                {composing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Compondo cenas com IA...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Compor cenas ({selectedCount} imagens)
-                  </>
-                )}
-              </Button>
-            )}
-
-            {composing && (
+            {/* Prompt area */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Prompt da cena</label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGeneratePrompt}
+                  disabled={generatingPrompt}
+                  className="h-7 text-xs"
+                >
+                  {generatingPrompt
+                    ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Gerando...</>
+                    : <><Sparkles className="h-3 w-3 mr-1" />Gerar com IA</>}
+                </Button>
+              </div>
+              <Textarea
+                placeholder="Descreva o fundo e ambiente da cena (ex: polished dark marble surface with soft rim lighting, shallow depth of field...)"
+                value={scenePrompt}
+                onChange={(e) => setScenePrompt(e.target.value)}
+                rows={4}
+                className="text-sm"
+              />
               <p className="text-xs text-muted-foreground">
-                Gemini esta gerando fundos profissionais para cada imagem. Isso pode levar alguns segundos...
+                Descreva apenas o FUNDO e AMBIENTE. O produto sera inserido automaticamente.
               </p>
+            </div>
+
+            {/* Variation config + generate */}
+            {readyToCompose && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Variacoes por imagem:</label>
+                  <div className="flex gap-1">
+                    {[1, 2, 4, 8].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setVariationCount(n)}
+                        className={`px-2.5 py-1 text-xs rounded-md border transition-all ${
+                          variationCount === n
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={handleComposeAll} disabled={composing}>
+                  {composing
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Compondo {selectedCount * variationCount} cenas...</>
+                    : <><Sparkles className="h-4 w-4 mr-2" />Compor {selectedCount * variationCount} cenas</>}
+                </Button>
+              </div>
             )}
 
-            {hasComposed && (
+            {/* Composed results grid */}
+            {composed.length > 0 && (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Imagens compostas — revise antes de gerar o video
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {composed.length} cenas geradas — {approvedComposed.length} aprovadas
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {composedUrls.map((url, i) => (
+                  {composed.map((item, idx) => (
                     <div
-                      key={i}
-                      className="relative rounded-lg overflow-hidden border border-border aspect-[9/16]"
+                      key={idx}
+                      className={`relative group rounded-lg overflow-hidden border-2 transition-all aspect-[9/16] ${
+                        item.approved
+                          ? "border-green-500 ring-2 ring-green-500/30"
+                          : "border-border hover:border-muted-foreground/30"
+                      }`}
                     >
+                      {composingIdx === idx && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={url}
-                        alt={`composed ${i + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={item.url} alt={`composed ${idx + 1}`} className="w-full h-full object-cover" />
+
+                      {/* Source badge */}
+                      <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+                        img {item.sourceIdx + 1}
+                      </div>
+
+                      {/* Approve badge */}
+                      {item.approved && (
+                        <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-0.5">
+                          <Check className="h-3 w-3" />
+                        </div>
+                      )}
+
+                      {/* Action bar */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 justify-center">
+                        <button
+                          onClick={() => toggleApprove(idx)}
+                          className={`p-1.5 rounded-md text-xs ${
+                            item.approved ? "bg-green-600 text-white" : "bg-white/20 text-white hover:bg-white/30"
+                          }`}
+                          title={item.approved ? "Remover aprovacao" : "Aprovar"}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleRegenSingle(idx)}
+                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-white/30 text-xs"
+                          title="Regenerar"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => { setEditingPromptFor(idx); setSinglePrompt(item.prompt); }}
+                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-white/30 text-xs"
+                          title="Editar prompt e regenerar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeComposed(idx)}
+                          className="p-1.5 rounded-md bg-white/20 text-white hover:bg-red-600/80 text-xs"
+                          title="Remover"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCompose}
-                    disabled={composing}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-1" />
-                    Refazer composicao
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setComposedApproved(true)}
-                    disabled={composedApproved}
-                    className={composedApproved ? "bg-green-600 hover:bg-green-600" : ""}
-                  >
-                    {composedApproved ? (
-                      <>
-                        <Check className="h-4 w-4 mr-1" />
-                        Aprovado
-                      </>
-                    ) : (
-                      "Aprovar composicao"
-                    )}
-                  </Button>
-                </div>
+
+                {/* Per-image prompt editor */}
+                {editingPromptFor !== null && (
+                  <div className="rounded-lg border border-border p-3 space-y-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">
+                        Editar prompt — cena {editingPromptFor + 1}
+                      </label>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingPromptFor(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={singlePrompt}
+                      onChange={(e) => setSinglePrompt(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleRegenSingle(editingPromptFor, singlePrompt)}
+                      disabled={composingIdx !== null}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                      Regenerar com novo prompt
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* Step 4: Submit (only after composition approved) */}
-        {composedApproved && (
-          <div className="space-y-3">
+        {/* ── Step 4: Submit ── */}
+        {approvedComposed.length > 0 && (
+          <section className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               4. Gerar video
             </h3>
-            <Button
-              className="w-full"
-              onClick={handleSubmit}
-              disabled={submitting}
-              size="lg"
-            >
-              {submitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Film className="mr-2 h-4 w-4" />
-              )}
-              {submitting ? "Criando video ad..." : `Gerar Video Ad (${composedUrls.length} cenas)`}
+            <Button className="w-full" onClick={handleSubmit} disabled={submitting} size="lg">
+              {submitting
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Criando video ad...</>
+                : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad ({approvedComposed.length} cenas aprovadas)</>}
             </Button>
-          </div>
+          </section>
         )}
 
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        {error && <div className="text-sm text-red-600 bg-red-600/10 rounded-lg p-3">{error}</div>}
       </div>
     </div>
   );
