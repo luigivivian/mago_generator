@@ -155,6 +155,18 @@ async def _execute_ad_step_task(
 
             if step_name == "analysis":
                 product_image = (job.product_images or [None])[0]
+                if not product_image and job.image_urls:
+                    product_image = job.image_urls[0]
+                # If product_image is a URL, download to local temp file
+                if product_image and product_image.startswith("http"):
+                    import httpx
+                    _dl_path = os.path.join(job_dir, "product_dl.jpg")
+                    async with httpx.AsyncClient() as _hc:
+                        _resp = await _hc.get(product_image)
+                        _resp.raise_for_status()
+                        with open(_dl_path, "wb") as _fp:
+                            _fp.write(_resp.content)
+                    product_image = _dl_path
                 if product_image:
                     result_data = await pipeline.run_step_analysis(
                         product_image_path=product_image,
@@ -184,6 +196,7 @@ async def _execute_ad_step_task(
                 step_data["status"] = "complete"
 
             elif step_name == "scene":
+                logger.info("scene step: product_images=%s, image_urls=%s", job.product_images, job.image_urls)
                 analysis = step_state.get("analysis", {}).get("result", {})
                 raw_scene = job.scene_description or analysis.get("scene_suggestions", [""])[0]
                 # Sanitize: strip any human/hand references from scene prompt
@@ -195,6 +208,18 @@ async def _execute_ad_step_task(
                         scene_desc = "Clean product photography on elegant surface with soft studio lighting"
                         break
                 product_image = (job.product_images or [None])[0]
+                if not product_image and job.image_urls:
+                    product_image = job.image_urls[0]
+                # If product_image is a URL, download to local temp file
+                if product_image and product_image.startswith("http"):
+                    import httpx
+                    _dl_path = os.path.join(job_dir, "product_dl.jpg")
+                    async with httpx.AsyncClient() as _hc:
+                        _resp = await _hc.get(product_image)
+                        _resp.raise_for_status()
+                        with open(_dl_path, "wb") as _fp:
+                            _fp.write(_resp.content)
+                    product_image = _dl_path
                 scene_params = config.get("step_params_scene", {})
                 scene_mode = scene_params.get("scene_mode", "cutout")
                 scene_path = await pipeline.run_step_scene(
@@ -223,7 +248,7 @@ async def _execute_ad_step_task(
                     product_description=prod_desc,
                     scene_description=scene_desc_for_prompt,
                     style=job.style,
-                    video_model=job.video_model or "wan/2-6-flash-image-to-video",
+                    video_model=job.video_model or "kling-3.0/video",
                     tone=job.tone or "premium",
                 )
                 step_data["result"] = {"prompt": prompt_text}
@@ -232,7 +257,9 @@ async def _execute_ad_step_task(
             elif step_name == "video":
                 # Credit deduction before Kie API call (Phase 999.9)
                 from src.services.credit_service import CreditService, InsufficientCreditsError
-                ad_video_model = job.video_model or "wan/2-6-flash-image-to-video"
+                _VALID_PREFIXES = ("wan/", "kling", "hailuo/", "sora", "bytedance/", "grok")
+                _raw_model = job.video_model or ""
+                ad_video_model = _raw_model if _raw_model.startswith(_VALID_PREFIXES) else "kling-3.0/video"
                 from src.product_studio.config import STYLE_DURATION
                 ad_duration = STYLE_DURATION.get(job.style, (10, 15))[0]
                 credit_svc = CreditService(session)
@@ -419,13 +446,13 @@ async def upload_product_images(
     """
     import tempfile
 
-    if len(files) < 1 or len(files) > 4:
-        raise HTTPException(400, f"Upload 1-4 images, got {len(files)}")
+    if len(files) < 1:
+        raise HTTPException(400, "Upload at least 1 image")
 
-    allowed = {"image/jpeg", "image/png", "image/jpg"}
+    allowed = {"image/jpeg", "image/png", "image/jpg", "image/webp", "image/heic", "image/heif"}
     for f in files:
         if f.content_type not in allowed:
-            raise HTTPException(400, f"Invalid format: {f.content_type}. Use JPEG or PNG.")
+            raise HTTPException(400, f"Invalid format: {f.content_type}. Use JPEG, PNG, WebP or HEIC.")
 
     from src.product_studio.scene_composer import normalize_for_kling
     from src.video_gen.gcs_uploader import GCSUploader
@@ -435,7 +462,8 @@ async def upload_product_images(
 
     with tempfile.TemporaryDirectory() as tmp:
         for i, f in enumerate(files):
-            raw_path = os.path.join(tmp, f"raw_{i}.img")
+            ext = os.path.splitext(f.filename or "img.jpg")[1] or ".jpg"
+            raw_path = os.path.join(tmp, f"raw_{i}{ext}")
             norm_path = os.path.join(tmp, f"normalized_{i}.jpg")
 
             content = await f.read()
@@ -447,11 +475,71 @@ async def upload_product_images(
 
             # GCSUploader.upload_image is SYNC — wrap in to_thread so we
             # don't block the event loop.
-            remote_name = f"ads/v2/{current_user.id}/product_{i}.jpg"
+            import uuid as _uuid
+            remote_name = f"ads/v2/{current_user.id}/product_{_uuid.uuid4().hex[:8]}.jpg"
             url = await asyncio.to_thread(uploader.upload_image, norm_path, remote_name)
             urls.append(url)
 
     return {"image_urls": urls, "count": len(urls)}
+
+
+@router.post("/compose-preview")
+async def compose_preview(
+    req: dict,
+    current_user=Depends(get_current_user),
+):
+    """Compose product images onto clean backgrounds using Gemini.
+
+    Takes GCS image URLs + category + product_name, runs scene composition
+    for each, uploads composed results to GCS, returns preview URLs.
+    User reviews these before submitting to video pipeline.
+    """
+    import tempfile
+    import httpx
+
+    image_urls = req.get("image_urls", [])
+    category = req.get("category", "generic")
+    product_name = req.get("product_name", "product")
+
+    if not image_urls:
+        raise HTTPException(400, "image_urls required")
+    if len(image_urls) > 4:
+        raise HTTPException(400, "Max 4 images")
+
+    from src.product_studio.scene_composer import compose_scene
+    from src.product_studio.config import CATEGORY_CONFIGS
+    from src.video_gen.gcs_uploader import GCSUploader
+
+    cat_cfg = CATEGORY_CONFIGS.get(category, CATEGORY_CONFIGS.get("generic", {}))
+    surface = cat_cfg.get("surface", "clean white marble surface").split("|")[0].strip()
+    atmospheres = cat_cfg.get("atmospheres", ["soft natural studio lighting"])
+    scene_prompt = f"{surface}, {atmospheres[0]}"
+
+    uploader = GCSUploader()
+    composed_urls: list[str] = []
+
+    with tempfile.TemporaryDirectory() as tmp:
+        async with httpx.AsyncClient(timeout=30) as http:
+            for i, url in enumerate(image_urls):
+                # Download GCS image
+                resp = await http.get(url)
+                if resp.status_code != 200:
+                    raise HTTPException(400, f"Failed to download image {i}: {resp.status_code}")
+                raw_path = os.path.join(tmp, f"raw_{i}.jpg")
+                with open(raw_path, "wb") as fp:
+                    fp.write(resp.content)
+
+                # Compose scene via Gemini
+                composed_path = os.path.join(tmp, f"composed_{i}.jpg")
+                await compose_scene(raw_path, scene_prompt, composed_path)
+
+                # Upload composed image to GCS
+                import uuid as _uuid
+                remote_name = f"ads/v2/{current_user.id}/composed_{_uuid.uuid4().hex[:8]}.jpg"
+                composed_url = await asyncio.to_thread(uploader.upload_image, composed_path, remote_name)
+                composed_urls.append(composed_url)
+
+    return {"composed_urls": composed_urls, "scene_prompt": scene_prompt, "count": len(composed_urls)}
 
 
 @router.post("/analyze")
@@ -564,7 +652,6 @@ async def create_ad_job_v2(
     pipeline_version=1).
     """
     job_id = str(uuid.uuid4())
-    step_state = _init_step_state()
 
     takes_dump = [t.model_dump() for t in req.takes] if req.takes else None
 
@@ -578,7 +665,7 @@ async def create_ad_job_v2(
         audio_mode=req.audio_mode,
         output_formats=req.output_formats,
         status="pending",
-        step_state=step_state,
+        step_state={},  # v2 jobs don't use v1 step machine
         # V2 columns
         pipeline_version=2,
         image_urls=req.image_urls,
@@ -720,6 +807,8 @@ async def get_ad_steps(
         "steps": steps,
         "current_step": current_step,
         "progress_pct": progress_pct,
+        "pipeline_version": getattr(job, "pipeline_version", 1) or 1,
+        "status": job.status,
     }
 
 
@@ -741,6 +830,11 @@ async def execute_ad_step(
         raise HTTPException(status_code=400, detail=f"Invalid step: {step_name}")
 
     job = await _get_user_job(job_id, current_user.id, db)
+
+    # Guard: v2 jobs use background pipeline, not v1 step execution
+    if getattr(job, "pipeline_version", 1) == 2:
+        raise HTTPException(status_code=400, detail="V2 jobs run automatically — step execution is not available")
+
     step_state = job.step_state or {}
 
     # Guard: prevent duplicate execution if step is already running

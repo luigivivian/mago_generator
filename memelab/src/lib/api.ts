@@ -1904,6 +1904,20 @@ export async function createAdJob(data: AdCreateRequest): Promise<AdJob> {
   });
 }
 
+export async function createAdJobV2(data: {
+  product_name: string;
+  category: string;
+  image_urls: string[];
+  takes?: unknown[];
+  output_formats?: string[];
+  audio_mode?: string;
+}): Promise<AdJob> {
+  return request<AdJob>("/ads/create-v2", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export const getAdJobs = (character_slug?: string) =>
   request<AdJob[]>("/ads/jobs" + (character_slug ? `?character_slug=${character_slug}` : ""));
 
@@ -2061,4 +2075,15 @@ export async function exportRemotion(jobId: string) {
     `/reels/${jobId}/export-remotion`,
     { method: "POST" },
   );
+}
+
+export async function composePreview(data: {
+  image_urls: string[];
+  category: string;
+  product_name: string;
+}): Promise<{ composed_urls: string[]; scene_prompt: string; count: number }> {
+  return request<{ composed_urls: string[]; scene_prompt: string; count: number }>("/ads/compose-preview", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }

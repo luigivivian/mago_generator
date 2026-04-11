@@ -15,6 +15,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from PIL import Image
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass
 from google.genai import types
 
 from src.llm_client import _get_client
