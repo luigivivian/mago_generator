@@ -387,6 +387,54 @@ async def upload_product_image(
     return {"filename": filename, "path": filepath, "size_bytes": len(content)}
 
 
+@router.post("/upload-images")
+async def upload_product_images(
+    files: list[UploadFile] = File(...),
+    current_user=Depends(get_current_user),
+):
+    """Upload 1-4 product images for v2 cinematic pipeline.
+
+    Validates count (1-4), format (JPEG/PNG), normalizes each image to
+    Kling element requirements (min 300x300, max 10MB JPEG), uploads to
+    GCS, returns list of public URLs.
+    """
+    import tempfile
+
+    if len(files) < 1 or len(files) > 4:
+        raise HTTPException(400, f"Upload 1-4 images, got {len(files)}")
+
+    allowed = {"image/jpeg", "image/png", "image/jpg"}
+    for f in files:
+        if f.content_type not in allowed:
+            raise HTTPException(400, f"Invalid format: {f.content_type}. Use JPEG or PNG.")
+
+    from src.product_studio.scene_composer import normalize_for_kling
+    from src.video_gen.gcs_uploader import GCSUploader
+
+    uploader = GCSUploader()
+    urls: list[str] = []
+
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, f in enumerate(files):
+            raw_path = os.path.join(tmp, f"raw_{i}.img")
+            norm_path = os.path.join(tmp, f"normalized_{i}.jpg")
+
+            content = await f.read()
+            with open(raw_path, "wb") as fp:
+                fp.write(content)
+
+            # normalize_for_kling is sync (Pillow) — cheap, run inline.
+            normalize_for_kling(raw_path, norm_path)
+
+            # GCSUploader.upload_image is SYNC — wrap in to_thread so we
+            # don't block the event loop.
+            remote_name = f"ads/v2/{current_user.id}/product_{i}.jpg"
+            url = await asyncio.to_thread(uploader.upload_image, norm_path, remote_name)
+            urls.append(url)
+
+    return {"image_urls": urls, "count": len(urls)}
+
+
 @router.post("/analyze")
 async def analyze_product(
     req: dict,

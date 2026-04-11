@@ -8,13 +8,21 @@ import os
 import pytest
 
 
-@pytest.mark.xfail(reason="REQ-PS2-01: multi-image upload not yet implemented", strict=True)
 def test_01_multi_image_upload():
     from src.product_studio.models import AdCreateRequestV2
+    import pytest as _pt
+    # Valid: 3 images
     req = AdCreateRequestV2(product_name="Test", image_urls=["a.jpg", "b.jpg", "c.jpg"])
     assert len(req.image_urls) == 3
-    # Must validate 1-4 images, reject 0 or 5+
-    AdCreateRequestV2(product_name="Test", image_urls=[])  # should raise
+    # Valid: 1 image
+    req1 = AdCreateRequestV2(product_name="Test", image_urls=["a.jpg"])
+    assert len(req1.image_urls) == 1
+    # Invalid: 0 images
+    with _pt.raises(Exception):
+        AdCreateRequestV2(product_name="Test", image_urls=[])
+    # Invalid: 5 images
+    with _pt.raises(Exception):
+        AdCreateRequestV2(product_name="Test", image_urls=["a", "b", "c", "d", "e"])
 
 
 def test_02_image_treatment(tmp_path):
