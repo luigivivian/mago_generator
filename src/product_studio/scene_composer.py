@@ -18,9 +18,12 @@ from PIL import Image
 from google.genai import types
 
 from src.llm_client import _get_client
-from src.product_studio.config import CATEGORY_CONFIGS, CATEGORY_DEFAULT
+from src.product_studio.config import (
+    CATEGORY_CONFIGS, CATEGORY_DEFAULT, SHOT_PLANS, SHOT_PLAN_DEFAULT,
+    STABILITY_SUFFIXES, STABILITY_SUFFIX_DEFAULT,
+)
 from src.product_studio.models import StoryboardScene, TakeConfig
-from src.product_studio.prompt_builder import build_product_prompt
+from src.product_studio.prompt_builder import build_product_prompt, resolve_template_vars, build_negative_prompt
 
 logger = logging.getLogger("clip-flow.ads.scene_composer")
 
@@ -162,28 +165,85 @@ async def generate_storyboard(
     category: str,
     product_name: str,
     num_takes: int = 4,
+    high_consistency: bool = False,
 ) -> list[StoryboardScene]:
-    """Generate a multi-take storyboard using Gemini Vision + category defaults.
+    """Generate a multi-take storyboard using SHOT_PLANS fast-path or Gemini Vision fallback.
 
-    Uses Gemini structured output (JSON schema) to suggest 3-5 takes based on
-    product reference images, then wraps the result into validated StoryboardScene
-    instances with full category-aware Kling prompts via build_product_prompt.
+    Fast-path: Uses pre-written SHOT_PLANS with template variable resolution and
+    per-shot stability suffixes. No API call needed.
+
+    Gemini fallback: When image_paths are provided, uses Gemini Vision for
+    product-aware take suggestions with pro-level instructions.
 
     Args:
         image_paths: List of 1-4 local product image paths.
         category: Category key from CATEGORY_CONFIGS.
         product_name: Product name for context.
         num_takes: Target number of takes (clamped 3-5).
+        high_consistency: When True, signals frame chaining intent to pipeline.py.
+            Pipeline should pass shot N's last frame as shot N+1's reference (per D-28).
 
     Returns:
-        List of StoryboardScene Pydantic instances. Consumers access fields
-        via .take_config, .rationale, .category_defaults_applied.
+        List of StoryboardScene Pydantic instances.
     """
     from google import genai
 
     cfg = CATEGORY_CONFIGS.get(category, CATEGORY_DEFAULT)
     num_takes = max(3, min(5, num_takes))
 
+    # ── Fast-path: use pre-written SHOT_PLANS with template resolution ──
+    shot_plan = SHOT_PLANS.get(category, SHOT_PLAN_DEFAULT)
+
+    if shot_plan:
+        product_ref = f"@prod ({product_name})"
+        storyboard: list[StoryboardScene] = []
+
+        for i, shot in enumerate(shot_plan[:num_takes]):
+            # Resolve template variables (per D-25)
+            prompt = resolve_template_vars(shot["prompt"], category, product_ref, shot_index=i)
+
+            # Append per-shot stability suffix (per D-03)
+            camera_type = shot.get("camera", "static")
+            stability = STABILITY_SUFFIXES.get(camera_type, STABILITY_SUFFIX_DEFAULT)
+            prompt = f"{prompt} {stability}"
+
+            # Build consolidated negative prompt (per D-08/D-13)
+            neg = build_negative_prompt(category, shot_type=camera_type)
+
+            # TakeConfig does not have negative_prompt field — embed in prompt
+            full_prompt = f"{prompt} Negative: {neg}"
+
+            # Enforce 2000 char limit on final prompt
+            if len(full_prompt) > 2000:
+                full_prompt = full_prompt[:1997] + "..."
+
+            dur = shot.get("duration", 5)
+            rationale = f"Pre-written {category} shot plan: {shot.get('name', f'shot {i+1}')}"
+            if high_consistency:
+                rationale += ". Frame chaining: enabled"
+
+            take_cfg = TakeConfig(
+                id=str(uuid4()),
+                order=i,
+                prompt=full_prompt,
+                camera_move=camera_type,
+                duration=dur,
+                transition_type="dissolve" if i < num_takes - 1 else "fade",
+                sfx_id=None,
+                thumbnail_url=None,
+            )
+            storyboard.append(
+                StoryboardScene(
+                    take_config=take_cfg,
+                    rationale=rationale,
+                    category_defaults_applied=category,
+                )
+            )
+
+        logger.info("Storyboard fast-path: %d takes for %s", len(storyboard), category)
+        return storyboard
+
+    # ── Gemini fallback: product-aware take suggestions ──
     client = genai.Client()
 
     image_parts = []
@@ -192,16 +252,25 @@ async def generate_storyboard(
         image_parts.append(img)
 
     instruction = (
-        f"You are a cinematic commercial director. Analyze these {len(image_parts)} "
-        f'reference images of "{product_name}" (category: {category}).\n\n'
-        f"Generate exactly {num_takes} takes for a commercial video. For each take:\n"
-        "- Use one camera_move from: dolly, orbit, macro_zoom, static, crane\n"
-        "- Use one transition_type from: dissolve, cut, wipeleft, fade, fadeblack\n"
-        "- Duration 3-10 seconds per take\n"
-        "- Action description under 200 chars\n"
-        f"- Hero actions to inspire: {cfg['hero_actions']}\n"
-        f"- Camera moves to inspire: {cfg['video_camera_moves']}\n"
-        f"- Mood: {cfg['mood']}\n\n"
+        f"You are an expert cinematic commercial director and video prompt engineer. "
+        f'Analyze these {len(image_parts)} reference images of "{product_name}" (category: {category}).\n\n'
+        f"Generate exactly {num_takes} takes for a premium commercial video.\n\n"
+        f"For each take, return:\n"
+        f"- action_description: What happens in the shot (under 200 chars)\n"
+        f"- camera_move: one of: dolly, orbit, macro_zoom, static, crane, static_macro, dolly_out, push_in\n"
+        f"- duration: 3-10 seconds\n"
+        f"- transition_type: one of: dissolve, cut, wipeleft, fade, fadeblack\n"
+        f"- atmosphere: atmospheric description (haze, steam, particles, light rays)\n"
+        f"- micro_detail: physics micro-detail (dripping, pulsing, shimmering, flowing)\n"
+        f"- rationale: why this shot works in the sequence\n\n"
+        f"Professional patterns to follow:\n"
+        f"- Camera as full sentence: 'Camera performs a slow smooth dolly backward...'\n"
+        f"- Physics micro-details in every shot\n"
+        f"- Lens specification: always mention focal length and aperture\n"
+        f"- Hero actions: {cfg['hero_actions']}\n"
+        f"- Camera vocabulary: {cfg['video_camera_moves']}\n"
+        f"- Mood: {cfg['mood']}\n"
+        f"- Color grade: {cfg.get('color_grade', 'professional neutral tones')}\n\n"
         f"Return ONLY a JSON array of {num_takes} takes."
     )
 
@@ -213,13 +282,16 @@ async def generate_storyboard(
                 "action_description": {"type": "string"},
                 "camera_move": {
                     "type": "string",
-                    "enum": ["dolly", "orbit", "macro_zoom", "static", "crane"],
+                    "enum": ["dolly", "orbit", "macro_zoom", "static", "crane",
+                             "static_macro", "dolly_out", "push_in"],
                 },
                 "duration": {"type": "integer"},
                 "transition_type": {
                     "type": "string",
                     "enum": ["dissolve", "cut", "wipeleft", "fade", "fadeblack"],
                 },
+                "atmosphere": {"type": "string"},
+                "micro_detail": {"type": "string"},
                 "rationale": {"type": "string"},
             },
             "required": [
@@ -243,16 +315,40 @@ async def generate_storyboard(
 
     raw_takes = json.loads(response.text)
 
-    storyboard: list[StoryboardScene] = []
+    storyboard = []
     for i, t in enumerate(raw_takes[:num_takes]):
-        # Clamp duration to TakeConfig's 3-10 range
         dur = max(3, min(10, int(t["duration"])))
+        # Hybrid: Gemini suggests action + atmosphere + micro_detail
+        # build_product_prompt wraps with category-aware surface, lighting, lens, stability
+        action = t["action_description"]
+        if t.get("atmosphere"):
+            action += f", {t['atmosphere']}"
+        if t.get("micro_detail"):
+            action += f", {t['micro_detail']}"
+
         full_prompt = build_product_prompt(
             category=category,
             camera_move=t["camera_move"],
-            action_description=t["action_description"],
+            action_description=action,
             duration=dur,
         )
+
+        # Append per-shot stability suffix
+        camera_type = t["camera_move"]
+        stability = STABILITY_SUFFIXES.get(camera_type, STABILITY_SUFFIX_DEFAULT)
+        full_prompt = f"{full_prompt} {stability}"
+
+        # Build consolidated negative and embed
+        neg = build_negative_prompt(category, shot_type=camera_type)
+        full_prompt = f"{full_prompt} Negative: {neg}"
+
+        if len(full_prompt) > 2000:
+            full_prompt = full_prompt[:1997] + "..."
+
+        rationale = t["rationale"]
+        if high_consistency:
+            rationale += ". Frame chaining: enabled"
+
         take_cfg = TakeConfig(
             id=str(uuid4()),
             order=i,
@@ -266,9 +362,10 @@ async def generate_storyboard(
         storyboard.append(
             StoryboardScene(
                 take_config=take_cfg,
-                rationale=t["rationale"],
+                rationale=rationale,
                 category_defaults_applied=category,
             )
         )
 
+    logger.info("Storyboard Gemini fallback: %d takes for %s", len(storyboard), category)
     return storyboard
