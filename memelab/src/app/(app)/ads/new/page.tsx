@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -60,7 +60,6 @@ export default function NewAdPage() {
 
   // Step 1: Upload
   const [images, setImages] = useState<UploadedImage[]>([]);
-  const [uploading, setUploading] = useState(false);
 
   // Step 2: Product info
   const [productName, setProductName] = useState("");
@@ -68,9 +67,7 @@ export default function NewAdPage() {
 
   // Step 3: Composition
   const [scenePrompt, setScenePrompt] = useState("");
-  const [generatingPrompt, setGeneratingPrompt] = useState(false);
   const [variationCount, setVariationCount] = useState(4);
-  const [composing, setComposing] = useState(false);
   const [composingIdx, setComposingIdx] = useState<number | null>(null);
   const [composed, setComposed] = useState<ComposedImage[]>([]);
   const [editingPromptFor, setEditingPromptFor] = useState<number | null>(null);
@@ -78,8 +75,29 @@ export default function NewAdPage() {
 
   // Step 4: Video config
   const [videoModel, setVideoModel] = useState("kling-3.0/video");
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Global busy state — blocks all async actions and shows feedback
+  type BusyState = null | "uploading" | "generating-prompt" | "composing" | "regenerating" | "submitting";
+  const [busy, setBusy] = useState<BusyState>(null);
+  const busyRef = useRef(false);
+
+  const withBusy = useCallback(async (state: NonNullable<BusyState>, fn: () => Promise<void>) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(state);
+    setError(null);
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
+    } finally {
+      busyRef.current = false;
+      setBusy(null);
+    }
+  }, []);
+
+  const isBusy = busy !== null;
 
   const selectedCount = images.filter((img) => img.selected).length;
   const selectedUrls = images.filter((img) => img.selected).map((img) => img.url);
@@ -87,12 +105,10 @@ export default function NewAdPage() {
   const approvedComposed = composed.filter((c) => c.approved);
 
   // ── Upload ──
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    setUploading(true);
-    setError(null);
-    try {
+    withBusy("uploading", async () => {
       const token = getAuthToken();
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) formData.append("files", files[i]);
@@ -104,12 +120,8 @@ export default function NewAdPage() {
       if (!res.ok) throw new Error(`Upload failed ${res.status}`);
       const data: { image_urls: string[]; count: number } = await res.json();
       setImages((prev) => [...prev, ...data.image_urls.map((url) => ({ url, selected: false, isHero: false }))]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
-    }
+    });
   };
 
   const toggleSelect = (idx: number) => {
@@ -138,29 +150,21 @@ export default function NewAdPage() {
   };
 
   // ── Prompt generation ──
-  const handleGeneratePrompt = async () => {
+  const handleGeneratePrompt = () => {
     if (!productName.trim()) return;
-    setGeneratingPrompt(true);
-    setError(null);
-    try {
+    withBusy("generating-prompt", async () => {
       const result = await generateScenePrompt({
         product_name: productName.trim(),
         category,
       });
       setScenePrompt(result.prompt);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao gerar prompt");
-    } finally {
-      setGeneratingPrompt(false);
-    }
+    });
   };
 
   // ── Batch compose (hero image only) ──
-  const handleComposeAll = async () => {
+  const handleComposeAll = () => {
     if (!scenePrompt.trim() || !heroImage) return;
-    setComposing(true);
-    setError(null);
-    try {
+    withBusy("composing", async () => {
       const data = await composePreview({
         image_url: heroImage.url,
         prompt: scenePrompt,
@@ -170,24 +174,18 @@ export default function NewAdPage() {
         url, approved: false, prompt: scenePrompt,
       }));
       setComposed((prev) => [...prev, ...results]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro na composicao");
-    } finally {
-      setComposing(false);
-    }
+    });
   };
 
   // ── Single image regen ──
-  const handleRegenSingle = async (compIdx: number, customPrompt?: string) => {
+  const handleRegenSingle = (compIdx: number, customPrompt?: string) => {
     if (!heroImage) return;
     const item = composed[compIdx];
-    const sourceUrl = heroImage.url;
     const prompt = customPrompt || item.prompt;
     setComposingIdx(compIdx);
-    setError(null);
-    try {
+    withBusy("regenerating", async () => {
       const data = await composePreview({
-        image_url: sourceUrl,
+        image_url: heroImage.url,
         prompt,
         count: 1,
       });
@@ -196,12 +194,12 @@ export default function NewAdPage() {
           i === compIdx ? { ...c, url: data.composed_urls[0], prompt, approved: false } : c
         )
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao regenerar");
-    } finally {
       setComposingIdx(null);
       setEditingPromptFor(null);
-    }
+    }).then(() => {
+      // Ensure cleanup even if withBusy catches
+      setComposingIdx(null);
+    });
   };
 
   const toggleApprove = (idx: number) => {
@@ -215,13 +213,9 @@ export default function NewAdPage() {
   };
 
   // ── Submit ──
-  // Send all selected images as element references (for 3D model)
-  // and composed images as the scene backgrounds for video prompts
-  const handleSubmit = async () => {
-    if (approvedComposed.length === 0 || submitting) return;
-    setSubmitting(true);
-    setError(null);
-    try {
+  const handleSubmit = () => {
+    if (approvedComposed.length === 0) return;
+    withBusy("submitting", async () => {
       const job = await createAdJobV2({
         product_name: productName.trim(),
         category,
@@ -231,10 +225,7 @@ export default function NewAdPage() {
         scene_prompts: approvedComposed.map((c) => c.prompt),
       });
       router.push(`/ads/${job.job_id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar ad");
-      setSubmitting(false);
-    }
+    });
   };
 
   const readyForPrompt = selectedCount > 0 && productName.trim().length > 0 && !!heroImage;
@@ -260,8 +251,8 @@ export default function NewAdPage() {
           </h3>
           <div className="flex items-center gap-3">
             <input ref={inputRef} type="file" multiple accept="image/*" onChange={handleUpload} className="hidden" />
-            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
-              {uploading
+            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={isBusy}>
+              {busy === "uploading"
                 ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enviando...</>
                 : <><Plus className="h-4 w-4 mr-1" />Adicionar imagens</>}
             </Button>
@@ -369,10 +360,10 @@ export default function NewAdPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleGeneratePrompt}
-                  disabled={generatingPrompt}
+                  disabled={isBusy}
                   className="h-7 text-xs"
                 >
-                  {generatingPrompt
+                  {busy === "generating-prompt"
                     ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Gerando...</>
                     : <><Sparkles className="h-3 w-3 mr-1" />Gerar com IA</>}
                 </Button>
@@ -410,8 +401,8 @@ export default function NewAdPage() {
                     ))}
                   </div>
                 </div>
-                <Button onClick={handleComposeAll} disabled={composing}>
-                  {composing
+                <Button onClick={handleComposeAll} disabled={isBusy}>
+                  {busy === "composing"
                     ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Compondo {variationCount} variacoes...</>
                     : <><Sparkles className="h-4 w-4 mr-2" />Compor {variationCount} variacoes da hero</>}
                 </Button>
@@ -460,9 +451,10 @@ export default function NewAdPage() {
                       </div>
 
                       {/* Action bar */}
-                      <div className="flex border-t border-border divide-x divide-border">
+                      <div className={`flex border-t border-border divide-x divide-border ${isBusy && composingIdx !== idx ? "opacity-50 pointer-events-none" : ""}`}>
                         <button
-                          onClick={() => toggleApprove(idx)}
+                          onClick={() => !isBusy && toggleApprove(idx)}
+                          disabled={isBusy}
                           className={`flex-1 p-1.5 text-xs flex items-center justify-center gap-1 transition-colors ${
                             item.approved
                               ? "bg-green-600/20 text-green-400"
@@ -472,21 +464,24 @@ export default function NewAdPage() {
                           <Check className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={() => handleRegenSingle(idx)}
+                          onClick={() => !isBusy && handleRegenSingle(idx)}
+                          disabled={isBusy}
                           className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-muted flex items-center justify-center"
                           title="Regenerar"
                         >
-                          <RotateCcw className="h-3 w-3" />
+                          {composingIdx === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
                         </button>
                         <button
-                          onClick={() => { setEditingPromptFor(idx); setSinglePrompt(item.prompt); }}
+                          onClick={() => !isBusy && (() => { setEditingPromptFor(idx); setSinglePrompt(item.prompt); })()}
+                          disabled={isBusy}
                           className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-muted flex items-center justify-center"
                           title="Editar prompt"
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
                         <button
-                          onClick={() => removeComposed(idx)}
+                          onClick={() => !isBusy && removeComposed(idx)}
+                          disabled={isBusy}
                           className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-red-600/20 hover:text-red-400 flex items-center justify-center"
                           title="Remover"
                         >
@@ -517,10 +512,11 @@ export default function NewAdPage() {
                     <Button
                       size="sm"
                       onClick={() => handleRegenSingle(editingPromptFor, singlePrompt)}
-                      disabled={composingIdx !== null}
+                      disabled={isBusy}
                     >
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Regenerar com novo prompt
+                      {busy === "regenerating"
+                        ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Regenerando...</>
+                        : <><RotateCcw className="h-3.5 w-3.5 mr-1" />Regenerar com novo prompt</>}
                     </Button>
                   </div>
                 )}
@@ -594,8 +590,8 @@ export default function NewAdPage() {
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSubmit} disabled={submitting} size="lg">
-              {submitting
+            <Button className="w-full" onClick={handleSubmit} disabled={isBusy} size="lg">
+              {busy === "submitting"
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Criando video ad...</>
                 : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad — {videoModel.split("/")[0]} ({approvedComposed.length} cenas)</>}
             </Button>
@@ -603,6 +599,20 @@ export default function NewAdPage() {
         )}
 
         {error && <div className="text-sm text-red-600 bg-red-600/10 rounded-lg p-3">{error}</div>}
+
+        {/* Global busy indicator */}
+        {isBusy && (
+          <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-4 py-2 shadow-lg">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm">
+              {busy === "uploading" && "Enviando imagens..."}
+              {busy === "generating-prompt" && "Gerando prompt com IA..."}
+              {busy === "composing" && "Compondo cenas..."}
+              {busy === "regenerating" && "Regenerando cena..."}
+              {busy === "submitting" && "Criando video ad..."}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
