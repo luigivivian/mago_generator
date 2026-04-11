@@ -101,7 +101,8 @@ class AdCreateRequestV2(BaseModel):
     """V2 wizard request for multi-scene cinematic ad."""
     product_name: str = Field(..., description="Product name")
     category: str = Field(default="generic", description="Product category key (food_cookies, beauty_skincare, etc.)")
-    image_urls: list[str] = Field(..., min_length=1, max_length=4, description="1-4 product image URLs")
+    image_urls: list[str] = Field(..., min_length=1, max_length=4, description="1-4 product reference image URLs (element refs)")
+    composed_urls: list[str] = Field(default_factory=list, description="Approved composed scene images (from compose-preview)")
     takes: list[TakeConfig] = Field(default_factory=list, description="Take configs (empty = auto-generate)")
     output_formats: list[str] = Field(default=["9:16"], description="Export formats")
     audio_mode: Literal["sfx", "music", "mute"] = Field(default="sfx")

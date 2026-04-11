@@ -37,12 +37,12 @@ const CATEGORIES = [
 interface UploadedImage {
   url: string;
   selected: boolean;
+  isHero: boolean;
 }
 
 interface ComposedImage {
   url: string;
   approved: boolean;
-  sourceIdx: number;
   prompt: string;
 }
 
@@ -74,6 +74,7 @@ export default function NewAdPage() {
 
   const selectedCount = images.filter((img) => img.selected).length;
   const selectedUrls = images.filter((img) => img.selected).map((img) => img.url);
+  const heroImage = images.find((img) => img.isHero);
   const approvedComposed = composed.filter((c) => c.approved);
 
   // ── Upload ──
@@ -93,7 +94,7 @@ export default function NewAdPage() {
       });
       if (!res.ok) throw new Error(`Upload failed ${res.status}`);
       const data: { image_urls: string[]; count: number } = await res.json();
-      setImages((prev) => [...prev, ...data.image_urls.map((url) => ({ url, selected: false }))]);
+      setImages((prev) => [...prev, ...data.image_urls.map((url) => ({ url, selected: false, isHero: false }))]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -107,11 +108,19 @@ export default function NewAdPage() {
       prev.map((img, i) => {
         if (i !== idx) return img;
         if (!img.selected && selectedCount >= 4) return img;
-        return { ...img, selected: !img.selected };
+        const nowSelected = !img.selected;
+        return { ...img, selected: nowSelected, isHero: nowSelected ? img.isHero : false };
       })
     );
     setComposed([]);
     setScenePrompt("");
+  };
+
+  const setHero = (idx: number) => {
+    setImages((prev) =>
+      prev.map((img, i) => ({ ...img, isHero: i === idx }))
+    );
+    setComposed([]);
   };
 
   const removeImage = (idx: number) => {
@@ -137,23 +146,20 @@ export default function NewAdPage() {
     }
   };
 
-  // ── Batch compose ──
+  // ── Batch compose (hero image only) ──
   const handleComposeAll = async () => {
-    if (!scenePrompt.trim() || selectedCount === 0) return;
+    if (!scenePrompt.trim() || !heroImage) return;
     setComposing(true);
     setError(null);
     try {
-      const results: ComposedImage[] = [];
-      for (let si = 0; si < selectedUrls.length; si++) {
-        const data = await composePreview({
-          image_url: selectedUrls[si],
-          prompt: scenePrompt,
-          count: variationCount,
-        });
-        for (const url of data.composed_urls) {
-          results.push({ url, approved: false, sourceIdx: si, prompt: scenePrompt });
-        }
-      }
+      const data = await composePreview({
+        image_url: heroImage.url,
+        prompt: scenePrompt,
+        count: variationCount,
+      });
+      const results: ComposedImage[] = data.composed_urls.map((url) => ({
+        url, approved: false, prompt: scenePrompt,
+      }));
       setComposed((prev) => [...prev, ...results]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na composicao");
@@ -164,8 +170,9 @@ export default function NewAdPage() {
 
   // ── Single image regen ──
   const handleRegenSingle = async (compIdx: number, customPrompt?: string) => {
+    if (!heroImage) return;
     const item = composed[compIdx];
-    const sourceUrl = selectedUrls[item.sourceIdx];
+    const sourceUrl = heroImage.url;
     const prompt = customPrompt || item.prompt;
     setComposingIdx(compIdx);
     setError(null);
@@ -199,6 +206,8 @@ export default function NewAdPage() {
   };
 
   // ── Submit ──
+  // Send all selected images as element references (for 3D model)
+  // and composed images as the scene backgrounds for video prompts
   const handleSubmit = async () => {
     if (approvedComposed.length === 0 || submitting) return;
     setSubmitting(true);
@@ -207,7 +216,8 @@ export default function NewAdPage() {
       const job = await createAdJobV2({
         product_name: productName.trim(),
         category,
-        image_urls: approvedComposed.map((c) => c.url),
+        image_urls: selectedUrls,
+        composed_urls: approvedComposed.map((c) => c.url),
       });
       router.push(`/ads/${job.job_id}`);
     } catch (err) {
@@ -216,7 +226,7 @@ export default function NewAdPage() {
     }
   };
 
-  const readyForPrompt = selectedCount > 0 && productName.trim().length > 0;
+  const readyForPrompt = selectedCount > 0 && productName.trim().length > 0 && !!heroImage;
   const readyToCompose = readyForPrompt && scenePrompt.trim().length > 0;
 
   return (
@@ -250,19 +260,31 @@ export default function NewAdPage() {
           </div>
           {images.length > 0 && (
             <>
-              <p className="text-xs text-muted-foreground">Clique para selecionar ate 4 imagens</p>
+              <p className="text-xs text-muted-foreground">
+                Clique para selecionar ate 4 referencias. Duplo-clique para definir a imagem hero (usada na composicao de cena).
+              </p>
               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
                 {images.map((img, i) => (
                   <div
                     key={i}
                     className={`relative group cursor-pointer rounded-lg overflow-hidden border-2 transition-colors aspect-square ${
-                      img.selected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-muted-foreground/30"
+                      img.isHero
+                        ? "border-yellow-400 ring-2 ring-yellow-400/40"
+                        : img.selected
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-transparent hover:border-muted-foreground/30"
                     }`}
                     onClick={() => toggleSelect(i)}
+                    onDoubleClick={(e) => { e.preventDefault(); if (img.selected) setHero(i); }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.url} alt={`img ${i + 1}`} className="w-full h-full object-cover" />
-                    {img.selected && (
+                    {img.isHero && (
+                      <div className="absolute top-1 left-1 bg-yellow-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        HERO
+                      </div>
+                    )}
+                    {img.selected && !img.isHero && (
                       <div className="absolute top-1 left-1 bg-primary text-primary-foreground rounded-full p-0.5">
                         <Check className="h-3 w-3" />
                       </div>
@@ -276,6 +298,11 @@ export default function NewAdPage() {
                   </div>
                 ))}
               </div>
+              {selectedCount > 0 && !heroImage && (
+                <p className="text-xs text-yellow-400">
+                  Duplo-clique em uma imagem selecionada para defini-la como hero (para composicao)
+                </p>
+              )}
             </>
           )}
         </section>
@@ -374,8 +401,8 @@ export default function NewAdPage() {
                 </div>
                 <Button onClick={handleComposeAll} disabled={composing}>
                   {composing
-                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Compondo {selectedCount * variationCount} cenas...</>
-                    : <><Sparkles className="h-4 w-4 mr-2" />Compor {selectedCount * variationCount} cenas</>}
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Compondo {variationCount} variacoes...</>
+                    : <><Sparkles className="h-4 w-4 mr-2" />Compor {variationCount} variacoes da hero</>}
                 </Button>
               </div>
             )}
@@ -405,11 +432,6 @@ export default function NewAdPage() {
                       )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={item.url} alt={`composed ${idx + 1}`} className="w-full h-full object-cover" />
-
-                      {/* Source badge */}
-                      <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
-                        img {item.sourceIdx + 1}
-                      </div>
 
                       {/* Approve badge */}
                       {item.approved && (
