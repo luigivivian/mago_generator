@@ -142,7 +142,7 @@ CATEGORY_CONFIGS: dict[str, dict] = {
         "mood": "bold, appetizing, juicy",
         "lens": "85mm, f/2.8, sharp focus on cheese drip",
         "hero_actions": [
-            "hands pressing down on bun with juices flowing",
+            "cheese melting and dripping in slow-motion with juices pooling",
             "cheese melting and dripping in slow-motion",
             "burger cut in half revealing all layers",
         ],
