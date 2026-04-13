@@ -1840,9 +1840,13 @@ export interface AdJob {
   pipeline_version?: number;
   step_state: Record<string, { status: string; result?: unknown }> | null;
   cost_brl: number | null;
-  outputs: Record<string, string> | null;
+  outputs: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+  config?: Record<string, unknown>;
+  image_urls?: string[];
+  category?: string;
+  error_message?: string;
 }
 
 export interface AdCreateRequest {
