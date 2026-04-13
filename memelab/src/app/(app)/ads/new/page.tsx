@@ -5,20 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Check, Plus, X, Loader2, Film,
-  Sparkles, RotateCcw, Pencil, Trash2,
+  Sparkles, RotateCcw, Pencil, Trash2, Download, Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createAdJobV2, generateScenePrompt, composePreview } from "@/lib/api";
-
-const VIDEO_MODELS = [
-  { value: "kling-3.0/video", label: "Kling 3.0" },
-  { value: "kling-2.1/video", label: "Kling 2.1" },
-  { value: "seedance-1.0/video", label: "Seedance 1.0" },
-  { value: "wan-2.1/video", label: "Wan 2.1" },
-  { value: "veo-3/video", label: "Veo 3" },
-];
+import { createAdJobV2, generateScenePrompt, composePreview, generateKlingPrompt } from "@/lib/api";
+import { VIDEO_MODELS, getDurations } from "@/lib/video-models";
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -75,6 +68,9 @@ export default function NewAdPage() {
 
   // Step 4: Video config
   const [videoModel, setVideoModel] = useState("kling-3.0/video");
+  const [clipDuration, setClipDuration] = useState(5);
+  const [generatingKlingFor, setGeneratingKlingFor] = useState<number | null>(null);
+  const [fullscreen, setFullscreen] = useState<{ url: string; idx: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Global busy state — blocks all async actions and shows feedback
@@ -212,6 +208,54 @@ export default function NewAdPage() {
     setComposed((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // ── Auto-generate Kling video prompt for a specific scene ──
+  const handleGenerateKlingPrompt = (sceneIdx: number) => {
+    if (generatingKlingFor !== null || isBusy) return;
+    setGeneratingKlingFor(sceneIdx);
+    setError(null);
+    generateKlingPrompt({
+      product_name: productName.trim(),
+      category,
+      scene_description: approvedComposed[sceneIdx]?.prompt,
+      scene_index: sceneIdx,
+    })
+      .then((result) => {
+        setComposed((prev) => {
+          let count = 0;
+          return prev.map((c) => {
+            if (!c.approved) return c;
+            if (count++ === sceneIdx) return { ...c, prompt: result.prompt };
+            return c;
+          });
+        });
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Erro ao gerar prompt Kling");
+      })
+      .finally(() => setGeneratingKlingFor(null));
+  };
+
+  // ── Download composed image ──
+  const handleDownload = async (url: string, idx: number) => {
+    try {
+      const token = getAuthToken();
+      const proxyUrl = `/api/ads/download-proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `scene-${idx + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch { /* silent */ }
+  };
+
   // ── Submit ──
   const handleSubmit = () => {
     if (approvedComposed.length === 0) return;
@@ -222,6 +266,7 @@ export default function NewAdPage() {
         image_urls: selectedUrls,
         composed_urls: approvedComposed.map((c) => c.url),
         video_model: videoModel,
+        clip_duration: clipDuration,
         scene_prompts: approvedComposed.map((c) => c.prompt),
       });
       router.push(`/ads/${job.job_id}`);
@@ -428,7 +473,10 @@ export default function NewAdPage() {
                       }`}
                     >
                       {/* Image */}
-                      <div className="relative aspect-[9/16]">
+                      <div
+                        className="relative aspect-[9/16] cursor-pointer group/img"
+                        onClick={() => setFullscreen({ url: item.url, idx })}
+                      >
                         {composingIdx === idx && (
                           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -441,6 +489,9 @@ export default function NewAdPage() {
                             <Check className="h-3 w-3" />
                           </div>
                         )}
+                        <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover/img:opacity-100">
+                          <Maximize2 className="h-6 w-6 text-white drop-shadow" />
+                        </div>
                       </div>
 
                       {/* Prompt preview */}
@@ -478,6 +529,13 @@ export default function NewAdPage() {
                           title="Editar prompt"
                         >
                           <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDownload(item.url, idx); }}
+                          className="flex-1 p-1.5 text-xs text-muted-foreground hover:bg-muted flex items-center justify-center"
+                          title="Download"
+                        >
+                          <Download className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => !isBusy && removeComposed(idx)}
@@ -540,14 +598,36 @@ export default function NewAdPage() {
                   <button
                     key={m.value}
                     type="button"
-                    onClick={() => setVideoModel(m.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm transition-all ${
+                    onClick={() => { setVideoModel(m.value); const d = getDurations(m.value); setClipDuration(d[0]); }}
+                    className={`rounded-lg border px-3 py-2 text-sm transition-all flex flex-col items-center gap-0.5 ${
                       videoModel === m.value
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border text-muted-foreground hover:border-primary/50"
                     }`}
                   >
-                    {m.label}
+                    <span>{m.label}</span>
+                    <span className="text-[10px] opacity-50">{m.note}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Duration selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Duração por cena</label>
+              <div className="flex gap-2">
+                {getDurations(videoModel).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setClipDuration(d)}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition-all ${
+                      clipDuration === d
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {d}s
                   </button>
                 ))}
               </div>
@@ -566,7 +646,20 @@ export default function NewAdPage() {
                       className="w-16 h-28 rounded object-cover flex-shrink-0"
                     />
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
+                        <button
+                          onClick={() => handleGenerateKlingPrompt(idx)}
+                          disabled={generatingKlingFor !== null || isBusy}
+                          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 disabled:opacity-40 transition-colors"
+                          title="Gerar prompt otimizado para Kling com IA"
+                        >
+                          {generatingKlingFor === idx
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Sparkles className="h-3 w-3" />}
+                          Auto Kling
+                        </button>
+                      </div>
                       <Textarea
                         value={item.prompt}
                         onChange={(e) => {
@@ -614,6 +707,38 @@ export default function NewAdPage() {
           </div>
         )}
       </div>
+
+      {/* Fullscreen image overlay */}
+      {fullscreen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setFullscreen(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fullscreen.url}
+            alt="fullscreen"
+            className="max-h-full max-w-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDownload(fullscreen.url, fullscreen.idx); }}
+              className="bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition-colors"
+              title="Download"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setFullscreen(null)}
+              className="bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition-colors"
+              title="Fechar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adFileUrl, type AdStepData } from "@/lib/api";
+import { VIDEO_MODELS } from "@/lib/video-models";
 
 interface Props {
   stepState: AdStepData;
@@ -21,19 +22,6 @@ interface Props {
   onRetry?: () => void;
   jobId: string;
 }
-
-const VIDEO_MODELS = [
-  { value: "wan/2-6-flash-image-to-video", label: "Wan 2.6 Flash (rapido)" },
-  { value: "wan/2-6-image-to-video", label: "Wan 2.6 (qualidade)" },
-  { value: "kling/v2-1-standard", label: "Kling v2.1" },
-  { value: "kling-3.0/video", label: "Kling 3.0 (premium)" },
-  { value: "hailuo/2-3-image-to-video-standard", label: "Hailuo 2.3 Standard" },
-  { value: "hailuo/2-3-image-to-video-pro", label: "Hailuo 2.3 Pro (1080p)" },
-  { value: "bytedance/v1-pro-fast-image-to-video", label: "Seedance Pro Fast" },
-  { value: "bytedance/v1-lite-image-to-video", label: "Seedance Lite" },
-  { value: "bytedance/seedance-1.5-pro", label: "Seedance 1.5 Pro (cinema)" },
-  { value: "grok-imagine/image-to-video", label: "Grok Imagine" },
-];
 
 const DURATIONS = [
   { value: "5", label: "5 segundos" },
@@ -62,7 +50,7 @@ function VideoConfig({
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {VIDEO_MODELS.map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                <SelectItem key={m.value} value={m.value}>{m.label}{m.note ? ` (${m.note})` : ""}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -97,13 +85,20 @@ function VideoConfig({
 
 export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }: Props) {
   const [loading, setLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  async function handleRegenerate(overrides?: { video_model?: string; target_duration?: string }) {
+    if (regenerating || loading) return;
+    setRegenerating(true);
+    try { await onRegenerate(overrides); } finally { setRegenerating(false); }
+  }
   const [showConfig, setShowConfig] = useState(false);
   const result = stepState.result as { video_path?: string | string[] } | undefined;
   const raw = result?.video_path;
   const videoPaths = Array.isArray(raw) ? raw : raw ? [raw] : [];
 
   // Config state for retry
-  const [model, setModel] = useState("wan/2-6-flash-image-to-video");
+  const [model, setModel] = useState("kling-3.0/video");
   const [duration, setDuration] = useState("10");
   const [promptOverride, setPromptOverride] = useState("");
 
@@ -149,9 +144,10 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
           <div className="flex gap-2 justify-center">
             <Button
               variant="outline"
-              onClick={() => onRegenerate({ video_model: model, target_duration: duration })}
+              disabled={regenerating}
+              onClick={() => handleRegenerate({ video_model: model, target_duration: duration })}
             >
-              <RefreshCw className="mr-2 h-4 w-4" /> Regenerar Video
+              {regenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} {regenerating ? "Regenerando..." : "Regenerar Video"}
             </Button>
           </div>
         </CardContent>
@@ -212,8 +208,8 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
           <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
             <Settings className="mr-2 h-3 w-3" /> {showConfig ? "Ocultar" : "Parametros"}
           </Button>
-          <Button variant="outline" onClick={() => onRegenerate({ video_model: model, target_duration: duration })} disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Regenerar
+          <Button variant="outline" onClick={() => handleRegenerate({ video_model: model, target_duration: duration })} disabled={regenerating || loading}>
+            {regenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} {regenerating ? "Regenerando..." : "Regenerar"}
           </Button>
           <Button onClick={handleApprove} disabled={loading || videoPaths.length === 0}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}

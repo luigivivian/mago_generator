@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download, Loader2, Play, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useAdSteps, useAdJob } from "@/hooks/use-ads";
-import { executeAdStep, approveAdStep, regenerateAdStep } from "@/lib/api";
+import { executeAdStep, approveAdStep, regenerateAdStep, regenerateAdJobV2 } from "@/lib/api";
 import { AdStepper, AdStepContent, ADS_STEP_ORDER, getStepStatus } from "@/components/ads/stepper";
 import { Button } from "@/components/ui/button";
 import type { AdStepData } from "@/lib/api";
+import { VIDEO_MODELS } from "@/lib/video-models";
 import { StepAnalysis } from "@/components/ads/step-analysis";
 import { StepScene } from "@/components/ads/step-scene";
 import { StepPrompt } from "@/components/ads/step-prompt";
@@ -51,9 +52,14 @@ export default function AdJobPage() {
   const params = useParams<{ jobId: string }>();
   const jobId = params.jobId;
   const { data, error, isLoading, mutate } = useAdSteps(jobId);
-  const { data: jobData, isLoading: jobLoading } = useAdJob(jobId);
+  const { data: jobData, isLoading: jobLoading, mutate: mutateJob } = useAdJob(jobId);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [viewingStep, setViewingStep] = useState<string | null>(null);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenModel, setRegenModel] = useState("");
+  const [regenDuration, setRegenDuration] = useState("");
+  const [regenAudio, setRegenAudio] = useState("");
+  const [regenLoading, setRegenLoading] = useState(false);
   const autoStarted = useRef(false);
 
   // Auto-start first step if all steps are pending (new draft)
@@ -95,6 +101,23 @@ export default function AdJobPage() {
   const jobStatus = jobData?.status ?? "pending";
   const jobOutputs = (jobData as any)?.outputs as Record<string, string> | undefined;
 
+  // VIDEO_MODELS imported from @/lib/video-models
+
+  async function handleRegenerateV2() {
+    setRegenLoading(true);
+    try {
+      const overrides: Record<string, unknown> = {};
+      if (regenModel) overrides.video_model = regenModel;
+      if (regenDuration) overrides.clip_duration = parseInt(regenDuration);
+      if (regenAudio) overrides.audio_mode = regenAudio;
+      await regenerateAdJobV2(jobId, overrides as Parameters<typeof regenerateAdJobV2>[1]);
+      setRegenOpen(false);
+      await mutateJob();
+    } finally {
+      setRegenLoading(false);
+    }
+  }
+
   // V2 jobs: show pipeline status with real-time polling via useAdJob
   if (pipelineVersion === 2) {
     return (
@@ -126,28 +149,98 @@ export default function AdJobPage() {
             <p className="text-[10px] text-muted-foreground/50">Atualizando automaticamente...</p>
           </div>
         ) : jobStatus === "error" || jobStatus === "failed" ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 space-y-2">
-            <p className="text-red-400 font-medium">Erro na geracao</p>
-            <p className="text-red-400/70 text-sm">
-              {(jobData as any)?.error_message || "O pipeline encontrou um erro. Tente criar um novo ad."}
-            </p>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 space-y-2">
+              <p className="text-red-400 font-medium">Erro na geracao</p>
+              <p className="text-red-400/70 text-sm">
+                {(jobData as any)?.error_message || "O pipeline encontrou um erro."}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <button
+                onClick={() => setRegenOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm font-medium w-full text-left"
+              >
+                <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                Tentar novamente
+                {regenOpen ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+              </button>
+              {regenOpen && (
+                <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Modelo</label>
+                      <select
+                        value={regenModel}
+                        onChange={(e) => setRegenModel(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesmo modelo</option>
+                        {VIDEO_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}{m.note ? ` (${m.note})` : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Duracao por cena</label>
+                      <select
+                        value={regenDuration}
+                        onChange={(e) => setRegenDuration(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesma duracao</option>
+                        <option value="5">5s</option>
+                        <option value="10">10s</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Audio</label>
+                      <select
+                        value={regenAudio}
+                        onChange={(e) => setRegenAudio(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesmo audio</option>
+                        <option value="sfx">SFX</option>
+                        <option value="music">Musica</option>
+                        <option value="mute">Mudo</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={handleRegenerateV2} disabled={regenLoading} className="w-full">
+                    {regenLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                    Gerar variacao
+                  </Button>
+                </div>
+              )}
+            </div>
             <Link href="/ads/new">
-              <Button variant="outline" size="sm" className="mt-2">Criar novo ad</Button>
+              <Button variant="outline" size="sm">Criar novo ad</Button>
             </Link>
           </div>
         ) : jobStatus === "complete" ? (
           <div className="space-y-4">
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-6 space-y-3">
               <p className="text-emerald-400 font-medium">Video gerado com sucesso!</p>
-              {jobOutputs?.composed_video && (
-                <video
-                  src={`/api/ads/${jobId}/file/${jobOutputs.composed_video.split("/").pop()}`}
-                  controls
-                  autoPlay
-                  muted
-                  className="w-full max-w-lg rounded-lg border border-border"
-                />
-              )}
+              {jobOutputs?.composed_video && (() => {
+                const videoUrl = `/api/ads/${jobId}/file/${jobOutputs.composed_video.split("/").pop()}`;
+                return (
+                  <div className="space-y-2">
+                    <video
+                      src={videoUrl}
+                      controls
+                      autoPlay
+                      muted
+                      className="w-full max-w-lg rounded-lg border border-border"
+                    />
+                    <a href={videoUrl} download>
+                      <Button variant="outline" size="sm" className="w-full max-w-lg">
+                        <Download className="mr-2 h-4 w-4" /> Download
+                      </Button>
+                    </a>
+                  </div>
+                );
+              })()}
               {jobOutputs && !jobOutputs.composed_video && (
                 <div className="space-y-2">
                   {Object.entries(jobOutputs).map(([key, val]) => (
@@ -159,6 +252,73 @@ export default function AdJobPage() {
                 </div>
               )}
             </div>
+
+            {/* Regeneration panel */}
+            <div className="rounded-lg border bg-card p-4 space-y-3">
+              <button
+                onClick={() => setRegenOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm font-medium w-full text-left"
+              >
+                <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                Regenerar video
+                {regenOpen ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+              </button>
+
+              {regenOpen && (
+                <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Modelo</label>
+                      <select
+                        value={regenModel}
+                        onChange={(e) => setRegenModel(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesmo modelo</option>
+                        {VIDEO_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}{m.note ? ` (${m.note})` : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Duracao por cena</label>
+                      <select
+                        value={regenDuration}
+                        onChange={(e) => setRegenDuration(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesma duracao</option>
+                        <option value="5">5s</option>
+                        <option value="10">10s</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Audio</label>
+                      <select
+                        value={regenAudio}
+                        onChange={(e) => setRegenAudio(e.target.value)}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="">Mesmo audio</option>
+                        <option value="sfx">SFX</option>
+                        <option value="music">Musica</option>
+                        <option value="mute">Mudo</option>
+                      </select>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleRegenerateV2}
+                    disabled={regenLoading}
+                    className="w-full"
+                  >
+                    {regenLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                    Gerar variacao
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <Link href="/ads/new">
               <Button variant="outline" size="sm">Criar outro ad</Button>
             </Link>
