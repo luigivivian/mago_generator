@@ -197,6 +197,7 @@ export default function NewAdPage() {
   const handleRegenSingle = (compIdx: number, customPrompt?: string) => {
     if (!heroImage) return;
     const item = composed[compIdx];
+    if (!item) return;
     const prompt = customPrompt || item.prompt;
     setComposingIdx(compIdx);
     withBusy("regenerating", async () => {
@@ -206,8 +207,8 @@ export default function NewAdPage() {
         count: 1,
       });
       setComposed((prev) =>
-        prev.map((c, i) =>
-          i === compIdx ? { ...c, url: data.composed_urls[0], prompt, approved: false } : c
+        prev.map((c) =>
+          c === item ? { ...c, url: data.composed_urls[0], prompt, approved: false } : c
         )
       );
       setComposingIdx(null);
