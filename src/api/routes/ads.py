@@ -569,7 +569,10 @@ async def generate_kling_prompt(
     product_name = req.get("product_name", "product")
     category = req.get("category", "generic")
     scene_description = req.get("scene_description", "")
-    scene_index = int(req.get("scene_index", 0))
+    try:
+        scene_index = int(req.get("scene_index", 0))
+    except (ValueError, TypeError):
+        raise HTTPException(400, "scene_index must be an integer")
 
     cat_cfg = CATEGORY_CONFIGS.get(category, CATEGORY_CONFIGS.get("generic", {}))
     surface = cat_cfg.get("surface", "clean surface")
@@ -638,7 +641,10 @@ async def compose_preview(
 
     image_url = req.get("image_url", "")
     prompt = req.get("prompt", "")
-    count = min(int(req.get("count", 1)), 8)
+    try:
+        count = min(int(req.get("count", 1)), 8)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "count must be an integer")
 
     if not image_url:
         raise HTTPException(400, "image_url required")
@@ -695,7 +701,10 @@ async def generate_nano_banana(
 
     source_path = req.get("source_path", "").strip()
     prompt = req.get("prompt", "").strip()
-    count = min(max(int(req.get("count", 1)), 1), 4)
+    try:
+        count = min(max(int(req.get("count", 1)), 1), 4)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "count must be an integer")
 
     if not source_path:
         raise HTTPException(400, "source_path required")
