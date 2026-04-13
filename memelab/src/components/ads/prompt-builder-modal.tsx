@@ -195,7 +195,7 @@ export function PromptBuilderModal({ open, onClose, onUsePrompt, modelValue, sce
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => { onUsePrompt(assembled); onClose(); }} disabled={!assembled.trim()}>
+          <Button onClick={() => { onUsePrompt(assembled); onClose(); }} disabled={!assembled.trim() || (isSeedance && !(act1 || act2 || act3))}>
             Usar este prompt
           </Button>
         </div>
