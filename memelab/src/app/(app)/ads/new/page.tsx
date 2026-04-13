@@ -10,6 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { createAdJobV2, generateScenePrompt, composePreview, generateKlingPrompt } from "@/lib/api";
 import { VIDEO_MODELS, getDurations } from "@/lib/video-models";
 
@@ -590,46 +597,35 @@ export default function NewAdPage() {
               4. Configuracao do video
             </h3>
 
-            {/* Model selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Modelo de video</label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {VIDEO_MODELS.map((m) => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => { setVideoModel(m.value); const d = getDurations(m.value); setClipDuration(d[0]); }}
-                    className={`rounded-lg border px-3 py-2 text-sm transition-all flex flex-col items-center gap-0.5 ${
-                      videoModel === m.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    <span>{m.label}</span>
-                    <span className="text-[10px] opacity-50">{m.note}</span>
-                  </button>
-                ))}
+            {/* Model & Duration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Modelo de video</label>
+                <Select value={videoModel} onValueChange={(v) => {
+                  setVideoModel(v);
+                  const durations = getDurations(v);
+                  if (!durations.includes(clipDuration)) setClipDuration(durations[0]);
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {VIDEO_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}{m.note ? ` (${m.note})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-
-            {/* Duration selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Duração por cena</label>
-              <div className="flex gap-2">
-                {getDurations(videoModel).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setClipDuration(d)}
-                    className={`px-3 py-1.5 text-sm rounded-md border transition-all ${
-                      clipDuration === d
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/50"
-                    }`}
-                  >
-                    {d}s
-                  </button>
-                ))}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Duracao por cena</label>
+                <Select value={String(clipDuration)} onValueChange={(v) => setClipDuration(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {getDurations(videoModel).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}s</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
