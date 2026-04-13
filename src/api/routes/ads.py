@@ -449,6 +449,8 @@ async def upload_product_images(
 
     if len(files) < 1:
         raise HTTPException(400, "Upload at least 1 image")
+    if len(files) > 4:
+        raise HTTPException(400, "Maximum 4 images per upload")
 
     allowed = {"image/jpeg", "image/png", "image/jpg", "image/webp", "image/heic", "image/heif"}
     for f in files:
