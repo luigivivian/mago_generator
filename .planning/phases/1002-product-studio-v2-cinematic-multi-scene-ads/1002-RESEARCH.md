@@ -326,21 +326,24 @@ def compose_take_audio(
 
 **Note on A4:** FFmpeg xfade supports: fade, fadeblack, fadewhite, dissolve, wipeleft, wiperight, wipeup, wipedown, slideleft, slideright, slideup, slidedown, and ~20 more. "whip_pan" is not a standard name -- use `wipeleft` as equivalent. [VERIFIED: FFmpeg docs]
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **SFX Library Sourcing (RQ-002)**
    - What we know: Need ~50-100 royalty-free sounds categorized by product type (ASMR, epic, ambient)
    - What's unclear: Licensing for commercial use, whether to bundle statically or use API
+   - **RESOLVED:** Bundle starter library of 12 CC0 sounds from Freesound.org as static assets in `memelab/public/sfx/` (operator-sourced per `assets/sfx/README.md`). License verified as CC0 (public domain, commercial OK). Plan 05 Task 1 codifies the 12-entry catalog. Expansion via external API deferred.
    - Recommendation: Start with a small bundled library (10-20 sounds per category) from Freesound.org (CC0 licensed). Expand later with API integration if needed.
 
 2. **Kling Multi-Image Quality**
    - What we know: API supports it, docs confirm 2-4 images per element
    - What's unclear: How well it maintains product fidelity across multi-shot generation
+   - **RESOLVED:** Accept risk. Build with multi-image element support per Kie.ai docs. If quality issues surface in testing, Plan 04 fallback already generates per-take single-image calls (`run_step_generation_v2` routes to `per_take` mode when total duration > 15s OR takes > 5, and can be forced as a regeneration fallback).
    - Recommendation: Build the pipeline with multi-image support but include a per-take regeneration fallback for quality issues.
 
 3. **Multi-Shot Duration Limit Strategy**
    - What we know: Kling 3.0 max is 15s per task; multi_prompt shots range 1-12s each
    - What's unclear: Best strategy when user configures >15s total across takes
+   - **RESOLVED:** When total duration > 15s OR take count > 5, generate takes individually via per-take Kling calls and compose with FFmpeg. Single `multi_shots` call only when total <= 15s AND <= 5 takes. This is already the strategy implemented in `run_step_generation_v2` (Plan 04 Task 2).
    - Recommendation: Split into multiple Kling tasks (one per take) when total exceeds 15s. Compose with FFmpeg afterward. This is the safest approach and matches the existing per-scene generation pattern in the reels pipeline.
 
 ## Environment Availability

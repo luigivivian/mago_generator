@@ -99,7 +99,12 @@ def compose_take_audio(
         output_path on success.
     """
     if not ambient_path and not sfx_entries:
-        raise ValueError("compose_take_audio: must provide ambient or sfx")
+        logger.warning("compose_take_audio: no ambient or sfx provided, generating silence")
+        cmd = ["ffmpeg", "-y", "-f", "lavfi", "-i",
+               f"anullsrc=r=44100:cl=stereo", "-t", str(total_duration),
+               "-c:a", "aac", output_path]
+        subprocess.run(cmd, capture_output=True)
+        return output_path
 
     cmd = ["ffmpeg", "-y"]
     inputs = []

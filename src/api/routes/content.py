@@ -190,7 +190,7 @@ async def export_content_package(package_id: int, current_user=Depends(get_curre
         _add_package_to_zip(zf, pkg)
 
     buf.seek(0)
-    filename = f"memelab_pack_{package_id}.zip"
+    filename = f"cretorlab_pack_{package_id}.zip"
     return StreamingResponse(
         buf,
         media_type="application/zip",
@@ -245,7 +245,7 @@ async def export_content_batch(req: BatchExportRequest, current_user=Depends(get
 
     buf.seek(0)
     date_str = datetime.now().strftime("%Y%m%d")
-    filename = f"memelab_batch_{date_str}.zip"
+    filename = f"cretorlab_batch_{date_str}.zip"
     return StreamingResponse(
         buf,
         media_type="application/zip",

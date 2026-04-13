@@ -119,11 +119,11 @@ def test_log_sanitizer_masks_args():
 def test_log_sanitizer_masks_database_url():
     """Log sanitizer mascara password do DATABASE_URL."""
     from src.api.log_sanitizer import SensitiveDataFilter
-    os.environ["DATABASE_URL"] = "mysql+aiomysql://root:masterkey@localhost/memelab"
+    os.environ["DATABASE_URL"] = "mysql+aiomysql://root:masterkey@localhost/cretorlab"
     f = SensitiveDataFilter()
     record = logging.LogRecord(
         name="test", level=logging.INFO, pathname="", lineno=0,
-        msg="DB: mysql+aiomysql://root:masterkey@localhost/memelab",
+        msg="DB: mysql+aiomysql://root:masterkey@localhost/cretorlab",
         args=None, exc_info=None,
     )
     f.filter(record)

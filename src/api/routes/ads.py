@@ -13,7 +13,7 @@ import shutil
 import traceback
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -972,13 +972,43 @@ async def _execute_v2_pipeline_task(job_id: str, session_factory):
             composed_urls = config.get("composed_urls", [])
             scene_prompts = config.get("scene_prompts", [])
 
+            # When user edits scene_prompts, update existing takes with the new
+            # prompts instead of passing both (pipeline ignores scene_prompts
+            # when takes already exist).
+            existing_takes = list(job.takes_config) if job.takes_config else None
+            from uuid import uuid4
+            clip_dur = int(config.get("clip_duration", 5))
+
+            # Update duration for all existing takes (user may change duration
+            # without changing prompts).
+            if existing_takes:
+                for take in existing_takes:
+                    take["duration"] = clip_dur
+
+            if scene_prompts and existing_takes:
+                for i, prompt in enumerate(scene_prompts):
+                    if i < len(existing_takes):
+                        existing_takes[i]["prompt"] = prompt
+                # If user added more prompts than takes, append new takes
+                for i in range(len(existing_takes), len(scene_prompts)):
+                    existing_takes.append({
+                        "id": str(uuid4()),
+                        "order": i,
+                        "prompt": scene_prompts[i],
+                        "camera_move": "static",
+                        "duration": clip_dur,
+                        "transition_type": "dissolve" if i < len(scene_prompts) - 1 else "fade",
+                        "sfx_id": None,
+                        "thumbnail_url": None,
+                    })
+
             pipeline_result = await pipeline.run_v2_pipeline(
                 image_urls=list(job.image_urls or []),
                 composed_urls=composed_urls,
                 scene_prompts=scene_prompts,
                 category=job.category or "generic",
                 product_name=job.product_name,
-                takes=list(job.takes_config) if job.takes_config else None,
+                takes=existing_takes,
                 output_formats=job.output_formats or ["9:16"],
                 audio_mode=job.audio_mode or "sfx",
                 video_model=config.get("video_model", "kling-3.0/video"),
@@ -986,11 +1016,24 @@ async def _execute_v2_pipeline_task(job_id: str, session_factory):
             )
 
             job.status = "complete"
+
+            # Preserve previous videos in history
+            prev_outputs = job.outputs or {}
+            video_history = list(prev_outputs.get("video_history") or [])
+            prev_video = prev_outputs.get("composed_video")
+            if prev_video:
+                video_history.append({
+                    "composed_video": prev_video,
+                    "mode": prev_outputs.get("mode"),
+                    "created_at": job.updated_at.isoformat() if job.updated_at else None,
+                })
+
             job.outputs = {
                 "composed_video": pipeline_result["composed_video"],
                 "exports": pipeline_result["exports"],
                 "mode": pipeline_result["mode"],
                 "job_dir": pipeline_result["job_dir"],
+                "video_history": video_history,
             }
             job.takes_config = pipeline_result["takes"]
             job.cost_brl = float(pipeline_result["cost_usd"]) * 5.0  # rough USD->BRL
@@ -1246,14 +1289,52 @@ async def get_cost_estimate(
     )
 
 
+async def _get_current_user_or_token(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    token: str | None = Query(default=None),
+    session: AsyncSession = Depends(db_session),
+):
+    """Auth via header OR ?token= query param.
+
+    Browser <video>/<img> elements can't set headers, so file-serving
+    endpoints accept the JWT as a query parameter fallback.
+    """
+    from src.auth.jwt import verify_access_token
+    from src.database.repositories.user_repo import UserRepository
+
+    raw_token = None
+    if authorization and authorization.startswith("Bearer "):
+        raw_token = authorization[7:]
+    elif token:
+        raw_token = token
+
+    if not raw_token:
+        raise HTTPException(status_code=401, detail="Missing authentication")
+
+    payload = verify_access_token(raw_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = int(payload["sub"])
+    repo = UserRepository(session)
+    user = await repo.get_by_id(user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or deactivated")
+    return user
+
+
 @router.get("/{job_id}/file/{filename}")
 async def serve_ad_file(
     job_id: str,
     filename: str,
     db: AsyncSession = Depends(db_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(_get_current_user_or_token),
 ):
-    """Serve artifact file from job output directory."""
+    """Serve artifact file from job output directory.
+
+    Accepts auth via Authorization header or ?token= query param
+    (for browser <video>/<img> elements that can't set headers).
+    """
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 

@@ -34,11 +34,15 @@
       "Bash(python -m pip install code-review-graph)",
       "mcp__plugin_playwright_playwright__browser_click",
       "mcp__plugin_playwright_playwright__browser_wait_for",
-      "mcp__plugin_playwright_playwright__browser_take_screenshot"
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "*",
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(git commit --no-verify -m 'feat\\(1002-01\\): add v2 Pydantic models + xfail test scaffolding:*)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "code-review-graph"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

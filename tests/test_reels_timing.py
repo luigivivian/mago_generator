@@ -20,7 +20,7 @@ DO NOT rename a test in this file without also updating 23-RESEARCH.md
 Per 23-CONTEXT.md Option C: TIMING-04 is a regression lock on existing
 fields (step_data['duration'] == sum(cenas[i].duration) within 50ms),
 NOT a new step_state.editor write. This matches the actual editor
-reader at memelab/src/stores/editor-store.ts:197-201, which reads
+reader at cretorlab/src/stores/editor-store.ts:197-201, which reads
 stepState.tts.duration directly — not audioItems[0].total_duration.
 """
 

@@ -231,11 +231,16 @@ class KieSora2Client:
                 "aspect_ratio": ar,
                 "sound": False,
                 "multi_shots": False,
+                "cfg_scale": extra_kw.get("cfg_scale", 0.5),
             }
+            # Seed locking for visual consistency across shots
+            if extra_kw.get("seed"):
+                payload_input["seed"] = extra_kw["seed"]
 
             # v2: multi_shots + multi_prompt for multi-take generation
             if extra_kw.get("multi_prompt"):
                 payload_input["multi_shots"] = True
+                payload_input["sound"] = True
                 payload_input["multi_prompt"] = extra_kw["multi_prompt"]
 
             # v2: kling_elements for multi-image product references
@@ -584,7 +589,10 @@ class KieSora2Client:
                 negative_prompt=negative_prompt,
                 extra=extra,
             )
-        except (KieAPIError, httpx.HTTPError) as e:
+        except KieAPIError as e:
+            logger.error("Failed to create video task: %s", e)
+            raise
+        except httpx.HTTPError as e:
             logger.error("Failed to create video task: %s", e)
             return None
 

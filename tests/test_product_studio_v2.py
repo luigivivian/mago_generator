@@ -122,7 +122,7 @@ def test_04_take_editor():
     path = os.path.join(
         os.path.dirname(__file__),
         "..",
-        "memelab",
+        "cretorlab",
         "src",
         "components",
         "ads",

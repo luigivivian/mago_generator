@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import (
     VIDEO_ENABLED,
     VIDEO_DURATION,
+    VIDEO_DAILY_BUDGET_USD,
+    VIDEO_COST_PER_SECOND,
     VIDEO_LEGEND_ENABLED,
     VIDEO_LEGEND_MODE,
     VIDEO_MODEL,
@@ -920,7 +922,7 @@ async def serve_video_file(
     return FileResponse(
         str(video_path),
         media_type="video/mp4",
-        filename=f"memelab_video_{content_package_id}.mp4",
+        filename=f"cretorlab_video_{content_package_id}.mp4",
     )
 
 

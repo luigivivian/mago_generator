@@ -1,4 +1,4 @@
-# Mago Mestre — Gerador de Imagens Consistentes
+# cretor-lab — Gerador de Imagens Consistentes
 
 Notebook Jupyter/Colab para geração de imagens do personagem **O Mago Mestre** usando Google Gemini com referências visuais.
 

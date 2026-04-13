@@ -38,7 +38,7 @@ _KEYWORDS_BR = [
 
 _HEADERS = {
     "Accept": "application/json",
-    "User-Agent": "clip-flow/1.0 (memelab pipeline)",
+    "User-Agent": "clip-flow/1.0 (cretorlab pipeline)",
 }
 
 # Timeout para requests HTTP (segundos)

@@ -112,19 +112,25 @@ class ProductAdPipeline:
         await asyncio.to_thread(remove_background, product_image_path, cutout_path)
 
         if scene_mode == "cutout":
-            # Place cutout on white background
+            # Place cutout on white background — preserve original proportions
             from PIL import Image as PILImage
             cutout = PILImage.open(cutout_path)
             bg = PILImage.new("RGB", (1080, 1920), (255, 255, 255))
-            # Center product in lower 2/3
             cw, ch = cutout.size
-            scale = min(900 / cw, 1200 / ch)
-            new_size = (int(cw * scale), int(ch * scale))
-            cutout_resized = cutout.resize(new_size, PILImage.LANCZOS)
-            x = (1080 - new_size[0]) // 2
-            y = 500 + (1200 - new_size[1]) // 2
+            # Only downscale if needed, never upscale (preserves sharpness)
+            max_w, max_h = 900, 1200
+            if cw > max_w or ch > max_h:
+                scale = min(max_w / cw, max_h / ch)
+                new_size = (int(cw * scale), int(ch * scale))
+                cutout_resized = cutout.resize(new_size, PILImage.LANCZOS)
+            else:
+                cutout_resized = cutout
+            # Center product in lower 2/3
+            pw, ph = cutout_resized.size
+            x = (1080 - pw) // 2
+            y = 500 + (1200 - ph) // 2
             bg.paste(cutout_resized, (x, y), cutout_resized if cutout_resized.mode == "RGBA" else None)
-            bg.save(scene_path, "JPEG", quality=95)
+            bg.save(scene_path, "PNG")
             logger.info("Step scene complete (cutout on white): %s", scene_path)
             return scene_path
 
@@ -263,6 +269,7 @@ class ProductAdPipeline:
         job_dir: str,
         product_name: str = "product",
         aspect_ratio: str = "9:16",
+        model: str = "kling-3.0/video",
     ) -> dict:
         """V2 Step: Generate video using Kling multi-image elements + multi-shot.
 
@@ -289,22 +296,42 @@ class ProductAdPipeline:
         """
         from src.video_gen.kie_client import KieSora2Client
 
+        import time as _time
         total_duration = sum(int(t["duration"]) for t in takes)
         client = KieSora2Client()
-        # Kling 3.0 model id per RESEARCH.md
-        kling_model = "kling-3.0/video"
+        # Only Kling 3.0 supports multi_shot + kling_elements
+        is_kling_v3 = model == "kling-3.0/video"
+        # Seed locking: same seed across all shots for visual consistency
+        seed = int(_time.time()) % 1000000
 
-        if total_duration <= 15 and len(takes) <= 5:
+        def _ensure_element_ref(prompt: str) -> str:
+            """Ensure prompt references @prod element for Kling v3.
+
+            User-edited prompts may use @image or omit the element ref entirely.
+            Normalize to @prod which matches our kling_elements name.
+            """
+            if not is_kling_v3:
+                return prompt
+            # Replace @image with @prod (common user mistake)
+            normalized = prompt.replace("@image", "@prod")
+            # If no element reference, append one
+            if "@prod" not in normalized:
+                normalized = f"{normalized} featuring @prod"
+            return normalized
+
+        if total_duration <= 15 and len(takes) <= 5 and is_kling_v3:
             # Single multi-shot call: multi_prompt drives Kling's per-shot
             # breakdown; kling_elements binds product refs to @prod.
             multi_prompt = [
-                {"prompt": t["prompt"][:463], "duration": int(t["duration"])}
+                {"prompt": _ensure_element_ref(t["prompt"])[:2000], "duration": int(t["duration"])}
                 for t in takes
             ]
+            # Kling requires 2-4 images in element_input_urls; repeat if only 1
+            _elem_urls = image_urls[:4] if len(image_urls) >= 2 else image_urls * 2
             kling_elements = [{
                 "name": "prod",
                 "description": f"product being advertised: {product_name}",
-                "element_input_urls": image_urls[:4],
+                "element_input_urls": _elem_urls,
             }]
             extra = {"multi_prompt": multi_prompt, "kling_elements": kling_elements}
 
@@ -313,7 +340,7 @@ class ProductAdPipeline:
                 prompt=multi_prompt[0]["prompt"],
                 duration=total_duration,
                 output_dir=job_dir,
-                model=kling_model,
+                model=model,
                 extra=extra,
             )
             if result is None:
@@ -329,23 +356,29 @@ class ProductAdPipeline:
                 "cost_usd": float(result.cost_usd or 0.0),
             }
 
-        # Fallback: per-take generation
+        # Fallback: per-take generation with frame continuation
+        # Each take uses the last frame of the previous video as input
+        # to maintain visual continuity across scenes.
         video_paths: list[str] = []
         total_cost = 0.0
+        current_image_url = image_urls[0]
         for i, t in enumerate(takes):
             take_dir = os.path.join(job_dir, f"take_{i}")
             os.makedirs(take_dir, exist_ok=True)
             result = await client.generate_video(
-                image_url=image_urls[0],
-                prompt=t["prompt"][:463],
+                image_url=current_image_url,
+                prompt=_ensure_element_ref(t["prompt"])[:2000],
                 duration=int(t["duration"]),
                 output_dir=take_dir,
-                model=kling_model,
-                extra={"kling_elements": [{
-                    "name": "prod",
-                    "description": f"product: {product_name}",
-                    "element_input_urls": image_urls[:4],
-                }]},
+                model=model,
+                extra={
+                    "seed": seed,
+                    **({"cfg_scale": 0.5, "kling_elements": [{
+                        "name": "prod",
+                        "description": f"product: {product_name}",
+                        "element_input_urls": image_urls[:4] if len(image_urls) >= 2 else image_urls * 2,
+                    }]} if is_kling_v3 else {}),
+                },
             )
             if result is None:
                 raise RuntimeError(
@@ -353,6 +386,27 @@ class ProductAdPipeline:
                 )
             video_paths.append(result.local_path)
             total_cost += float(result.cost_usd or 0.0)
+
+            # Extract last frame for next take's input (frame continuation)
+            if i < len(takes) - 1:
+                last_frame_path = os.path.join(take_dir, "last_frame.jpg")
+                try:
+                    await asyncio.to_thread(
+                        subprocess.run,
+                        ["ffmpeg", "-y", "-sseof", "-0.1", "-i", result.local_path,
+                         "-frames:v", "1", "-q:v", "2", last_frame_path],
+                        capture_output=True, check=True,
+                    )
+                    # Upload last frame to GCS for Kling input
+                    from src.video_gen.gcs_uploader import GCSUploader
+                    uploader = GCSUploader()
+                    import uuid as _uuid
+                    gcs_name = f"ads/v2/frames/{_uuid.uuid4().hex[:8]}_take{i}_last.jpg"
+                    current_image_url = uploader.upload_image(last_frame_path, remote_name=gcs_name)
+                    logger.info("Frame continuation: take %d last frame → %s", i, current_image_url)
+                except Exception as e:
+                    logger.warning("Frame extraction failed for take %d, reusing original: %s", i, e)
+                    # Fall back to original image if extraction fails
 
         logger.info(
             "Step generation_v2 complete (per_take): %d clips", len(video_paths)
@@ -373,6 +427,10 @@ class ProductAdPipeline:
         category: str,
         product_name: str,
         takes: list[dict] | None = None,
+        composed_urls: list[str] | None = None,
+        scene_prompts: list[str] | None = None,
+        video_model: str = "kling-3.0/video",
+        clip_duration: int = 5,
         output_formats: list[str] | None = None,
         audio_mode: str = "sfx",
         aspect_ratio: str = "9:16",
@@ -447,7 +505,24 @@ class ProductAdPipeline:
                     fp.write(resp.content)
                 local_image_paths.append(local)
 
-        # ── Step 2: Generate storyboard if no takes provided ──
+        # ── Step 2: Build takes from scene_prompts if provided, else generate storyboard ──
+        if scene_prompts and not takes:
+            from uuid import uuid4
+            takes = [
+                {
+                    "id": str(uuid4()),
+                    "order": i,
+                    "prompt": p,
+                    "camera_move": "static",
+                    "duration": clip_duration,
+                    "transition_type": "dissolve" if i < len(scene_prompts) - 1 else "fade",
+                    "sfx_id": None,
+                    "thumbnail_url": None,
+                }
+                for i, p in enumerate(scene_prompts)
+            ]
+            logger.info("run_v2_pipeline: using %d caller-provided scene_prompts as takes", len(takes))
+
         if not takes:
             storyboard = await generate_storyboard(
                 image_paths=local_image_paths,
@@ -475,6 +550,7 @@ class ProductAdPipeline:
             job_dir=job_dir,
             product_name=product_name,
             aspect_ratio=aspect_ratio,
+            model=video_model,
         )
         video_paths = gen_result["video_paths"]
 
@@ -492,7 +568,7 @@ class ProductAdPipeline:
                 video_paths=video_paths,
                 transition_types=transition_types,
                 output_path=composed_video,
-                transition_duration=0.5,
+                transition_duration=0.3,
             )
             take_video_paths = list(video_paths)
 
@@ -502,7 +578,7 @@ class ProductAdPipeline:
             ambient_path = resolve_sfx_path(sfx_selection.get("ambient_id") or "")
 
             take_durations = [float(t.get("duration", 5)) for t in takes]
-            offsets = calculate_sfx_offsets(take_durations, transition_duration=0.5)
+            offsets = calculate_sfx_offsets(take_durations, transition_duration=0.3)
 
             hit_ids = sfx_selection.get("hit_ids") or []
             sfx_entries: list[dict] = []

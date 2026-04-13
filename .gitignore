@@ -27,7 +27,7 @@ clipflow.db
 node_modules/
 
 # Next.js
-memelab/.next/
+cretorlab/.next/
 
 # LoRA training data & logs
 lora_training/

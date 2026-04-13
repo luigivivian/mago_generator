@@ -278,7 +278,7 @@ async def _execute_step_task(
                 )
 
                 # D-07: step_data top-level fields stay additive for editor compat
-                # (memelab/src/stores/editor-store.ts:167 reads tts.path;
+                # (cretorlab/src/stores/editor-store.ts:167 reads tts.path;
                 #  editor-store.ts:198 reads tts.duration)
                 step_data["path"] = audio_path
                 step_data["duration"] = total_duration
@@ -1045,13 +1045,13 @@ async def _export_remotion_task(
             "--disable-web-security",
             "--browser-executable=/Users/luigivivian/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
         ]
-        memelab_cwd = os.path.join(os.path.dirname(__file__), "..", "..", "..", "memelab")
-        logger.info("export-remotion cmd: %s cwd=%s", " ".join(cmd), memelab_cwd)
+        cretorlab_cwd = os.path.join(os.path.dirname(__file__), "..", "..", "..", "cretorlab")
+        logger.info("export-remotion cmd: %s cwd=%s", " ".join(cmd), cretorlab_cwd)
         # Use asyncio.subprocess so the event loop stays free to serve media
         # file requests from the Remotion renderer (avoids deadlock).
         proc = await asyncio.create_subprocess_exec(
             *cmd,
-            cwd=memelab_cwd,
+            cwd=cretorlab_cwd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

@@ -687,6 +687,54 @@ def construir_prompt_completo(
     )
 
 
+def _tentar_modelos_standalone(
+    partes: list,
+    temperatura: float = 0.85,
+    api_key: str | None = None,
+) -> "PIL.Image.Image | None":
+    """Generate an image from arbitrary parts without character DNA.
+
+    Tries available Gemini image models in order, skipping incompatible ones.
+    Used by the /ads/generate-nano-banana endpoint for product image prep.
+    Returns PIL.Image or None if all models fail.
+    """
+    from google.genai import types
+
+    client = _get_client()
+    modelos = [
+        m for m in MODELOS_IMAGEM
+        if not m.startswith("imagen-")
+        and "gemini-3-pro" not in m
+        and "gemini-3.1-flash" not in m
+    ]
+    if not modelos:
+        modelos = [m for m in MODELOS_IMAGEM if not m.startswith("imagen-")]
+
+    for modelo in modelos:
+        try:
+            response = client.models.generate_content(
+                model=modelo,
+                contents=partes,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=temperatura,
+                ),
+            )
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, "inline_data") and part.inline_data:
+                    return PIL.Image.open(BytesIO(part.inline_data.data))
+            logger.warning(f"_tentar_modelos_standalone: {modelo} responded without image")
+        except Exception as e:
+            msg = str(e)
+            if "404" in msg or "NOT_FOUND" in msg:
+                logger.warning(f"_tentar_modelos_standalone: {modelo} not available (404)")
+            elif "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                logger.warning(f"_tentar_modelos_standalone: {modelo} rate limited (429)")
+            else:
+                logger.error(f"_tentar_modelos_standalone: {modelo} error: {msg[:300]}")
+    return None
+
+
 class GeminiImageClient:
     """Gera imagens do Mago Mestre via Gemini API com referencias visuais.
 

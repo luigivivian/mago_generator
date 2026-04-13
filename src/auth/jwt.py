@@ -9,8 +9,8 @@ import jwt  # PyJWT library
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120  # 2 hours per D-02
-REFRESH_TOKEN_EXPIRE_DAYS = 30    # 30 days per D-02
+ACCESS_TOKEN_EXPIRE_MINUTES = 525600  # 365 days — single-user dev, no expiry needed
+REFRESH_TOKEN_EXPIRE_DAYS = 365      # 1 year
 
 
 def create_access_token(user_id: int, email: str, role: str) -> str:

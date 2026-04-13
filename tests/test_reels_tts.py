@@ -367,8 +367,8 @@ async def test_editor_compat_tts_path_and_duration_still_written(tmp_path, fake_
     """Success #5: Regression for the editor compat contract.
 
     The editor reads:
-        stepState.tts.path           -> memelab/src/stores/editor-store.ts:167
-        stepState.tts.duration       -> memelab/src/stores/editor-store.ts:192-198
+        stepState.tts.path           -> cretorlab/src/stores/editor-store.ts:167
+        stepState.tts.duration       -> cretorlab/src/stores/editor-store.ts:192-198
 
     Contract:
         path: non-empty string, points to the audio.wav concat file

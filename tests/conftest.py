@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the meme-lab test suite.
+"""Shared pytest fixtures for the cretor-lab test suite.
 
 Phase 22 Wave 0: TTS test infrastructure. Adds fake-Gemini monkeypatch
 and a real-PCM-WAV factory used by tests/test_reels_tts.py to validate
