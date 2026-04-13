@@ -18,7 +18,7 @@ import { VIDEO_MODELS } from "@/lib/video-models";
 interface Props {
   stepState: AdStepData;
   onApprove: () => void;
-  onRegenerate: (overrides?: { video_model?: string; target_duration?: string }) => void;
+  onRegenerate: (overrides?: { video_model?: string; target_duration?: string; prompt_override?: string }) => void;
   onRetry?: () => void;
   jobId: string;
 }
@@ -87,7 +87,7 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
   const [loading, setLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
-  async function handleRegenerate(overrides?: { video_model?: string; target_duration?: string }) {
+  async function handleRegenerate(overrides?: { video_model?: string; target_duration?: string; prompt_override?: string }) {
     if (regenerating || loading) return;
     setRegenerating(true);
     try { await onRegenerate(overrides); } finally { setRegenerating(false); }
@@ -145,7 +145,7 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
             <Button
               variant="outline"
               disabled={regenerating}
-              onClick={() => handleRegenerate({ video_model: model, target_duration: duration })}
+              onClick={() => handleRegenerate({ video_model: model, target_duration: duration, prompt_override: promptOverride || undefined })}
             >
               {regenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} {regenerating ? "Regenerando..." : "Regenerar Video"}
             </Button>
@@ -208,7 +208,7 @@ export function StepVideo({ stepState, onApprove, onRegenerate, onRetry, jobId }
           <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
             <Settings className="mr-2 h-3 w-3" /> {showConfig ? "Ocultar" : "Parametros"}
           </Button>
-          <Button variant="outline" onClick={() => handleRegenerate({ video_model: model, target_duration: duration })} disabled={regenerating || loading}>
+          <Button variant="outline" onClick={() => handleRegenerate({ video_model: model, target_duration: duration, prompt_override: promptOverride || undefined })} disabled={regenerating || loading}>
             {regenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} {regenerating ? "Regenerando..." : "Regenerar"}
           </Button>
           <Button onClick={handleApprove} disabled={loading || videoPaths.length === 0}>
