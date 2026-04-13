@@ -1240,17 +1240,13 @@ async def serve_ad_file(
     job_id: str,
     filename: str,
     db: AsyncSession = Depends(db_session),
+    current_user=Depends(get_current_user),
 ):
-    """Serve artifact file from job output directory. No auth — UUID is unguessable."""
+    """Serve artifact file from job output directory."""
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    result = await db.execute(
-        select(ProductAdJob).where(ProductAdJob.job_id == job_id)
-    )
-    job = result.scalar_one_or_none()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = await _get_user_job(job_id, current_user.id, db)
     config = job.config or {}
     outputs = job.outputs or {}
     job_dir = config.get("job_dir") or outputs.get("job_dir", "")
