@@ -1911,6 +1911,7 @@ export async function createAdJobV2(data: {
   image_urls: string[];
   composed_urls?: string[];
   video_model?: string;
+  clip_duration?: number;
   scene_prompts?: string[];
   takes?: unknown[];
   output_formats?: string[];
@@ -1958,6 +1959,16 @@ export async function regenerateAdStep(
 
 export const getAdCostEstimate = (jobId: string) =>
   request<AdCostEstimate>(`/ads/${jobId}/cost-estimate`);
+
+export async function regenerateAdJobV2(
+  jobId: string,
+  overrides?: { video_model?: string; clip_duration?: number; audio_mode?: string; output_formats?: string[]; scene_prompts?: string[] },
+): Promise<AdJob> {
+  return request<AdJob>(`/ads/${jobId}/regenerate-v2`, {
+    method: "POST",
+    body: JSON.stringify(overrides ?? {}),
+  });
+}
 
 export function adFileUrl(jobId: string, filename: string): string {
   return `/api/ads/${jobId}/file/${encodeURIComponent(filename)}`;
@@ -2112,4 +2123,21 @@ export function composePreview(data: {
   count?: number;
 }): Promise<{ composed_urls: string[]; count: number }> {
   return _directPost("/ads/compose-preview", data);
+}
+
+export function generateKlingPrompt(data: {
+  product_name: string;
+  category: string;
+  scene_description?: string;
+  scene_index?: number;
+}): Promise<{ prompt: string }> {
+  return _directPost("/ads/generate-kling-prompt", data);
+}
+
+export function generateNanoBanana(data: {
+  source_path: string;
+  prompt: string;
+  count?: number;
+}): Promise<{ variations: Array<{ path: string; preview_url: string }> }> {
+  return _directPost("/ads/generate-nano-banana", data);
 }

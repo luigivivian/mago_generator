@@ -29,6 +29,7 @@ from src.product_studio.models import (
     AdJobResponseV2,
     AdStepStateResponse,
     AdCostEstimate,
+    RegenerateV2Request,
 )
 
 logger = logging.getLogger("clip-flow.api.ads")
@@ -545,6 +546,77 @@ async def generate_scene_prompt(
     return {"prompt": prompt_text}
 
 
+@router.post("/generate-kling-prompt")
+async def generate_kling_prompt(
+    req: dict,
+    current_user=Depends(get_current_user),
+):
+    """Generate a Kling-optimized video prompt for a scene.
+
+    Accepts:
+    - product_name (str): product being advertised
+    - category (str): product category key
+    - scene_description (str): composition context (from compose-preview prompt)
+    - scene_index (int): which scene in the sequence (0-based), for pacing hints
+
+    Returns: { prompt: str }
+    """
+    from src.llm_client import _get_client, _extract_text
+    from src.product_studio.config import CATEGORY_CONFIGS
+
+    product_name = req.get("product_name", "product")
+    category = req.get("category", "generic")
+    scene_description = req.get("scene_description", "")
+    scene_index = int(req.get("scene_index", 0))
+
+    cat_cfg = CATEGORY_CONFIGS.get(category, CATEGORY_CONFIGS.get("generic", {}))
+    surface = cat_cfg.get("surface", "clean surface")
+    color_grade = cat_cfg.get("color_grade", "cinematic neutral tones")
+
+    scene_label = ["opening", "mid-ad", "mid-ad", "closing"][min(scene_index, 3)]
+
+    system_instruction = (
+        'You are "Kling Video Prompt Engineer," a specialist in writing cinematic video generation '
+        "prompts for Kling AI. You produce motion-aware, production-ready prompts for product "
+        "advertisement videos. Each prompt describes a single continuous 5-second shot.\n\n"
+        "Output ONLY the prompt text. No preamble, no labels. Write in flowing paragraphs. "
+        "Use specific camera movements (slow dolly-in, gentle orbit, static macro), "
+        "lighting types (volumetric, rim light, soft diffused), and color grades.\n\n"
+        "Every prompt must address:\n"
+        "1. Subject and Action (product + any motion it has)\n"
+        "2. Environment and Background\n"
+        "3. Lighting and Mood\n"
+        "4. Style/Quality (cinematic, 4K, product ad)\n"
+        "5. Camera Perspective and Movement\n"
+        "6. Composition and Framing\n\n"
+        "Keep under 400 characters. Do NOT include humans, hands, text, watermarks, or logos. "
+        "Vertical 9:16 composition."
+    )
+
+    user_prompt = (
+        f"Create a Kling video prompt for this {scene_label} shot of: {product_name}\n"
+        f"Category: {category}\n"
+        f"Surface/environment: {surface}\n"
+        f"Color grade: {color_grade}\n"
+        + (f"Scene context: {scene_description}\n" if scene_description else "")
+        + "\nGenerate a single cohesive prompt paragraph for a 5-second cinematic product ad shot."
+    )
+
+    client = _get_client()
+    response = await asyncio.to_thread(
+        client.models.generate_content,
+        model="gemini-2.5-flash",
+        contents=[{"role": "user", "parts": [{"text": user_prompt}]}],
+        config={"system_instruction": system_instruction, "temperature": 0.75},
+    )
+
+    prompt_text = _extract_text(response).strip()
+    if prompt_text.startswith('"') and prompt_text.endswith('"'):
+        prompt_text = prompt_text[1:-1]
+
+    return {"prompt": prompt_text}
+
+
 @router.post("/compose-preview")
 async def compose_preview(
     req: dict,
@@ -599,6 +671,118 @@ async def compose_preview(
         )
 
     return {"composed_urls": list(composed_urls), "count": len(composed_urls)}
+
+
+@router.post("/generate-nano-banana")
+async def generate_nano_banana(
+    req: dict,
+    current_user=Depends(get_current_user),
+):
+    """Generate Gemini image variations from a product image + custom prompt.
+
+    Accepts:
+    - source_path (str): absolute local path from /ads/upload-image or prior generation
+    - prompt (str): user instruction ("remove background, white marble surface...")
+    - count (int): number of variations to generate (1-4, default 1)
+
+    Returns: { variations: [{ path, preview_url }] }
+    """
+    import PIL.Image
+    from pathlib import Path as _Path
+    from src.image_gen.gemini_client import _pil_para_part, _tentar_modelos_standalone
+
+    source_path = req.get("source_path", "").strip()
+    prompt = req.get("prompt", "").strip()
+    count = min(max(int(req.get("count", 1)), 1), 4)
+
+    if not source_path:
+        raise HTTPException(400, "source_path required")
+    if not prompt:
+        raise HTTPException(400, "prompt required")
+
+    # Security: only allow paths within ADS_OUTPUT_DIR
+    real = os.path.realpath(source_path)
+    allowed_root = os.path.realpath(ADS_OUTPUT_DIR)
+    if not real.startswith(allowed_root):
+        raise HTTPException(403, "source_path outside allowed directory")
+    if not os.path.exists(real):
+        raise HTTPException(404, "source image not found")
+
+    try:
+        img = PIL.Image.open(real).convert("RGB")
+    except Exception as e:
+        raise HTTPException(400, f"Cannot open image: {e}")
+
+    image_part = _pil_para_part(img)
+    partes = [image_part, prompt]
+
+    user_id = current_user.id
+    out_dir = _Path(ADS_OUTPUT_DIR) / "nano-banana" / str(user_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    async def _gen_one() -> dict | None:
+        result_img = await asyncio.to_thread(_tentar_modelos_standalone, partes)
+        if result_img is None:
+            return None
+        filename = f"nb_{uuid.uuid4().hex[:8]}.png"
+        out_path = out_dir / filename
+        result_img.save(out_path, "PNG")
+        return {
+            "path": str(out_path.resolve()),
+            "preview_url": f"/ads/nano-banana-file/{user_id}/{filename}",
+        }
+
+    results = await asyncio.gather(*[_gen_one() for _ in range(count)])
+    variations = [r for r in results if r is not None]
+
+    if not variations:
+        raise HTTPException(502, "Gemini failed to generate image — check API key and quota")
+
+    return {"variations": variations}
+
+
+@router.get("/nano-banana-file/{user_id}/{filename}")
+async def serve_nano_banana_file(
+    user_id: int,
+    filename: str,
+    current_user=Depends(get_current_user),
+):
+    """Serve a nano-banana generated file. Users can only access their own files."""
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(403, "Access denied")
+
+    # Sanitize filename — no path separators allowed
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+
+    path = os.path.join(ADS_OUTPUT_DIR, "nano-banana", str(user_id), filename)
+    if not os.path.exists(path):
+        raise HTTPException(404, "File not found")
+
+    return FileResponse(path)
+
+
+@router.get("/download-proxy")
+async def download_proxy(url: str, current_user=Depends(get_current_user)):
+    """Proxy a GCS composed image for browser download, bypassing CORS restrictions."""
+    import httpx
+
+    if not url.startswith("https://storage.googleapis.com/"):
+        raise HTTPException(400, "Invalid URL — only GCS storage URLs allowed")
+
+    async with httpx.AsyncClient(timeout=30) as http:
+        resp = await http.get(url)
+        if resp.status_code != 200:
+            raise HTTPException(502, f"GCS fetch failed: {resp.status_code}")
+
+    from fastapi.responses import Response as FastAPIResponse
+
+    filename = url.split("/")[-1].split("?")[0] or "scene.jpg"
+    return FastAPIResponse(
+        content=resp.content,
+        media_type="image/jpeg",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/analyze")
@@ -772,13 +956,22 @@ async def _execute_v2_pipeline_task(job_id: str, session_factory):
             config = dict(job.config or {})
             pipeline = ProductAdPipeline(config=config)
 
+            # Use composed scene images if provided (from compose-preview step),
+            # otherwise fall back to raw image_urls for auto-storyboard generation.
+            composed_urls = config.get("composed_urls", [])
+            scene_prompts = config.get("scene_prompts", [])
+
             pipeline_result = await pipeline.run_v2_pipeline(
                 image_urls=list(job.image_urls or []),
+                composed_urls=composed_urls,
+                scene_prompts=scene_prompts,
                 category=job.category or "generic",
                 product_name=job.product_name,
                 takes=list(job.takes_config) if job.takes_config else None,
                 output_formats=job.output_formats or ["9:16"],
                 audio_mode=job.audio_mode or "sfx",
+                video_model=config.get("video_model", "kling-3.0/video"),
+                clip_duration=int(config.get("clip_duration", 5)),
             )
 
             job.status = "complete"
@@ -1059,7 +1252,8 @@ async def serve_ad_file(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     config = job.config or {}
-    job_dir = config.get("job_dir", "")
+    outputs = job.outputs or {}
+    job_dir = config.get("job_dir") or outputs.get("job_dir", "")
 
     if not job_dir:
         raise HTTPException(status_code=404, detail="No output directory for this job")
@@ -1069,6 +1263,51 @@ async def serve_ad_file(
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(file_path)
+
+
+@router.post("/{job_id}/regenerate-v2", response_model=AdJobResponseV2)
+async def regenerate_ad_job_v2(
+    job_id: str,
+    req: RegenerateV2Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(db_session),
+    current_user=Depends(get_current_user),
+):
+    """Re-run the v2 pipeline on a completed job with optional setting overrides.
+    Reuses stored image_urls, takes_config, and composed_urls from the original run.
+    """
+    job = await _get_user_job(job_id, current_user.id, db)
+
+    if job.pipeline_version != 2:
+        raise HTTPException(status_code=400, detail="Job is not a v2 pipeline job")
+    if job.status not in ("complete", "failed", "error"):
+        raise HTTPException(status_code=400, detail="Job must be complete or failed to regenerate")
+
+    # Merge non-None overrides into existing config
+    config = dict(job.config or {})
+    if req.video_model is not None:
+        config["video_model"] = req.video_model
+    if req.clip_duration is not None:
+        config["clip_duration"] = req.clip_duration
+    if req.audio_mode is not None:
+        config["audio_mode"] = req.audio_mode
+    if req.output_formats is not None:
+        config["output_formats"] = req.output_formats
+    if req.scene_prompts is not None:
+        config["scene_prompts"] = req.scene_prompts
+
+    job.config = config
+    job.status = "processing"
+    job.error_message = None
+    flag_modified(job, "config")
+    await db.commit()
+
+    from src.database.session import get_session_factory
+    session_factory = get_session_factory()
+    background_tasks.add_task(_execute_v2_pipeline_task, job_id=job_id, session_factory=session_factory)
+
+    await db.refresh(job)
+    return _job_to_response(job)
 
 
 @router.delete("/{job_id}")

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download, Loader2, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download, Loader2, Play, RotateCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useAdSteps, useAdJob } from "@/hooks/use-ads";
 import { executeAdStep, approveAdStep, regenerateAdStep, regenerateAdJobV2 } from "@/lib/api";
@@ -10,6 +10,8 @@ import { AdStepper, AdStepContent, ADS_STEP_ORDER, getStepStatus } from "@/compo
 import { Button } from "@/components/ui/button";
 import type { AdStepData } from "@/lib/api";
 import { VIDEO_MODELS } from "@/lib/video-models";
+import { PromptBuilderModal } from "@/components/ads/prompt-builder-modal";
+import { Textarea } from "@/components/ui/textarea";
 import { StepAnalysis } from "@/components/ads/step-analysis";
 import { StepScene } from "@/components/ads/step-scene";
 import { StepPrompt } from "@/components/ads/step-prompt";
@@ -60,6 +62,8 @@ export default function AdJobPage() {
   const [regenDuration, setRegenDuration] = useState("");
   const [regenAudio, setRegenAudio] = useState("");
   const [regenLoading, setRegenLoading] = useState(false);
+  const [editedPrompts, setEditedPrompts] = useState<string[]>([]);
+  const [promptBuilderScene, setPromptBuilderScene] = useState<number | null>(null);
   const autoStarted = useRef(false);
 
   // Auto-start first step if all steps are pending (new draft)
@@ -81,6 +85,16 @@ export default function AdJobPage() {
     if (!viewingStep) return;
     // If the step we're viewing just completed, stay on it
   }, [data]);
+
+  // Initialize editable scene prompts from job config
+  useEffect(() => {
+    const jd = jobData as unknown as Record<string, unknown> | undefined;
+    const prompts = jd?.config as Record<string, unknown> | undefined;
+    const sp = prompts?.scene_prompts as string[] | undefined;
+    if (sp && sp.length > 0 && editedPrompts.length === 0) {
+      setEditedPrompts(sp);
+    }
+  }, [jobData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading || !data) return <StepperSkeleton />;
 
@@ -110,6 +124,7 @@ export default function AdJobPage() {
       if (regenModel) overrides.video_model = regenModel;
       if (regenDuration) overrides.clip_duration = parseInt(regenDuration);
       if (regenAudio) overrides.audio_mode = regenAudio;
+      if (editedPrompts.length > 0) overrides.scene_prompts = editedPrompts;
       await regenerateAdJobV2(jobId, overrides as Parameters<typeof regenerateAdJobV2>[1]);
       setRegenOpen(false);
       await mutateJob();
@@ -253,6 +268,34 @@ export default function AdJobPage() {
               )}
             </div>
 
+            {/* Editable scene prompts */}
+            {editedPrompts.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium">Prompts das cenas</h3>
+                {editedPrompts.map((prompt, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-muted-foreground">Cena {idx + 1}</label>
+                      <Button variant="ghost" size="sm" onClick={() => setPromptBuilderScene(idx)} className="h-6 gap-1 text-xs">
+                        <Sparkles className="h-3 w-3" /> AI
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={prompt}
+                      onChange={(e) => {
+                        const updated = [...editedPrompts];
+                        updated[idx] = e.target.value;
+                        setEditedPrompts(updated);
+                      }}
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground text-right">{prompt.length}/2000</p>
+                  </div>
+                ))}
+              </section>
+            )}
+
             {/* Regeneration panel */}
             <div className="rounded-lg border bg-card p-4 space-y-3">
               <button
@@ -322,6 +365,20 @@ export default function AdJobPage() {
             <Link href="/ads/new">
               <Button variant="outline" size="sm">Criar outro ad</Button>
             </Link>
+
+            {/* AI Prompt Builder Modal */}
+            <PromptBuilderModal
+              open={promptBuilderScene !== null}
+              onClose={() => setPromptBuilderScene(null)}
+              onUsePrompt={(prompt) => {
+                if (promptBuilderScene === null) return;
+                const updated = [...editedPrompts];
+                updated[promptBuilderScene] = prompt;
+                setEditedPrompts(updated);
+              }}
+              modelValue={regenModel || ((jobData as unknown as Record<string, unknown>)?.config as Record<string, string> | undefined)?.video_model || "kling/v2-1-standard"}
+              sceneIndex={promptBuilderScene ?? 0}
+            />
           </div>
         ) : null}
       </div>

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { createAdJobV2, generateScenePrompt, composePreview, generateKlingPrompt } from "@/lib/api";
 import { VIDEO_MODELS, getDurations } from "@/lib/video-models";
+import { PromptBuilderModal } from "@/components/ads/prompt-builder-modal";
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -101,6 +102,8 @@ export default function NewAdPage() {
   }, []);
 
   const isBusy = busy !== null;
+
+  const [promptBuilderScene, setPromptBuilderScene] = useState<number | null>(null);
 
   const selectedCount = images.filter((img) => img.selected).length;
   const selectedUrls = images.filter((img) => img.selected).map((img) => img.url);
@@ -644,17 +647,27 @@ export default function NewAdPage() {
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
-                        <button
-                          onClick={() => handleGenerateKlingPrompt(idx)}
-                          disabled={generatingKlingFor !== null || isBusy}
-                          className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 disabled:opacity-40 transition-colors"
-                          title="Gerar prompt otimizado para Kling com IA"
-                        >
-                          {generatingKlingFor === idx
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <Sparkles className="h-3 w-3" />}
-                          Auto Kling
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPromptBuilderScene(idx)}
+                            className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                            title="Abrir AI Prompt Builder"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            AI Prompt
+                          </button>
+                          <button
+                            onClick={() => handleGenerateKlingPrompt(idx)}
+                            disabled={generatingKlingFor !== null || isBusy}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                            title="Gerar prompt otimizado para Kling com IA"
+                          >
+                            {generatingKlingFor === idx
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <RotateCcw className="h-3 w-3" />}
+                            Auto
+                          </button>
+                        </div>
                       </div>
                       <Textarea
                         value={item.prompt}
@@ -703,6 +716,23 @@ export default function NewAdPage() {
           </div>
         )}
       </div>
+
+      {/* AI Prompt Builder Modal */}
+      <PromptBuilderModal
+        open={promptBuilderScene !== null}
+        onClose={() => setPromptBuilderScene(null)}
+        onUsePrompt={(prompt) => {
+          if (promptBuilderScene === null) return;
+          const targetItem = approvedComposed[promptBuilderScene];
+          setComposed((prev) =>
+            prev.map((item) =>
+              item === targetItem ? { ...item, prompt } : item
+            )
+          );
+        }}
+        modelValue={videoModel}
+        sceneIndex={promptBuilderScene ?? 0}
+      />
 
       {/* Fullscreen image overlay */}
       {fullscreen && (

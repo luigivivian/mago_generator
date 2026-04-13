@@ -108,6 +108,16 @@ class AdCreateRequestV2(BaseModel):
     takes: list[TakeConfig] = Field(default_factory=list, description="Take configs (empty = auto-generate)")
     output_formats: list[str] = Field(default=["9:16"], description="Export formats")
     audio_mode: Literal["sfx", "music", "mute"] = Field(default="sfx")
+    clip_duration: int = Field(default=5, description="Duration in seconds per scene clip")
+
+
+class RegenerateV2Request(BaseModel):
+    """Optional overrides for regenerating a completed v2 job."""
+    video_model: Optional[str] = None
+    clip_duration: Optional[int] = None
+    audio_mode: Optional[Literal["sfx", "music", "mute"]] = None
+    output_formats: Optional[list[str]] = None
+    scene_prompts: Optional[list[str]] = None
 
 
 class AdJobResponseV2(AdJobResponse):
