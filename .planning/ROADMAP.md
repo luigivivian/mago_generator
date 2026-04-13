@@ -62,10 +62,12 @@ Plans:
 
 ### Phase 1004: V2 Ad Regeneration, AI Prompt Builder, and Seedance Parallel Flow
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Consolidate VIDEO_MODELS, add model selector + duration picker to V2 wizard, create AI prompt builder modal (5W1H for Kling, narrative acts for Seedance), add Seedance multi-shot configuration panel, extend RegenerateV2Request with scene_prompts, and add scene prompt editing to detail page regeneration flow.
+**Requirements:** P1004-01, P1004-02, P1004-03, P1004-04, P1004-05, P1004-06, P1004-07, P1004-08
 **Depends on:** Phase 1003
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 1004 to break down)
+- [ ] 1004-01-PLAN.md — VIDEO_MODELS consolidation + model selector + duration picker (Wave 1)
+- [ ] 1004-02-PLAN.md — AI Prompt Builder modal + scene prompt editing on detail page + backend RegenerateV2Request extension (Wave 2)
+- [ ] 1004-03-PLAN.md — Seedance multi-shot configuration panel + conditional wizard flow (Wave 2)
