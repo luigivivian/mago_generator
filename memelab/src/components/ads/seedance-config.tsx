@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getDurations } from "@/lib/video-models";
 
 export interface SeedanceShot {
   subject: string;
@@ -25,6 +26,7 @@ interface SeedanceConfigProps {
   shots: SeedanceShot[];
   onShotsChange: (shots: SeedanceShot[]) => void;
   heroImageUrl?: string;
+  modelValue?: string;
 }
 
 // IMPORTANT: camera_move values MUST match TakeConfig.camera_move Literal in src/product_studio/models.py
@@ -96,7 +98,9 @@ export function SeedanceConfig({
   shots,
   onShotsChange,
   heroImageUrl,
+  modelValue,
 }: SeedanceConfigProps) {
+  const durations = modelValue ? getDurations(modelValue) : [4, 8];
   const updateShot = (idx: number, field: keyof SeedanceShot, value: string | number) => {
     const updated = [...shots];
     updated[idx] = { ...updated[idx], [field]: value };
@@ -192,8 +196,9 @@ export function SeedanceConfig({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="4">4s</SelectItem>
-                  <SelectItem value="8">8s</SelectItem>
+                  {durations.map((d) => (
+                    <SelectItem key={d} value={String(d)}>{d}s</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {idx < shots.length - 1 && (

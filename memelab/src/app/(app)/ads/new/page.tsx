@@ -671,6 +671,7 @@ export default function NewAdPage() {
                 shots={seedanceShots}
                 onShotsChange={setSeedanceShots}
                 heroImageUrl={heroImage?.url}
+                modelValue={videoModel}
               />
             )}
 
