@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createAdJobV2, generateScenePrompt, composePreview, generateKlingPrompt } from "@/lib/api";
-import { VIDEO_MODELS, getDurations } from "@/lib/video-models";
+import { VIDEO_MODELS, getDurations, isSeedanceModel } from "@/lib/video-models";
 import { PromptBuilderModal } from "@/components/ads/prompt-builder-modal";
+import { SeedanceConfig, SeedanceShot } from "@/components/ads/seedance-config";
 
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -80,6 +81,15 @@ export default function NewAdPage() {
   const [generatingKlingFor, setGeneratingKlingFor] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState<{ url: string; idx: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Seedance multi-shot config
+  const [seedanceShotCount, setSeedanceShotCount] = useState(3);
+  const [seedancePreset, setSeedancePreset] = useState("product");
+  const [seedanceShots, setSeedanceShots] = useState<SeedanceShot[]>([
+    { subject: "", cameraMove: "static", duration: 4, transition: "dissolve" },
+    { subject: "", cameraMove: "dolly_in", duration: 4, transition: "dissolve" },
+    { subject: "", cameraMove: "orbit", duration: 4, transition: "fade" },
+  ]);
 
   // Global busy state — blocks all async actions and shows feedback
   type BusyState = null | "uploading" | "generating-prompt" | "composing" | "regenerating" | "submitting";
@@ -267,17 +277,35 @@ export default function NewAdPage() {
   };
 
   // ── Submit ──
+  const readyToSubmit = isSeedanceModel(videoModel)
+    ? seedanceShots.some((s) => s.subject.trim().length > 0) && selectedCount > 0
+    : approvedComposed.length > 0;
+
   const handleSubmit = () => {
-    if (approvedComposed.length === 0) return;
+    if (!readyToSubmit) return;
     withBusy("submitting", async () => {
+      let scenePrompts: string[];
+      if (isSeedanceModel(videoModel)) {
+        scenePrompts = seedanceShots.map((shot, idx) => {
+          const parts = [shot.subject];
+          if (shot.cameraMove !== "static") parts.push(`Camera: ${shot.cameraMove.replace("_", " ")}`);
+          if (idx < seedanceShots.length - 1 && shot.transition !== "cut") {
+            parts.push(`Transition: ${shot.transition}`);
+          }
+          return parts.filter(Boolean).join(". ");
+        });
+      } else {
+        scenePrompts = approvedComposed.map((c) => c.prompt);
+      }
+
       const job = await createAdJobV2({
         product_name: productName.trim(),
         category,
         image_urls: selectedUrls,
-        composed_urls: approvedComposed.map((c) => c.url),
+        composed_urls: isSeedanceModel(videoModel) ? [] : approvedComposed.map((c) => c.url),
         video_model: videoModel,
-        clip_duration: clipDuration,
-        scene_prompts: approvedComposed.map((c) => c.prompt),
+        clip_duration: isSeedanceModel(videoModel) ? seedanceShots[0]?.duration ?? 4 : clipDuration,
+        scene_prompts: scenePrompts,
       });
       router.push(`/ads/${job.job_id}`);
     });
@@ -594,7 +622,7 @@ export default function NewAdPage() {
         )}
 
         {/* ── Step 4: Video config + Submit ── */}
-        {approvedComposed.length > 0 && (
+        {(approvedComposed.length > 0 || readyForPrompt) && (
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               4. Configuracao do video
@@ -632,70 +660,85 @@ export default function NewAdPage() {
               </div>
             </div>
 
-            {/* Per-scene prompt review */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Prompts por cena (editaveis)</label>
-              <div className="space-y-2">
-                {approvedComposed.map((item, idx) => (
-                  <div key={idx} className="flex gap-3 items-start rounded-lg border border-border p-2 bg-card">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.url}
-                      alt={`scene ${idx + 1}`}
-                      className="w-16 h-28 rounded object-cover flex-shrink-0"
-                    />
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setPromptBuilderScene(idx)}
-                            className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
-                            title="Abrir AI Prompt Builder"
-                          >
-                            <Sparkles className="h-3 w-3" />
-                            AI Prompt
-                          </button>
-                          <button
-                            onClick={() => handleGenerateKlingPrompt(idx)}
-                            disabled={generatingKlingFor !== null || isBusy}
-                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
-                            title="Gerar prompt otimizado para Kling com IA"
-                          >
-                            {generatingKlingFor === idx
-                              ? <Loader2 className="h-3 w-3 animate-spin" />
-                              : <RotateCcw className="h-3 w-3" />}
-                            Auto
-                          </button>
-                        </div>
-                      </div>
-                      <Textarea
-                        value={item.prompt}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setComposed((prev) => {
-                            const approvedIdx = prev.filter((c) => c.approved).indexOf(item);
-                            let count = 0;
-                            return prev.map((c) => {
-                              if (!c.approved) return c;
-                              if (count++ === approvedIdx) return { ...c, prompt: val };
-                              return c;
-                            });
-                          });
-                        }}
-                        rows={2}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Seedance multi-shot config (conditional) */}
+            {isSeedanceModel(videoModel) && (
+              <SeedanceConfig
+                shotCount={seedanceShotCount}
+                onShotCountChange={setSeedanceShotCount}
+                preset={seedancePreset}
+                onPresetChange={setSeedancePreset}
+                shots={seedanceShots}
+                onShotsChange={setSeedanceShots}
+                heroImageUrl={heroImage?.url}
+              />
+            )}
 
-            <Button className="w-full" onClick={handleSubmit} disabled={isBusy} size="lg">
+            {/* Per-scene prompt review (non-Seedance only) */}
+            {!isSeedanceModel(videoModel) && approvedComposed.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Prompts por cena (editaveis)</label>
+                <div className="space-y-2">
+                  {approvedComposed.map((item, idx) => (
+                    <div key={idx} className="flex gap-3 items-start rounded-lg border border-border p-2 bg-card">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.url}
+                        alt={`scene ${idx + 1}`}
+                        className="w-16 h-28 rounded object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Cena {idx + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setPromptBuilderScene(idx)}
+                              className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                              title="Abrir AI Prompt Builder"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              AI Prompt
+                            </button>
+                            <button
+                              onClick={() => handleGenerateKlingPrompt(idx)}
+                              disabled={generatingKlingFor !== null || isBusy}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                              title="Gerar prompt otimizado para Kling com IA"
+                            >
+                              {generatingKlingFor === idx
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <RotateCcw className="h-3 w-3" />}
+                              Auto
+                            </button>
+                          </div>
+                        </div>
+                        <Textarea
+                          value={item.prompt}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setComposed((prev) => {
+                              const approvedIdx = prev.filter((c) => c.approved).indexOf(item);
+                              let count = 0;
+                              return prev.map((c) => {
+                                if (!c.approved) return c;
+                                if (count++ === approvedIdx) return { ...c, prompt: val };
+                                return c;
+                              });
+                            });
+                          }}
+                          rows={2}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button className="w-full" onClick={handleSubmit} disabled={isBusy || !readyToSubmit} size="lg">
               {busy === "submitting"
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Criando video ad...</>
-                : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad — {videoModel.split("/")[0]} ({approvedComposed.length} cenas)</>}
+                : <><Film className="mr-2 h-4 w-4" />Gerar Video Ad — {videoModel.split("/")[0]} ({isSeedanceModel(videoModel) ? seedanceShotCount : approvedComposed.length} cenas)</>}
             </Button>
           </section>
         )}
