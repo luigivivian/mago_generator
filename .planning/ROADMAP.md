@@ -43,12 +43,12 @@ Plans:
 **Goal:** Elevate all video prompt generation to professional commercial standards using Skool-level techniques (exhaustive scene description, camera-as-sentence, physics micro-details, per-shot stability). Add 3 new categories, per-category element/prop libraries, template variable system, free prompt mode, and pytest prompt linting suite.
 **Requirements:** REQ-PPE-01, REQ-PPE-02, REQ-PPE-03, REQ-PPE-04, REQ-PPE-05, REQ-PPE-06, REQ-PPE-07, REQ-PPE-08, REQ-PPE-09, REQ-PPE-10, REQ-PPE-11, REQ-PPE-12, REQ-PPE-13, REQ-PPE-14, REQ-PPE-15, REQ-PPE-16
 **Depends on:** Phase 1002
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 1003-01-PLAN.md — Config overhaul: 10 categories, Skool-level shot plans, stability suffixes, negative prompts, element libraries (Wave 1)
-- [ ] 1003-02-PLAN.md — Prompt builder + scene composer: template resolution, 2000 char budget, Gemini pro fallback, free prompt, frame chaining (Wave 2)
-- [ ] 1003-03-PLAN.md — Pytest prompt linting suite + human verification (Wave 3)
+- [x] 1003-01-PLAN.md — Config overhaul: 10 categories, Skool-level shot plans, stability suffixes, negative prompts, element libraries (Wave 1)
+- [x] 1003-02-PLAN.md — Prompt builder + scene composer: template resolution, 2000 char budget, Gemini pro fallback, free prompt, frame chaining (Wave 2)
+- [x] 1003-03-PLAN.md — Pytest prompt linting suite + human verification (Wave 3)
 
 ## Backlog
 
@@ -59,3 +59,13 @@ Plans:
 - **999.12 -- Editor UX Enhancements:** Partially done in v3.0 -- audit remaining.
 - **999.13 -- Audio/Subtitle/Scene Sync:** Partially addressed by phase 22 (v4.0) -- audit remaining.
 - **999.14 -- Economic Asset Mode (Ken Burns):** Partially addressed by phase 26 (v4.0) -- audit remaining.
+
+### Phase 1004: V2 Ad Regeneration, AI Prompt Builder, and Seedance Parallel Flow
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1003
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 1004 to break down)

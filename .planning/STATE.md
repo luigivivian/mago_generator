@@ -110,6 +110,7 @@ Plan: 1 of 7
 - Phase 1000 added: Character-scoped navigation — sidebar selector scoping all content by selected character
 - Phase 1001 added: Biblical reels category — Gemini-generated faithful biblical narratives with AI/manual script options
 - Phase 1003 added: Pro Video Prompt Engineering — advanced prompt templates, multi-shot briefs, brand consistency, negative prompt library (from Thomas Skool techniques)
+- Phase 1004 added: V2 Ad Regeneration, AI Prompt Builder, and Seedance Parallel Flow — fix V1→V2 wizard bug, model selector, scene_prompts collection, AI prompt builder (Kling 5W1H / Seedance multishot), Seedance-specific multi-shot composer
 
 ### Decisions (active — v4.0)
 
